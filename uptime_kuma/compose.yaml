@@ -1,0 +1,17 @@
+services:
+  uptime:
+    container_name: uptime_kuma
+    image: louislam/uptime-kuma:2
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@uptime.host: "uptime.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@uptime {{upstreams http 3001}}"
+    networks: 
+      - caddy
+
+networks:
+  caddy:
+    external: true
