@@ -1,0 +1,18 @@
+services:
+  postgres:
+    # image: postgres:17.2
+    build: .
+    ports:
+      - 127.0.0.1:5432:5432
+    volumes:
+      - /var/lib/postgresql/data:/var/lib/postgresql/data:rw
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    restart: always
+    networks:
+      - postgres
+  
+networks:
+  postgres:
+    external: true
