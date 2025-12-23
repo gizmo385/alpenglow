@@ -1,0 +1,38 @@
+services:
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./beszel_data:/beszel_data
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@dash.host: "dash.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@dash {{upstreams http 8090}}"
+    networks:
+      - caddy
+    env_file: .hub_env
+
+  beszel-agent:
+    image: henrygd/beszel-agent:alpine
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    devices:
+      - /dev/sda:/dev/sda
+      - /dev/sdb:/dev/sdb
+      - /dev/sdc:/dev/sdc
+      - /dev/nvme0:/dev/nvme0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    cap_add:
+      - SYS_RAWIO # Required for S.M.A.R.T data
+      - SYS_ADMIN # Required for NVMe S.M.A.R.T data
+    env_file: .agent_env
+
+
+networks:
+  caddy:
+    external: true
