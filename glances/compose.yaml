@@ -1,0 +1,22 @@
+services:
+  monitoring:
+    container_name: glances
+    image: nicolargo/glances:latest
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./glances.conf:/etc/glances/glances.conf
+      - /etc/os-release:/etc/os-release:ro
+    environment:
+      - "GLANCES_OPT=-w"
+    networks:
+      - caddy
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@glances.host: "glances.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@glances {{upstreams 61208}}"
+
+networks:
+  caddy:
+    external: true
