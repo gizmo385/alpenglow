@@ -1,0 +1,8 @@
+services:
+  servo:
+    container_name: servo
+    image: ghcr.io/gizmo385/servo:master
+    env_file:
+      - path: .env
+        required: true
+    restart: unless-stopped
