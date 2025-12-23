@@ -1,0 +1,3 @@
+{
+  "refresh_interval": "0 0,30 * * * *"
+}

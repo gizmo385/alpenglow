@@ -1,0 +1,19 @@
+services:
+  cup:
+    image: ghcr.io/sergi0g/cup:latest
+    container_name: cup
+    restart: unless-stopped
+    command: -c /config/cup.json serve
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./cup.json:/config/cup.json
+    networks:
+      - caddy
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@cup.host: "cup.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@cup {{upstreams http 8000}}"
+
+networks:
+  caddy:
+    external: true
