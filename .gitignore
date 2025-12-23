@@ -1,2 +1,13 @@
+# Docker environment files
 .env
 .*env
+
+# Vim files
+[._]*.un~
+[._]*.s[a-v][a-z]
+!*.svg
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
