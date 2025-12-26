@@ -1,0 +1,18 @@
+services:
+  immichframe: 
+    restart: always 
+    image: ghcr.io/immichframe/immichframe:v1.0.30.0
+    environment:
+      TZ: America/Denver
+    volumes:
+      - ./config:/app/Config
+    networks:
+      - caddy
+    labels:
+      caddy: "*.internal.acbc.house"
+      caddy.@immichframe.host: "immichframe.internal.acbc.house"
+      caddy.reverse_proxy: "@immichframe {{upstreams http 8080}}"
+
+networks:
+  caddy:
+    external: true
