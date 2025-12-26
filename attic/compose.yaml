@@ -1,0 +1,23 @@
+services:
+  atticd:
+    image: ghcr.io/zhaofengli/attic:latest
+    container_name: atticd
+    env_file: ./.env
+    restart: unless-stopped
+    command: ["-f", "/config/server.toml"]
+    volumes:
+      - ./config:/config:ro
+      - ./data:/data
+      - ./storage:/storage
+    environment:
+      - RUST_LOG=info
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@attic.host: "attic.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@attic {{upstreams 8080}}"
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true
