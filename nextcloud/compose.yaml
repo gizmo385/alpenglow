@@ -1,0 +1,60 @@
+services:
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    networks:
+      - caddy
+      - postgres
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+  whiteboard:
+    image: ghcr.io/nextcloud-releases/whiteboard:stable
+    restart: unless-stopped
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@nextcloud-whiteboard-backend.host: "nextcloud-whiteboard-backend.acbc.house"
+      caddy.reverse_proxy: "@nextcloud-whiteboard-backend {{upstreams http 3002}}"
+    env_file:
+      - path: .whiteboard_env
+        required: true
+    networks:
+      - caddy
+
+  app:
+    image: nextcloud
+    restart: unless-stopped
+    depends_on:
+      - redis
+    volumes:
+      - ./data:/var/www/html
+    env_file:
+      - path: .env
+        required: true
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@nextcloud.host: "nextcloud.acbc.house"
+      caddy.reverse_proxy: "@nextcloud {{upstreams http 80}}"
+      # see: https://github.com/lucaslorentz/caddy-docker-proxy/issues/114
+      caddy.header: /*
+      # see: https://docs.nextcloud.com/server/23/admin_manual/installation/harden_server.html#enable-http-strict-transport-security
+      caddy.header.Strict-Transport-Security: '"max-age=15552000;"'
+      # see: https://docs.nextcloud.com/server/23/admin_manual/issues/general_troubleshooting.html#service-discovery
+      # https://github.com/lucaslorentz/caddy-docker-proxy/issues/222
+      caddy.rewrite_0: /.well-known/carddav /remote.php/dav
+      caddy.rewrite_1: /.well-known/caldav /remote.php/dav
+    networks:
+      - caddy
+      - postgres
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+
+networks:
+  caddy:
+    external: true
+  postgres:
+    external: true
