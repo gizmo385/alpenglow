@@ -1,6 +1,8 @@
 #!/bin/bash
 
-. .backup_env
+SCRIPT_DIR=$(dirname "$0")
+
+. ${SCRIPT_DIR}/.backup_env
 
 SUCCESS_WEBHOOK="$BACKUP_STATUS_UPTIME_MONITOR?status=up&msg=Success"
 FAILURE_WEBHOOK="$BACKUP_STATUS_UPTIME_MONITOR?status=down&msg=Failure"
