@@ -1,0 +1,6 @@
+hass-oidc-auth
+config/*
+!config/configuration.yaml
+!config/automations.yaml
+!config/scripts.yaml
+!config/scenes.yaml

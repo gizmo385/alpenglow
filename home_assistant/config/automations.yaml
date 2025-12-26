@@ -1,0 +1,9 @@
+- id: '1760369932450'
+  alias: Cast to Google Hub
+  description: ''
+  use_blueprint:
+    path: kind3r/cast-and-re-cast-a-lovelace-view-to-a-google-hub.yaml
+    input:
+      player: media_player.kitchen_display
+      view: '0'
+      dashboard: dashboard-immichframe

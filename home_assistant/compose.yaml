@@ -1,0 +1,22 @@
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    networks:
+      - caddy
+    labels:
+      caddy_0: "*.acbc.house"
+      caddy_0.@home.host: "home.acbc.house"
+      caddy_0.reverse_proxy: "@home {{upstreams http 8123}}"
+      caddy_1: "*.internal.acbc.house"
+      caddy_1.@home-internal.host: "home.internal.acbc.house"
+      caddy_1.reverse_proxy: "@home-internal {{upstreams http 8123}}"
+
+networks:
+  caddy:
+    external: true
