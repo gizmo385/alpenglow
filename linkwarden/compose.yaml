@@ -1,0 +1,23 @@
+services:
+  linkwarden:
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://linkwarden:${POSTGRES_PASSWORD}@postgres.postgres:5432/linkwarden
+    restart: always
+    # build: . # uncomment this line to build from source
+    image: ghcr.io/linkwarden/linkwarden:latest # comment this line to build from source
+    volumes:
+      - ./data:/data/data
+    networks:
+      - caddy
+      - postgres 
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@linkwarden.host: "linkwarden.acbc.house"
+      caddy.reverse_proxy: "@linkwarden {{upstreams http 3000}}"
+
+networks:
+  caddy:
+    external: true
+  postgres:
+    external: true
