@@ -1,0 +1,17 @@
+services:
+  motioneye:
+    restart: unless-stopped
+    image: ghcr.io/motioneye-project/motioneye:latest
+    volumes:
+      - ./etc:/etc/motioneye
+      - ./var_lib_motioneye:/var/lib/motioneye
+    networks:
+      - caddy
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@cameras.host: "cameras.acbc.house"
+      caddy.reverse_proxy: "@cameras {{upstreams http 8765}}"
+
+networks:
+  caddy:
+    external: true

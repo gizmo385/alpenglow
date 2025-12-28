@@ -1,0 +1,3 @@
+var_lib_motioneye
+etc/*.conf
+!etc/motioneye.conf
