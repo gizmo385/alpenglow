@@ -21,9 +21,12 @@ services:
     networks:
       - caddy 
     labels:
-      caddy: "*.acbc.house"
-      caddy.@jellyfin.host: "jellyfin.acbc.house"
-      caddy.reverse_proxy: "@jellyfin {{upstreams http 8096}}"
+      caddy_0: "*.acbc.house"
+      caddy_0.@jellyfin.host: "jellyfin.acbc.house"
+      caddy_0.reverse_proxy: "@jellyfin {{upstreams http 8096}}"
+      caddy_1: "*.acbc.house:10443"
+      caddy_1.@jellyfin.host: "jellyfin.acbc.house"
+      caddy_1.reverse_proxy: "@jellyfin {{upstreams http 8096}}"
 
 networks:
   caddy:
