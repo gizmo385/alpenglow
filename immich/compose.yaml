@@ -9,6 +9,25 @@
 name: immich
 
 services:
+  immich-proxy:
+    image: alangrainger/immich-public-proxy:latest
+    container_name: immich_public_proxy
+    restart: always
+    expose:
+      - "3000"
+    labels:
+      caddy_0: "*.acbc.house"
+      caddy_0.@photos-share.host: "photos-share.acbc.house"
+      caddy_0.reverse_proxy: "@photos-share {{upstreams http 3000}}"
+      caddy_1: "*.acbc.house:10443"
+      caddy_1.@photos-share.host: "photos-share.acbc.house"
+      caddy_1.reverse_proxy: "@photos-share {{upstreams http 3000}}"
+    networks:
+      - caddy
+    environment:
+      PUBLIC_BASE_URL: https://photos-share.acbc.house
+      IMMICH_URL: http://immich_server:2283
+
   immich-server:
     container_name: immich_server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
