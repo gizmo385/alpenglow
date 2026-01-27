@@ -13,9 +13,12 @@ services:
       - caddy
       - postgres
     labels:
-      caddy: "*.acbc.house"
-      caddy.@recipes.host: "recipes.acbc.house"
-      caddy.reverse_proxy: "@recipes {{upstreams http 80}}"
+      caddy_0: "*.acbc.house"
+      caddy_0.@recipes.host: "recipes.acbc.house"
+      caddy_0.reverse_proxy: "@recipes {{upstreams http 80}}"
+      caddy_1: "*.acbc.house:10443"
+      caddy_1.@recipes.host: "recipes.acbc.house"
+      caddy_1.reverse_proxy: "@recipes {{upstreams http 80}}"
 
 volumes:
   nginx_config:
