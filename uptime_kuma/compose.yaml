@@ -6,9 +6,13 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     labels:
-      caddy: "*.alpenglow.acbc.house"
-      caddy.@uptime.host: "uptime.alpenglow.acbc.house"
-      caddy.reverse_proxy: "@uptime {{upstreams http 3001}}"
+      caddy_0: "*.alpenglow.acbc.house"
+      caddy_0.@uptime.host: "uptime.alpenglow.acbc.house"
+      caddy_0.reverse_proxy: "@uptime {{upstreams http 3001}}"
+      caddy_1: "*.alpenglow.acbc.house:10443"
+      caddy_1.@uptime.host: "uptime.alpenglow.acbc.house"
+      caddy_1.@uptime.path: "/status/* /assets/* /api/status-page/*"
+      caddy_1.reverse_proxy: "@uptime {{upstreams http 3001}}"
     networks: 
       - caddy
 
