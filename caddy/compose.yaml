@@ -1,0 +1,28 @@
+services:
+  caddy:
+    build: .
+    container_name: caddy
+    env_file: .env
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "10443:10443"
+    volumes:
+      - ./conf:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  caddy:
+    external: true 
