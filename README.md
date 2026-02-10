@@ -3,6 +3,8 @@
 A self-hosted home services infrastructure managed as a monorepo. Each service
 lives in its own directory and is orchestrated with Docker Compose.
 
+![Server diagram](./docs/home_server.png)
+
 ## Repository Structure
 
 Each service is a self-contained directory containing:
