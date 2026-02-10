@@ -1,9 +1,10 @@
 services:
   immichframe: 
     restart: always 
-    image: ghcr.io/immichframe/immichframe:v1.0.30.0
+    image: ghcr.io/immichframe/immichframe:v1.0.31.0
     environment:
       TZ: America/Denver
+      LOG_LEVEL: Debug
     volumes:
       - ./config:/app/Config
     networks:
