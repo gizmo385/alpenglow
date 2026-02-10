@@ -1,0 +1,27 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.2
+    command: start
+    env_file: .env
+    restart: always
+    networks:
+      - caddy
+      - postgres
+    labels:
+      caddy_0: "*.acbc.house"
+      caddy_0.@keycloak.host: "sso.acbc.house"
+      caddy_0.reverse_proxy: "@keycloak {{upstreams http 8080}}"
+      caddy_1: "*.acbc.house:10443"
+      caddy_1.@keycloak.host: "sso.acbc.house"
+      caddy_1.@keycloak.path: "/realms/acbc.house/* /resources/*"
+      caddy_1.reverse_proxy: "@keycloak {{upstreams http 8080}}"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+networks:
+  caddy:
+    external: true
+  postgres:
+    external: true
