@@ -1,0 +1,52 @@
+services:
+  pihole:
+    container_name: pihole
+    hostname: pihole
+    image: pihole/pihole:2025.11.1 
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+    env_file:
+      - path: .env
+        required: true
+    volumes:
+      - './etc-pihole:/etc/pihole'
+      - './etc-dnsmasq.d:/etc/dnsmasq.d'
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@pihole.host: "pihole.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@pihole {{upstreams http 80}}"
+    networks:
+      - caddy
+      - pihole
+  dnscrypt-proxy:
+    container_name: dnscrypt-proxy
+    image: ghcr.io/klutchell/dnscrypt-proxy:main
+    restart: unless-stopped
+    expose:
+      - "5053/udp"
+      - "5053/tcp"
+    environment:
+      TZ: 'UTC'
+    user: 115:118
+    volumes:
+      - './dnscrypt-proxy:/config'
+    networks:
+      pihole:
+        ipv4_address: "10.0.4.20"
+        ipv6_address: "fd52:8804:e740:1::20"
+
+networks:
+  caddy:
+    external: true
+  pihole:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: '10.0.4.0/24'
+        - subnet: 'fd52:8804:e740:1::/64'
