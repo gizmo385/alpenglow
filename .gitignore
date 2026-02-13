@@ -1,6 +1,7 @@
 # Docker environment files
 .env
 .*env
+!*.example
 
 # Vim files
 [._]*.un~
