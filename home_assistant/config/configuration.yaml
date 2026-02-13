@@ -38,3 +38,11 @@ logger:
   default: warning
   logs: {}
     # custom_components.auth_oidc: debug
+
+sonos:
+  media_player:
+    hosts:
+      - 192.168.68.71
+      - 192.168.68.69
+      - 192.168.68.51
+    advertise_addr: 192.168.69.69
