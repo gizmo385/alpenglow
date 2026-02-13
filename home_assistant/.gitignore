@@ -4,3 +4,4 @@ config/*
 !config/automations.yaml
 !config/scripts.yaml
 !config/scenes.yaml
+alarmdotcom
