@@ -1,0 +1,11 @@
+{
+  "authenticators": [],
+  "policies": [],
+  "mappers": [
+    {
+      "name": "Lowercase FirstName_LastName Mapper",
+      "fileName": "lowercase-username.js",
+      "description": "Sends lowercased firstName_lastName as username claim"
+    }
+  ]
+}
