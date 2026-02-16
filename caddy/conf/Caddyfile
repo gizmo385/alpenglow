@@ -5,48 +5,10 @@
 	servers {
 		trusted_proxies static private_ranges
 	}
-}
 
-*.acbc.house {
-	tls {
-		dns cloudflare {
-			zone_token {env.CF_ZONE_TOKEN}
-			api_token {env.CF_API_TOKEN}
-		}
-	}
-}
-
-*.acbc.house:10443 {
-	tls {
-		dns cloudflare {
-			zone_token {env.CF_ZONE_TOKEN}
-			api_token {env.CF_API_TOKEN}
-		}
-	}
-}
-
-*.alpenglow.acbc.house {
-	tls {
-		dns cloudflare {
-			zone_token {env.CF_ZONE_TOKEN}
-			api_token {env.CF_API_TOKEN}
-		}
-	}
-}
-*.alpenglow.acbc.house:10443 {
-	tls {
-		dns cloudflare {
-			zone_token {env.CF_ZONE_TOKEN}
-			api_token {env.CF_API_TOKEN}
-		}
-	}
-}
-
-*.internal.acbc.house {
-	tls {
-		dns cloudflare {
-			zone_token {env.CF_ZONE_TOKEN}
-			api_token {env.CF_API_TOKEN}
-		}
+	# Global TLS Options
+	dns cloudflare {
+		zone_token {env.CF_ZONE_TOKEN}
+		api_token {env.CF_API_TOKEN}
 	}
 }
