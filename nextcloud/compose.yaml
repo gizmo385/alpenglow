@@ -10,19 +10,6 @@ services:
         limits:
           memory: 6G
 
-  whiteboard:
-    image: ghcr.io/nextcloud-releases/whiteboard:stable
-    restart: unless-stopped
-    labels:
-      caddy: "*.acbc.house"
-      caddy.@nextcloud-whiteboard-backend.host: "nextcloud-whiteboard-backend.acbc.house"
-      caddy.reverse_proxy: "@nextcloud-whiteboard-backend {{upstreams http 3002}}"
-    env_file:
-      - path: .whiteboard_env
-        required: true
-    networks:
-      - caddy
-
   app:
     image: nextcloud
     restart: unless-stopped
