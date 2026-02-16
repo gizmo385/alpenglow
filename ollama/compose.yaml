@@ -1,0 +1,19 @@
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ai
+    expose:
+      - 11434
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+
+networks:
+  ai:
+    driver: bridge
+    name: ai
