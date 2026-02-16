@@ -12,6 +12,7 @@ services:
     networks:
       - caddy
       - postgres
+      - ai
     labels:
       caddy_0: "*.acbc.house"
       caddy_0.@recipes.host: "recipes.acbc.house"
@@ -28,4 +29,6 @@ networks:
   caddy:
     external: true
   postgres:
+    external: true
+  ai:
     external: true

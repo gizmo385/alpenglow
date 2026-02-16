@@ -10,7 +10,8 @@ services:
       - ./data:/data/data
     networks:
       - caddy
-      - postgres 
+      - postgres
+      - ai
     labels:
       caddy: "*.acbc.house"
       caddy.@linkwarden.host: "linkwarden.acbc.house"
@@ -20,4 +21,6 @@ networks:
   caddy:
     external: true
   postgres:
+    external: true
+  ai:
     external: true
