@@ -5,3 +5,4 @@ config/*
 !config/scripts.yaml
 !config/scenes.yaml
 alarmdotcom
+home-assistant-iocare

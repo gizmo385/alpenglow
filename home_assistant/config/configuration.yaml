@@ -42,7 +42,10 @@ logger:
 sonos:
   media_player:
     hosts:
-      - 192.168.68.71
-      - 192.168.68.69
-      - 192.168.68.51
+      - 192.168.71.20 # Bedroom
+      - 192.168.71.30 # Kitchen
+      - 192.168.71.40 # Living Room Sound Bar
+      - 192.168.71.41 # Living Room Sub
+      - 192.168.71.42 # Living Room Rear Right
+      - 192.168.71.43 # Living Room Rear Left
     advertise_addr: 192.168.69.69
