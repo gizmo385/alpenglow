@@ -1,0 +1,25 @@
+services:
+  music-assistant-server:
+    image: ghcr.io/music-assistant/server:latest
+    container_name: music-assistant-server
+    restart: unless-stopped
+    user: 116:119
+    networks:
+      - caddy
+    ports:
+      - 8097:8097
+    labels:
+      caddy_0: "*.acbc.house"
+      caddy_0.@music.host: "music.acbc.house"
+      caddy_0.reverse_proxy: "@music {{upstreams http 8095}}"
+    volumes:
+      - ./data:/data/
+      - /data/jellyfin/media/adam_music/:/media/adam_music:ro 
+    environment:
+      # Provide logging level as environment variable.
+      # default=info, possible=(critical, error, warning, info, debug)
+      - LOG_LEVEL=info
+
+networks:
+  caddy:
+    external: true
