@@ -1,6 +1,6 @@
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.5.4
+    image: quay.io/keycloak/keycloak:26.5.5
     #command: start
     entrypoint: ["/bin/sh", "-c", "/opt/keycloak/bin/kc.sh build && /opt/keycloak/bin/kc.sh start"]
     env_file: .env
