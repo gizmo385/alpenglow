@@ -7,3 +7,33 @@
       player: media_player.kitchen_display
       view: '0'
       dashboard: dashboard-immichframe
+- id: '1774116217998'
+  alias: Turn on dining room lamp
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    hours: '18'
+    minutes: '0'
+    seconds: '0'
+  conditions: []
+  actions:
+  - type: turn_on
+    device_id: 349c1c3c9c3d9d8ef8b175a5b708235f
+    entity_id: 8c5e8c9becaf4d9861e18d1b2fd36e20
+    domain: switch
+  mode: single
+- id: '1774116278793'
+  alias: Turn off dining room lamp
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    hours: '22'
+    minutes: '0'
+    seconds: '0'
+  conditions: []
+  actions:
+  - type: turn_off
+    device_id: 349c1c3c9c3d9d8ef8b175a5b708235f
+    entity_id: 8c5e8c9becaf4d9861e18d1b2fd36e20
+    domain: switch
+  mode: single

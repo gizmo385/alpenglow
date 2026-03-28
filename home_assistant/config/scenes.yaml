@@ -1,0 +1,103 @@
+- id: '1774195169681'
+  name: Bedtime
+  entities:
+    media_player.bedroom:
+      group_members:
+      - media_player.bedroom
+      volume_level: 0.4
+      is_volume_muted: false
+      media_content_type: music
+      shuffle: false
+      repeat: 'off'
+      device_class: speaker
+      friendly_name: Bedroom
+      supported_features: 4127295
+      media_content_id: x-rincon-mp3radio://http://192.168.69.69:8007/stream/sleep-sounds
+      queue_position: 1
+      queue_size: 1
+      state: playing
+    light.reading_nook_lamp:
+      min_color_temp_kelvin: 2200
+      max_color_temp_kelvin: 6500
+      effect_list:
+      - Alarm
+      - Bedtime
+      - Candlelight
+      - Christmas
+      - Cozy
+      - Cool white
+      - Daylight
+      - Diwali
+      - Deep dive
+      - Fall
+      - Fireplace
+      - Forest
+      - Focus
+      - Golden white
+      - Halloween
+      - Jungle
+      - Mojito
+      - Night light
+      - Ocean
+      - Party
+      - Pulse
+      - Pastel colors
+      - Plantgrowth
+      - Romance
+      - Relax
+      - Sunset
+      - Spring
+      - Summer
+      - Steampunk
+      - True colors
+      - TV time
+      - White
+      - Wake-up
+      - Warm white
+      - Rhythm
+      supported_color_modes:
+      - color_temp
+      - rgbww
+      effect:
+      color_mode:
+      brightness:
+      color_temp_kelvin:
+      hs_color:
+      rgb_color:
+      xy_color:
+      rgbww_color:
+      friendly_name: Reading Nook Lamp
+      supported_features: 4
+      state: 'off'
+    light.adams_bedside_lamp:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: Adam’s Bedside Lamp
+      supported_features: 0
+      state: 'off'
+    light.chriss_bedside_lamp:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: Chris’s Bedside Lamp
+      supported_features: 0
+      state: 'off'
+    light.bedroom_light:
+      supported_color_modes:
+      - onoff
+      color_mode:
+      friendly_name: Bedroom Light
+      supported_features: []
+      state: 'off'
+  metadata:
+    light.reading_nook_lamp:
+      entity_only: true
+    light.adams_bedside_lamp:
+      entity_only: true
+    light.chriss_bedside_lamp:
+      entity_only: true
+    light.bedroom_light:
+      entity_only: true
+    media_player.bedroom:
+      entity_only: true

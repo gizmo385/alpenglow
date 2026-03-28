@@ -9,6 +9,7 @@ frontend:
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
+sensor: !include sensors.yaml
 
 http:
   use_x_forwarded_for: true
@@ -36,8 +37,9 @@ auth_oidc:
 
 logger:
   default: warning
-  logs: {}
+  logs:
     # custom_components.auth_oidc: debug
+    custom_components.gtfs_rt: info
 
 sonos:
   media_player:

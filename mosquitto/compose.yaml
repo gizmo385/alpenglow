@@ -1,0 +1,26 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    volumes:
+      - ./config:/mosquitto/config
+      - ./data:/mosquitto/data
+      - ./log:/mosquitto/log
+    expose:
+      - 1883
+      - 9001    
+        # ports:
+        #  - 1883:1883
+        #  - 9001:9001
+    restart: unless-stopped
+    user: "118:121" 
+    environment:
+      - PUID=118
+      - PGID=121
+      - TZ=America/Denver
+    networks:
+      - mosquitto
+
+networks:
+  mosquitto:
+    name: mosquitto

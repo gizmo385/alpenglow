@@ -13,6 +13,7 @@ services:
       - 1400:1400
     networks:
       - caddy
+      - mosquitto
     labels:
       caddy_0: "*.acbc.house"
       caddy_0.@home.host: "home.acbc.house"
@@ -24,4 +25,6 @@ services:
 networks:
   caddy:
     external: true
- 
+  mosquitto:
+    external: true
+
