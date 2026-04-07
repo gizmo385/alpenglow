@@ -2,6 +2,7 @@ services:
   music-assistant-server:
     image: ghcr.io/music-assistant/server:latest
     container_name: music-assistant-server
+    hostname: music-assistant
     restart: unless-stopped
     user: 116:119
     networks:

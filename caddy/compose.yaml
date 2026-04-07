@@ -19,6 +19,15 @@ services:
       - caddy_config:/config
       - /var/run/docker.sock:/var/run/docker.sock
 
+  caddy-edge:
+    build: .
+    container_name: caddy-edge
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./edge.Caddyfile:/etc/caddy/Caddyfile
+    command: caddy run --config /etc/caddy/Caddyfile 
+
 volumes:
   caddy_data:
   caddy_config:

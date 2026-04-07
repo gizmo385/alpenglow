@@ -1,0 +1,15 @@
+{
+    debug
+    admin 0.0.0.0:2020
+
+    layer4 {
+        :11443 {
+            route {
+                proxy {
+                    proxy_protocol v2
+                    upstream localhost:10443
+                }
+            }
+        }
+    }
+}
