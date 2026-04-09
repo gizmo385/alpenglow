@@ -6,3 +6,4 @@ config/*
 !config/scenes.yaml
 alarmdotcom
 home-assistant-iocare
+ha-gtfs-rt-v2
