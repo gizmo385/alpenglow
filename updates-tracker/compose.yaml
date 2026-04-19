@@ -1,0 +1,30 @@
+services:
+  release-feeds:
+    image: ghcr.io/gizmo385/image-updates-tracker:main
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./overrides.yaml:/config/overrides.yaml:ro
+    env_file: .env
+    restart: unless-stopped
+    networks:
+      - caddy
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@updates.host: "updates.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@updates {{upstreams http 8585}}"
+
+  discord-bot:
+    image: ghcr.io/gizmo385/image-updates-tracker-bot:main
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./overrides.yaml:/config/overrides.yaml:ro
+    env_file: .env
+    restart: unless-stopped
+    networks:
+      - ai
+
+networks:
+  caddy:
+    external: true
+  ai:
+    external: true
