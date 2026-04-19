@@ -10,6 +10,19 @@ services:
       - 11434
     restart: unless-stopped
 
+  ollama-pull:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ai
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "until ollama list; do sleep 2; done && ollama pull qwen2.5:1.5b"]
+    restart: no
+
 volumes:
   ollama_data:
 
