@@ -22,10 +22,13 @@ overrides:
   # Multiple immich images share one repo
   immich-app/immich-server: immich-app/immich
   immich-app/machine-learning: immich-app/immich
+  # OCI label points to Red Hat build repo, not the actual source
+  quay.io/keycloak/keycloak: keycloak/keycloak
 
 names:
   home-assistant/core: Home Assistant
   immich-app/immich: Immich
+  keycloak/keycloak: Keycloak
   nextcloud/server: Nextcloud
   ollama/ollama: Ollama
   redis/redis: Redis
