@@ -1,0 +1,15 @@
+services:
+  ytmusic-po-token:
+    image: brainicism/bgutil-ytdlp-pot-provider:1.2.1
+    container_name: ytmusic-po-token
+    hostname: ytmusic-po-token
+    restart: unless-stopped
+    init: true
+    ports:
+      - "4416:4416"
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true
