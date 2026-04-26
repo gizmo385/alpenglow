@@ -13,3 +13,4 @@
 [._]sw[a-p]
 
 *.log
+.claude
