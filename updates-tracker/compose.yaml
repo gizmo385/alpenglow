@@ -8,6 +8,7 @@ services:
     restart: unless-stopped
     networks:
       - caddy
+      - ai
     labels:
       caddy: "*.alpenglow.acbc.house"
       caddy.@updates.host: "updates.alpenglow.acbc.house"
