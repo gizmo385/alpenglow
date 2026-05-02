@@ -6,6 +6,16 @@
 		trusted_proxies static private_ranges
 	}
 
+	servers :10443 {
+		listener_wrappers {
+			proxy_protocol {
+				timeout 5s
+				allow 10.0.3.1/32
+			}
+			tls
+		}
+	}
+
 	# Global TLS Options
 	dns cloudflare {
 		zone_token {env.CF_ZONE_TOKEN}
