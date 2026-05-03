@@ -24,7 +24,7 @@ overrides:
   immich-app/machine-learning: immich-app/immich
   # OCI label points to Red Hat build repo, not the actual source
   quay.io/keycloak/keycloak: keycloak/keycloak
-  pihole/pihole: pihole/pihole
+  pihole/pihole: pi-hole/pi-hole
 
 names:
   home-assistant/core: Home Assistant
