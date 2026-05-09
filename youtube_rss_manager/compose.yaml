@@ -1,0 +1,19 @@
+services:
+  youtube_rss_manager:
+    image: ghcr.io/gizmo385/youtube-rss-manager:latest
+    restart: unless-stopped
+    env_file: .env
+    user: "994:985"
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@youtube_rss_manager.host: "youtube-rss.acbc.house"
+      caddy.reverse_proxy: "@youtube_rss_manager {{upstreams http 8000}}"
+    networks:
+      - caddy
+      - postgres
+
+networks:
+  caddy:
+    external: true
+  postgres:
+    external: true
