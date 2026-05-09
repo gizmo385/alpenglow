@@ -41,7 +41,7 @@ echo "Container: ${CONTAINER_NAME}"
 echo ""
 
 # Create the role and database
-sudo docker exec -t "$CONTAINER_NAME" psql -U "$POSTGRES_USER" -d postgres <<SQL
+sudo docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" -d postgres <<SQL
 -- Create the service role
 CREATE ROLE ${SERVICE_NAME} WITH
     NOSUPERUSER

@@ -85,6 +85,25 @@ if [[ -z "$SERVICE_NAME" ]]; then
     exit 1
 fi
 
+# Automatically add required networks for --caddy and --postgres
+add_network_if_missing() {
+    local net="$1"
+    for existing in "${NETWORKS[@]}"; do
+        if [[ "$existing" == "$net" ]]; then
+            return
+        fi
+    done
+    NETWORKS+=("$net")
+}
+
+if [[ -n "$CADDY_SUBDOMAIN" ]]; then
+    add_network_if_missing "caddy"
+fi
+
+if $CREATE_POSTGRES; then
+    add_network_if_missing "postgres"
+fi
+
 SERVICE_DIR="${SCRIPT_DIR}/${SERVICE_NAME}"
 
 if [[ -d "$SERVICE_DIR" ]]; then
