@@ -1,11 +1,4 @@
 services:
-  redis:
-    image: redis:alpine
-    container_name: copyparty-redis
-    restart: unless-stopped
-    networks:
-      - copyparty-internal
-
   oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     container_name: copyparty-oauth2-proxy
@@ -13,14 +6,13 @@ services:
     env_file: .proxy_env
     networks:
       - caddy
-      - copyparty-internal
+      - redis
     labels:
       caddy: "*.alpenglow.acbc.house"
       caddy.@files.host: "files.alpenglow.acbc.house"
       caddy.reverse_proxy: "@files {{upstreams 4180}}"
     depends_on:
       - copyparty
-      - redis
 
   copyparty:
     image: copyparty/ac:latest
@@ -39,8 +31,10 @@ services:
       --http-only
     networks:
       - caddy
+      - redis
 
 networks:
+  redis:
+    external: true
   caddy:
     external: true
-  copyparty-internal:

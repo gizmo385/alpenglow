@@ -1,20 +1,7 @@
 services:
-  redis:
-    image: redis:alpine
-    restart: unless-stopped
-    networks:
-      - caddy
-      - postgres
-    deploy:
-      resources:
-        limits:
-          memory: 6G
-
   app:
     image: nextcloud
     restart: unless-stopped
-    depends_on:
-      - redis
     volumes:
       - ./data:/var/www/html
     env_file:
@@ -34,6 +21,7 @@ services:
       caddy.rewrite_1: /.well-known/caldav /remote.php/dav
     networks:
       - caddy
+      - redis
       - postgres
     deploy:
       resources:
@@ -41,6 +29,8 @@ services:
           memory: 3G
 
 networks:
+  redis:
+    external: true
   caddy:
     external: true
   postgres:

@@ -1,0 +1,17 @@
+services:
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    env_file: .env
+    healthcheck:
+      test: redis-cli ping || exit 1
+    networks:
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+networks:
+  redis:
+    external: true

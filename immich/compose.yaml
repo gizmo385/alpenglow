@@ -47,9 +47,8 @@ services:
     networks:
       - caddy
       - postgres
-      - default
-    depends_on:
       - redis
+      - default
     user: 108:112
     restart: always
     healthcheck:
@@ -73,23 +72,17 @@ services:
       - .env
     networks:
       - default
+      - redis
     restart: always
     healthcheck:
       disable: false
-
-  redis:
-    container_name: immich_redis
-    image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571 
-    healthcheck:
-      test: redis-cli ping || exit 1
-    restart: always
-    networks:
-      - default
 
 volumes:
   model-cache:
 
 networks:
+  redis:
+    external: true
   caddy:
     external: true
   postgres:
