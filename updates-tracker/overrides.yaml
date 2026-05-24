@@ -25,6 +25,7 @@ overrides:
   # OCI label points to Red Hat build repo, not the actual source
   quay.io/keycloak/keycloak: keycloak/keycloak
   pihole/pihole: pi-hole/pi-hole
+  jellyfin/jellyfin: jellyfin/jellyfin
 
 names:
   home-assistant/core: Home Assistant
@@ -37,6 +38,7 @@ names:
   kopia/kopia: Kopia
   fmtr/amniotic: Amniotic
   pihole/pihole: Pi-hole
+  jellyfin/jellyfin: Jellyfin
 
 ignore:
   # We're on a fork of these
