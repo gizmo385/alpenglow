@@ -19,12 +19,16 @@ services:
     container_name: copyparty
     restart: unless-stopped
     user: "1000:1000"
+    group_add:
+      - "1003"
     volumes:
       - /data/share:/srv
+      - /data/jellyfin/media:/srv/jellyfin
       - ./copyparty.conf:/copyparty.conf:ro
     environment:
       - PUID=1000
       - PGID=1000
+      - UMASK=002
       - TZ=America/Denver
     command: >
       -c /copyparty.conf
