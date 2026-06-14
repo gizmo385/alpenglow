@@ -1,7 +1,7 @@
 services:
   immichframe: 
     restart: always 
-    image: ghcr.io/immichframe/immichframe:dev.3rob3.autorefreshonerror
+    image: ghcr.io/immichframe/immichframe:latest
     environment:
       TZ: America/Denver
       LOG_LEVEL: Debug
