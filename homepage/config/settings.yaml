@@ -1,0 +1,24 @@
+title: acbc.house
+theme: dark
+color: slate
+headerStyle: clean
+language: en
+target: _blank
+useEqualHeights: true
+cardBlur: sm
+hideVersion: true
+footer: false
+
+layout:
+  Home:
+    style: row
+    columns: 3
+  Media:
+    style: row
+    columns: 4
+  Productivity:
+    style: row
+    columns: 4
+  Infra:
+    style: row
+    columns: 5

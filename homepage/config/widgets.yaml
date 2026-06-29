@@ -1,0 +1,24 @@
+- datetime:
+    text_size: xl
+    format:
+      timeStyle: short
+      dateStyle: medium
+      hourCycle: h23
+
+- openmeteo:
+    label: Denver
+    latitude: 39.6958872
+    longitude: -104.9861147
+    timezone: America/Denver
+    units: imperial
+    cache: 5
+
+- glances:
+    url: https://glances.alpenglow.acbc.house
+    version: 4
+    cpu: true
+    mem: true
+    cputemp: false
+    uptime: true
+    disk: ['/']
+    expanded: true
