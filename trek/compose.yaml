@@ -1,0 +1,18 @@
+services:
+  trek:
+    image: mauriceboe/trek:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@trek.host: "travel.acbc.house"
+      caddy.reverse_proxy: "@trek {{upstreams http 3000}}"
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true
