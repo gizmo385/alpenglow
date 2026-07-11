@@ -1,0 +1,4 @@
+services:
+  app:
+    image: example/app:latest
+    restart: unless-stopped

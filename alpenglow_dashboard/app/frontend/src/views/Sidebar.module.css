@@ -1,0 +1,159 @@
+/* Sidebar — exact measurements from the prototype (§Sidebar). */
+
+.sidebar {
+  width: 222px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  border-right: 1px solid var(--color-divider);
+  background: linear-gradient(180deg, #1a1c2c, var(--color-bg));
+}
+
+/* ── brand ── */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 18px;
+}
+.brandTile {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: radial-gradient(
+    circle at 30% 25%,
+    var(--color-accent-400),
+    var(--color-accent-700)
+  );
+  box-shadow: 0 0 16px -4px var(--color-accent);
+}
+.wordmark {
+  line-height: 1.05;
+}
+.name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 16px;
+}
+.tagline {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+/* ── primary nav ── */
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  text-align: left;
+  background: transparent;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.navItem:hover {
+  background: var(--color-neutral-900);
+}
+.navActive,
+.navActive:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent-200);
+}
+.navLabel {
+  flex: 1;
+  text-align: left;
+}
+.badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 20px;
+  background: var(--color-accent-700);
+  color: var(--color-accent-100);
+}
+
+/* ── categories ── */
+.catBlock {
+  margin-top: 20px;
+  padding: 0 6px;
+}
+.catHeading {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  margin-bottom: 8px;
+}
+.catList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.catItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 9px;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  background: transparent;
+  color: var(--color-neutral-300);
+}
+.catItem:hover {
+  background: var(--color-neutral-900);
+}
+.catActive,
+.catActive:hover {
+  background: var(--color-neutral-900);
+  color: var(--color-accent-200);
+}
+.catIcon {
+  width: 16px;
+  color: var(--color-neutral-400);
+  flex: none;
+}
+.catLabel {
+  flex: 1;
+  text-align: left;
+}
+.catCount {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+}
+
+/* ── footer ── */
+.footer {
+  margin-top: auto;
+  padding: 12px 6px 0;
+  border-top: 1px solid var(--color-divider);
+  font-size: 11px;
+  color: var(--color-neutral-500);
+  line-height: 1.5;
+}
+.footerRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.footerRow + .footerRow {
+  margin-top: 3px;
+}

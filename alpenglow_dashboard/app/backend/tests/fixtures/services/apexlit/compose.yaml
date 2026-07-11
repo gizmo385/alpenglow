@@ -1,0 +1,14 @@
+# apex literal label — the wildcard does NOT match the apex (homepage-style)
+services:
+  web:
+    image: ghcr.io/example/apex:latest
+    container_name: apexlit
+    restart: unless-stopped
+    networks:
+      - caddy
+    labels:
+      caddy: acbc.house
+      caddy.reverse_proxy: "{{upstreams http 3000}}"
+networks:
+  caddy:
+    external: true

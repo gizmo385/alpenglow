@@ -1,0 +1,18 @@
+# management + a :10443 public set → management wins (uptime_kuma-style)
+services:
+  uptime:
+    container_name: mgmt_pub
+    image: louislam/uptime-kuma:2
+    restart: unless-stopped
+    labels:
+      caddy_0: "*.alpenglow.acbc.house"
+      caddy_0.@uptime.host: "uptime.alpenglow.acbc.house"
+      caddy_0.reverse_proxy: "@uptime {{upstreams http 3001}}"
+      caddy_1: "*.alpenglow.acbc.house:10443"
+      caddy_1.@uptime.host: "uptime.alpenglow.acbc.house"
+      caddy_1.reverse_proxy: "@uptime {{upstreams http 3001}}"
+    networks:
+      - caddy
+networks:
+  caddy:
+    external: true

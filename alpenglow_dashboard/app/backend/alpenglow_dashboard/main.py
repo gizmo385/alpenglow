@@ -20,7 +20,7 @@ STATIC_DIR = Path(os.environ.get("STATIC_DIR", "/app/static"))
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Alpenglow Dashboard", version=APP_VERSION)
+    app = FastAPI(title="Alpenglow Dashboard", version=APP_VERSION, lifespan=streams.lifespan)
 
     app.add_middleware(auth.AuthMiddleware)
 

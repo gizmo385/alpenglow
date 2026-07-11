@@ -1,0 +1,7 @@
+services:
+  immich-public-proxy:
+    image: alangrainger/immich-public-proxy:latest
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}

@@ -1,0 +1,25 @@
+# multi-container project; the caddy label lives on the "server" container only.
+# primary_container metadata override points at "server"; ports pull "2G" mem limit.
+services:
+  proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    container_name: multi-proxy
+    restart: unless-stopped
+  server:
+    image: example/server:v2.5.1
+    container_name: multi-server
+    restart: unless-stopped
+    expose:
+      - "2283"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@svc.host: "svc.acbc.house"
+      caddy.reverse_proxy: "@svc {{upstreams http 2283}}"
+  worker:
+    image: example/server:v2.5.1
+    container_name: multi-worker
+    restart: unless-stopped

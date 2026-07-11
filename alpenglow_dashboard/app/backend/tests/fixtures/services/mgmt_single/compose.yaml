@@ -1,0 +1,15 @@
+# single caddy prefix, management domain (glances-style)
+services:
+  monitoring:
+    container_name: mgmt_single
+    image: nicolargo/glances:latest
+    restart: unless-stopped
+    labels:
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@glances.host: "glances.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@glances {{upstreams 61208}}"
+    networks:
+      - caddy
+networks:
+  caddy:
+    external: true

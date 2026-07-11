@@ -1,0 +1,3 @@
+services:
+  override_mismatch:
+    keycloak_client: renamed-client-in-realm

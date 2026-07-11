@@ -1,0 +1,202 @@
+/* Nocturne component layer.
+ *
+ * The prototype leans on the Nocturne design-system stylesheet's component
+ * classes (.card / .btn / .tag / .input / .table / .card-kicker / .text-muted /
+ * .elev-*). That stylesheet is NOT shipped in the handoff bundle, so we
+ * recreate the classes here from the handoff README's token + component
+ * descriptions and the prototype's inline overrides. Everything is driven by
+ * the custom properties in tokens.css — no framework, no hacks. */
+
+/* ── card ── */
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 13px 15px;
+}
+.elev-sm {
+  box-shadow: var(--shadow-sm);
+}
+.elev-md {
+  box-shadow: var(--shadow-md);
+}
+.elev-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.card-kicker {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+
+.text-muted {
+  color: var(--color-neutral-500);
+}
+
+/* Hover-lift for interactive cards (service cards). */
+.card-hover {
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── button ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 7px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Primary = accent OUTLINE on transparent, never a flooded fill. */
+.btn-primary {
+  border-color: var(--color-accent);
+  color: var(--color-accent-200);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent-100);
+}
+
+.btn-secondary {
+  border-color: var(--color-neutral-700);
+  color: var(--color-neutral-200);
+  background: var(--color-neutral-900);
+}
+.btn-secondary:not(:disabled):hover {
+  border-color: var(--color-neutral-600);
+  color: var(--color-text);
+}
+
+.btn-ghost {
+  color: var(--color-neutral-300);
+  background: transparent;
+}
+.btn-ghost:not(:disabled):hover {
+  color: var(--color-text);
+  background: var(--color-neutral-900);
+}
+
+.btn-icon {
+  padding: 6px;
+  color: var(--color-neutral-300);
+  background: transparent;
+}
+.btn-icon:not(:disabled):hover {
+  color: var(--color-text);
+  background: var(--color-neutral-900);
+}
+
+/* ── tag / chip ── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.tag-accent {
+  background: var(--color-accent-800);
+  color: var(--color-accent-100);
+}
+.tag-neutral {
+  background: var(--color-neutral-800);
+  color: var(--color-neutral-200);
+}
+.tag-outline {
+  background: transparent;
+  border-color: var(--color-neutral-700);
+  color: var(--color-neutral-300);
+}
+
+/* ── input ── */
+.input {
+  width: 100%;
+  min-height: 34px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-neutral-900);
+  border: 1px solid var(--color-neutral-700);
+  border-radius: var(--radius-md);
+  padding: 6px 11px;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+.input::placeholder {
+  color: var(--color-neutral-500);
+}
+.input:focus-visible {
+  border-color: var(--color-accent);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── table ── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table thead th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.table tbody td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-divider);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── scrollbar (matches prototype .ag-scroll) ── */
+.ag-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ag-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-800);
+  border-radius: 8px;
+  border: 2px solid var(--color-bg);
+}

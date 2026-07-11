@@ -1,0 +1,5 @@
+# synthetic fixture: no local signals; a realm client 'dirmatch' matches by dir name
+services:
+  app:
+    image: example/app:latest
+    restart: unless-stopped

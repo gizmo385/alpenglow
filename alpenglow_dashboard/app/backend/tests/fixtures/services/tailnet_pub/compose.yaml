@@ -1,0 +1,20 @@
+# caddy_0/caddy_1 pair with a :10443 public set → public tier (jellyfin-style)
+services:
+  app:
+    image: example/jelly:10.11.11
+    container_name: tailnet_pub
+    restart: "unless-stopped"
+    expose:
+      - "8096"
+    labels:
+      caddy_0: "*.acbc.house"
+      caddy_0.@svc.host: "svc.acbc.house"
+      caddy_0.reverse_proxy: "@svc {{upstreams http 8096}}"
+      caddy_1: "*.acbc.house:10443"
+      caddy_1.@svc.host: "svc.acbc.house"
+      caddy_1.reverse_proxy: "@svc {{upstreams http 8096}}"
+    networks:
+      - caddy
+networks:
+  caddy:
+    external: true

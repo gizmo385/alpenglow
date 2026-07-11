@@ -1,0 +1,5 @@
+# synthetic fixture: realm clientId differs from dir; matched via keycloak_client override
+services:
+  app:
+    image: example/app:latest
+    restart: unless-stopped

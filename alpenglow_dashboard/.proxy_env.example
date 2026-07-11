@@ -16,7 +16,7 @@ OAUTH2_PROXY_COOKIE_SECURE=true
 OAUTH2_PROXY_REDIRECT_URL=https://dashboard.alpenglow.acbc.house/oauth2/callback
 OAUTH2_PROXY_EMAIL_DOMAINS=*
 # Restrict to the admin group (must match the backend ADMIN_GROUP).
-OAUTH2_PROXY_ALLOWED_GROUPS=admin
+OAUTH2_PROXY_ALLOWED_GROUPS=/Admin
 OAUTH2_PROXY_OIDC_GROUPS_CLAIM=groups
 
 OAUTH2_PROXY_UPSTREAMS=http://dashboard:8080

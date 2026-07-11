@@ -1,0 +1,10 @@
+services:
+  immich:
+    name: Immich
+    icon: ph-images
+  twenty:
+    name: Twenty
+    icon: ph-buildings
+  ollama:
+    name: Ollama
+    icon: ph-brain

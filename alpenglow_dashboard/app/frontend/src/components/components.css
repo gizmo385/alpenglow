@@ -1,0 +1,68 @@
+/* Styling for the shared primitives that need more than a Nocturne class.
+   Token-driven, plain CSS (matches the scaffold's tokens.css convention). */
+
+/* ── Meter ── */
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.meter-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.meter-value {
+  font-family: var(--font-mono);
+  color: var(--color-neutral-500);
+}
+.meter-track {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--color-neutral-900);
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+/* ── StatusDot ── */
+.status-dot {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  border-radius: 50%;
+}
+.status-dot.busy {
+  animation: softPulse 1.2s infinite;
+}
+
+/* ── Sparkline ── */
+.sparkline {
+  display: block;
+  width: 100%;
+}
+
+/* ── Toast host ── */
+.toast-host {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  font-size: 13px;
+  animation: toastIn 0.18s ease;
+}

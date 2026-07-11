@@ -1,0 +1,313 @@
+/* Service detail (C4). Header extras, action bar, tabs, and the four tab bodies.
+   Everything token-driven; mirrors the prototype's inline styles faithfully. */
+
+/* ── header extras (name row + status tag + Open) ── */
+.headTop {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex-wrap: wrap;
+}
+.headActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* status tag with colored dot; pulses while busy */
+.statusTag {
+  gap: 6px;
+}
+.statusTag.up {
+  background: color-mix(in srgb, var(--color-ok) 16%, transparent);
+  color: var(--color-ok);
+}
+.statusTag.down {
+  background: color-mix(in srgb, var(--color-down) 16%, transparent);
+  color: var(--color-down);
+}
+.statusTag.busy {
+  background: var(--color-accent-800);
+  color: var(--color-accent-100);
+}
+.statusTagDot {
+  display: inline-flex;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+.statusTagDot.pulse {
+  animation: softPulse 1.2s infinite;
+}
+
+/* ── action bar ── */
+.actionBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 18px 0 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.actionSpacer {
+  flex: 1;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+/* ── tabs ── */
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--color-divider);
+  margin-bottom: 18px;
+}
+.tab {
+  padding: 8px 15px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 13.5px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-neutral-400);
+  margin-bottom: -1px;
+  transition: color 0.12s ease;
+}
+.tab:hover {
+  color: var(--color-neutral-200);
+}
+.tab.active {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-200);
+}
+
+/* ── overview tab: facts grid ── */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.fact {
+  gap: 3px;
+  padding: 12px 14px;
+}
+.factLabel {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.factValue {
+  font-size: 14px;
+}
+.factValue.mono {
+  font-family: var(--font-mono);
+}
+.factValue.monoSmall {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  word-break: break-all;
+}
+.factValue.accent {
+  color: var(--color-accent-300);
+}
+.factSub {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+  font-family: var(--font-mono);
+}
+
+.desc {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--color-neutral-400);
+  line-height: 1.6;
+}
+
+/* ── tag editor ── */
+.tagsSection {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-divider);
+}
+.tagsHeading {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  margin-bottom: 9px;
+}
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+.suggestRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+  align-items: center;
+}
+.appliedChip {
+  background: var(--color-accent-800);
+  color: var(--color-accent-100);
+  gap: 5px;
+  padding-right: 4px;
+}
+.chipRemove {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-accent-200);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.chipRemove:hover {
+  background: color-mix(in srgb, var(--color-accent-100) 18%, transparent);
+}
+.suggestChip {
+  cursor: pointer;
+  gap: 4px;
+}
+.tagInput {
+  width: 120px;
+  min-height: 28px;
+  font-size: 12px;
+  padding: 3px 9px;
+}
+.addLabel {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+}
+.noTags {
+  color: var(--color-neutral-500);
+  font-size: 12px;
+}
+
+/* ── resources tab ── */
+.resGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.bigNum {
+  font-size: 26px;
+  font-family: var(--font-heading);
+}
+.bigNumUnit {
+  font-size: 14px;
+  color: var(--color-neutral-500);
+}
+.resRow {
+  margin-top: 12px;
+  flex-direction: row;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.resStat {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* ── logs + compose panels ── */
+.panel {
+  padding: 0;
+  overflow: hidden;
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--color-divider);
+  font-size: 12px;
+  color: var(--color-neutral-400);
+}
+.panelHeadRight {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.streamDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-ok);
+  animation: softPulse 1.6s infinite;
+}
+.streamDot.reconnecting {
+  background: var(--color-down);
+}
+.copyBtn {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.logBody {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  padding: 12px 14px;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--color-log-bg);
+}
+.logRow {
+  display: flex;
+  gap: 10px;
+  white-space: pre-wrap;
+}
+.logTime {
+  color: var(--color-neutral-600);
+  flex: none;
+}
+.logMsg {
+  color: var(--color-neutral-300);
+}
+.logMsg.error {
+  color: var(--color-down);
+}
+.logMsg.success {
+  color: var(--color-ok);
+}
+.logEmpty {
+  color: var(--color-neutral-600);
+}
+
+.composeBody {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  max-height: 400px;
+  overflow: auto;
+  background: var(--color-log-bg);
+  color: var(--color-neutral-200);
+  white-space: pre;
+}
+.loadingNote {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-neutral-500);
+  font-size: 13px;
+}

@@ -1,0 +1,13 @@
+# no caddy labels → internal / no web ingress (servo_bot-style); expose + deploy limit
+services:
+  bot:
+    container_name: nolabels
+    image: ghcr.io/example/bot:master
+    restart: always
+    expose:
+      - "9001"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+networks: {}

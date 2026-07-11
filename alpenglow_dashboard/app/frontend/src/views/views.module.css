@@ -1,0 +1,57 @@
+/* Shared view chrome (page padding, headers). C2–C4 extend or replace as needed. */
+
+.page {
+  padding: 26px 30px 60px;
+  max-width: 1180px;
+}
+.page.detail {
+  padding: 22px 30px 60px;
+  max-width: 1000px;
+}
+.page.narrow {
+  max-width: 1080px;
+}
+
+.pageHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.pageSub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+
+.polled {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+.polledDot {
+  display: inline-flex;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-ok);
+}
+
+.placeholder {
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+.filterNote {
+  color: var(--color-accent-300);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.backBtn {
+  margin-bottom: 14px;
+  padding-left: 0;
+}

@@ -1,0 +1,5 @@
+services:
+  postgres:
+    container_name: postgres
+    image: alpenglow/postgres
+    restart: always

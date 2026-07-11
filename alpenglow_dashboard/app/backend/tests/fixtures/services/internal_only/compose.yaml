@@ -1,0 +1,15 @@
+# internal-only ingress (immichframe-style)
+services:
+  frame:
+    container_name: internal_only
+    image: ghcr.io/example/frame:latest
+    restart: unless-stopped
+    labels:
+      caddy: "*.internal.acbc.house"
+      caddy.@frame.host: "frame.internal.acbc.house"
+      caddy.reverse_proxy: "@frame {{upstreams http 8080}}"
+    networks:
+      - caddy
+networks:
+  caddy:
+    external: true

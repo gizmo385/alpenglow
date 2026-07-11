@@ -1,0 +1,10 @@
+services:
+  multi:
+    category: Media
+    icon: ph-images
+    description: A multi-container fixture service.
+    primary_container: server
+  mgmt_single:
+    category: Monitoring
+    icon: ph-chart-line
+    description: Fixture monitoring service.

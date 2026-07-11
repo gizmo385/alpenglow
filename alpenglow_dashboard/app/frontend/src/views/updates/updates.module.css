@@ -1,0 +1,103 @@
+/* Updates view (C3). Scoped styles for the updates table + states.
+   Everything is token-driven; layout/type mirror the prototype's inline
+   styles for the table (README §View 2, 02-updates.png). */
+
+/* Header actions (right side, only when updates exist). */
+.headActions {
+  display: flex;
+  gap: 8px;
+}
+
+/* "ⓘ Tracked by …" sub-line. */
+.trackedBy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+
+/* The table lives in a card with the prototype's tighter padding. */
+.tableCard {
+  padding: 6px 14px 10px;
+}
+
+/* Service cell: icon + name. */
+.svcCell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.svcIcon {
+  width: 18px;
+  color: var(--color-accent-300);
+  flex: none;
+}
+.svcName {
+  font-weight: 500;
+}
+
+/* Mono value cells. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.image {
+  color: var(--color-neutral-400);
+}
+.latest {
+  color: var(--color-accent-300);
+}
+.released {
+  font-size: 12px;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+.actionCol {
+  text-align: right;
+}
+
+/* Right-aligned action cell: changelog icon-link + Pull & recreate. */
+.actionCell {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+/* Compact primary button matching the prototype (padding 4/10, 12px). */
+.pullBtn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+/* Changelog icon-link renders as a ghost button; keep it icon-sized. */
+.changelog {
+  padding: 5px;
+  color: var(--color-neutral-400);
+}
+.changelog:hover {
+  color: var(--color-text);
+}
+
+/* Spinner glyph while a row is updating. */
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+/* Centered fill states (up-to-date / tracker-unavailable). */
+.fillCard {
+  align-items: center;
+  text-align: center;
+  padding: 48px;
+}
+.fillTitle {
+  font-family: var(--font-heading);
+  font-size: 19px;
+  margin-top: 6px;
+  letter-spacing: -0.015em;
+}
+.fillSub {
+  font-size: 13px;
+  margin: 2px 0 0;
+  color: var(--color-neutral-500);
+}

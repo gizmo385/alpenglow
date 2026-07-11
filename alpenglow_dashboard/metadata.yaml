@@ -6,7 +6,8 @@
 #   primary_container: which container supplies image/version/uptime for
 #                      multi-container services (default: container whose
 #                      service name matches the dir, else first)
-#   sso_client:        Keycloak client-id override for B5 SSO matching
+#   keycloak_client:   Keycloak clientId override for B5 SSO matching (used when
+#                      the realm clientId differs from the service dir name)
 
 services:
   alpenglow_dashboard:
@@ -67,6 +68,8 @@ services:
     category: Home
     icon: ph-house-line
     description: Home automation hub. Vendored hass-oidc-auth plugin provides Keycloak login.
+    # Keycloak clientId 'homeassistant' vs dir 'home_assistant' (B5 SSO match).
+    keycloak_client: homeassistant
 
   homepage:
     category: Infrastructure
@@ -181,6 +184,8 @@ services:
     category: Productivity
     icon: ph-youtube-logo
     description: Turns YouTube subscriptions into clean RSS feeds for FreshRSS.
+    # Keycloak clientId 'youtube-opml-generator' vs dir 'youtube_rss_manager'.
+    keycloak_client: youtube-opml-generator
 
   # No compose.yaml — host cron scripts only; kept here so the dir is
   # documented. B1's inventory (which scans for compose.yaml) skips it.

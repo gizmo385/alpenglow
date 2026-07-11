@@ -1,0 +1,303 @@
+/* Overview view (C2) — per-view styles.
+ * Plain, token-driven CSS scoped under `.ov-*` classes so it never collides
+ * with the shared component/theme layers. Recreates handoff §View 1 exactly:
+ * stat-tile grid, host/storage bars, service section, and the service card. */
+
+/* ── stat tiles ── */
+.ov-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.ov-tile {
+  gap: 6px;
+}
+.ov-tile-clickable {
+  cursor: pointer;
+}
+.ov-tile-span2 {
+  grid-column: span 2;
+  gap: 10px;
+}
+
+.ov-tile-big {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.ov-tile-num {
+  font-size: 30px;
+  font-family: var(--font-heading);
+  letter-spacing: var(--tracking-heading);
+}
+.ov-tile-num.accent {
+  color: var(--color-accent-300);
+}
+.ov-tile-num.ok {
+  color: var(--color-ok);
+}
+.ov-tile-unit {
+  font-size: 14px;
+  color: var(--color-neutral-500);
+}
+.ov-tile-caption {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+}
+.ov-tile-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.ov-legend-up {
+  color: var(--color-ok);
+}
+.ov-legend-down {
+  color: var(--color-down);
+}
+.ov-tile-action {
+  font-size: 11px;
+  color: var(--color-accent-300);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ov-tile-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ov-tile-load {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+}
+
+/* meter used inside host/storage tiles */
+.ov-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-meter-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ov-meter-value {
+  color: var(--color-neutral-500);
+  font-family: var(--font-mono);
+}
+.ov-meter-track {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--color-neutral-900);
+  overflow: hidden;
+}
+.ov-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.ov-pool-tag {
+  gap: 5px;
+}
+
+/* ── services section ── */
+.ov-svc-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 16px;
+}
+.ov-svc-head h3 {
+  margin: 0;
+  font-size: 19px;
+}
+.ov-search {
+  margin-left: auto;
+  width: 230px;
+}
+.ov-search .input {
+  min-height: 34px;
+  font-size: 13px;
+}
+
+/* tag-filter row */
+.ov-tagrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: -4px 0 16px;
+}
+.ov-tagrow-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+  margin-right: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ov-tagchip {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  border: 1px solid var(--color-neutral-700);
+  background: transparent;
+  color: var(--color-neutral-300);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.ov-tagchip:hover {
+  border-color: var(--color-neutral-600);
+  color: var(--color-text);
+}
+.ov-tagchip.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-800);
+  color: var(--color-accent-100);
+}
+
+/* category groups */
+.ov-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.ov-group-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+.ov-group-head h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.ov-group-count {
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+.ov-group-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--color-divider), transparent);
+}
+.ov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 12px;
+}
+
+/* ── service card ── */
+.ov-card {
+  gap: 9px;
+  cursor: pointer;
+  padding: 13px 14px;
+  border-left: 3px solid var(--color-neutral-800);
+}
+.ov-card.pri-down {
+  border-left-color: var(--color-down);
+}
+.ov-card.pri-update {
+  border-left-color: var(--color-accent-600);
+}
+
+.ov-card-row1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.ov-card-name {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 14.5px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-update-pill {
+  gap: 4px;
+  padding: 2px 7px;
+}
+.ov-card-image {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-neutral-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-card-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ov-sso-chip {
+  gap: 4px;
+}
+.ov-sso-chip.sso-none {
+  background: transparent;
+  border: 1px solid var(--color-neutral-700);
+  color: var(--color-neutral-400);
+}
+.ov-tier-chip {
+  gap: 4px;
+}
+.ov-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ov-card-tag {
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--color-neutral-700);
+  color: var(--color-neutral-300);
+}
+.ov-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 9px;
+  border-top: 1px solid var(--color-divider);
+}
+.ov-card-status {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-open-btn {
+  padding: 4px 7px;
+}
+.ov-manage-btn {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+/* ── empty state ── */
+.ov-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-neutral-500);
+  font-size: 14px;
+}
+.ov-empty-icon {
+  display: block;
+  margin: 0 auto 8px;
+}

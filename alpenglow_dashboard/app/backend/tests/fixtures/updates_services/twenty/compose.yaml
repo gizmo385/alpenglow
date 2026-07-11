@@ -1,0 +1,5 @@
+services:
+  server:
+    image: twentycrm/twenty:${TAG:-latest}
+  worker:
+    image: twentycrm/twenty:${TAG:-latest}

@@ -1,0 +1,18 @@
+# tailnet primary + internal mirror (home_assistant-style) → tailnet, url on apex host
+services:
+  home:
+    container_name: tailnet_and_internal
+    image: ghcr.io/example/ha:stable
+    restart: unless-stopped
+    labels:
+      caddy_0: "*.acbc.house"
+      caddy_0.@home.host: "home.acbc.house"
+      caddy_0.reverse_proxy: "@home {{upstreams http 8123}}"
+      caddy_1: "*.internal.acbc.house"
+      caddy_1.@home-internal.host: "home.internal.acbc.house"
+      caddy_1.reverse_proxy: "@home-internal {{upstreams http 8123}}"
+    networks:
+      - caddy
+networks:
+  caddy:
+    external: true
