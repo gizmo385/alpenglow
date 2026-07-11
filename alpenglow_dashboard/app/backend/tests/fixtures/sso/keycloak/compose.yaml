@@ -1,5 +1,0 @@
-# synthetic fixture standing in for the keycloak service itself
-services:
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest
-    restart: always

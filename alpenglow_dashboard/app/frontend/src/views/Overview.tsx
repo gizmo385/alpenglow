@@ -13,24 +13,19 @@ import { useUiState } from "../store/ui";
 import { relativeAgo } from "../lib/format";
 import { Icon } from "../lib/icons";
 import { Input } from "../components";
-import type { ServiceSummary } from "../api/types";
 import { StatTiles } from "./overview/StatTiles";
 import { ServiceCard } from "./overview/ServiceCard";
-import { CATEGORY_ICON, CATEGORY_ORDER } from "./overview/meta";
+import {
+  KEYCLOAK_SSO_TAG,
+  categoryIcon,
+  orderCategories,
+} from "./overview/meta";
 import styles from "./views.module.css";
 import "./overview/overview.css";
 
-/** Categories in display order, then any extra categories the data introduces. */
-function orderedCategories(services: ServiceSummary[]): string[] {
-  const present = new Set(services.map((s) => s.category));
-  const ordered = CATEGORY_ORDER.filter((c) => present.has(c));
-  const extras = [...present].filter((c) => !CATEGORY_ORDER.includes(c)).sort();
-  return [...ordered, ...extras];
-}
-
 export function Overview() {
   const { services, overview, servicesLoading } = useData();
-  const { query, category, tag, setQuery, setTag } = useUiState();
+  const { query, category, tag, status, setQuery, setTag } = useUiState();
 
   // Header summary counts (prefer authoritative overview numbers, fall back to
   // the services list so the line still renders before /api/overview resolves).
@@ -39,9 +34,8 @@ export function Overview() {
     overview?.services.down ?? services.filter((s) => s.status === "down").length;
   const updates =
     overview?.updates.count ?? services.filter((s) => s.latestVersion).length;
-  const linked = services.filter(
-    (s) => s.sso.state === "keycloak" || s.sso.state === "oidc",
-  ).length;
+  // "linked to Keycloak" now counts services carrying the "Keycloak SSO" tag.
+  const linked = services.filter((s) => s.tags.includes(KEYCLOAK_SSO_TAG)).length;
 
   const summary =
     `${total} services · ${linked} linked to Keycloak · ${updates} updates pending` +
@@ -54,25 +48,27 @@ export function Overview() {
     return [...set].sort();
   }, [services]);
 
-  // Compose the three filters (AND): query × category × tag.
+  // Compose the four filters (AND): query × category × tag × status.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return services.filter((s) => {
       if (category && s.category !== category) return false;
       if (tag && !s.tags.includes(tag)) return false;
+      if (status && (status === "down" ? s.status !== "down" : s.status === "down"))
+        return false;
       if (q) {
         const hay = `${s.name} ${s.image} ${s.category}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [services, query, category, tag]);
+  }, [services, query, category, tag, status]);
 
   const groups = useMemo(() => {
-    return orderedCategories(filtered)
+    return orderCategories(filtered.map((s) => s.category))
       .map((cat) => ({
         name: cat,
-        icon: CATEGORY_ICON[cat] ?? "cube",
+        icon: categoryIcon(cat),
         items: filtered.filter((s) => s.category === cat),
       }))
       .filter((g) => g.items.length > 0);

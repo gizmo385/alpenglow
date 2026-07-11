@@ -10,8 +10,9 @@ import type {
   Overview,
   ServiceDetail,
   ServiceSummary,
+  SettingsPayload,
+  SettingsRequest,
   Stats,
-  TagsPayload,
   Updates,
 } from "./types";
 
@@ -74,8 +75,8 @@ export const api = {
   service: (id: string) => request<ServiceDetail>(`/api/services/${id}`),
   stats: (id: string) => request<Stats>(`/api/services/${id}/stats`),
   compose: (id: string) => request<string>(`/api/services/${id}/compose`),
-  putTags: (id: string, tags: string[]) =>
-    mutate<TagsPayload>(`/api/services/${id}/tags`, "PUT", { tags }),
+  putSettings: (id: string, patch: SettingsRequest) =>
+    mutate<SettingsPayload>(`/api/services/${id}/settings`, "PUT", patch),
   action: (id: string, action: ActionRequest) =>
     mutate<ActionResponse>(`/api/services/${id}/actions`, "POST", action),
   updates: () => request<Updates>("/api/updates"),

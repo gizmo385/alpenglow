@@ -4,11 +4,16 @@
  * render "—" so a degraded integration never blanks the tile. */
 
 import { useNavigate } from "react-router-dom";
-import { ArrowRightIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import {
+  ArrowRightIcon,
+  ArrowSquareOutIcon,
+  CheckCircleIcon,
+} from "@phosphor-icons/react";
 
 import type { Overview } from "../../api/types";
 import { Card } from "../../components";
-import { formatBytes, relativeAgo } from "../../lib/format";
+import { formatBytes, formatBytesZfs } from "../../lib/format";
+import { useUiState } from "../../store/ui";
 import "./overview.css";
 
 /** "—" for null, else the formatted value. */
@@ -46,6 +51,7 @@ function pct(used: number | null, total: number | null): number | null {
 
 export function StatTiles({ overview }: { overview: Overview | null }) {
   const navigate = useNavigate();
+  const { status, setStatus } = useUiState();
 
   const svc = overview?.services;
   const up = svc?.up ?? null;
@@ -55,6 +61,7 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
   const updates = overview?.updates.count ?? null;
 
   const mon = overview?.monitors;
+  const downMonitors = (mon?.monitors ?? []).filter((m) => m.status === "down");
   const backups = overview?.backups;
   const host = overview?.host;
   const storage = overview?.storage;
@@ -77,8 +84,26 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
           <span className="ov-tile-unit">/ {dash(total)} up</span>
         </div>
         <div className="ov-tile-legend">
-          <span className="ov-legend-up">● {dash(up)} running</span>
-          {down > 0 && <span className="ov-legend-down">● {down} stopped</span>}
+          <button
+            type="button"
+            className={`ov-legend-filter ov-legend-up${status === "up" ? " active" : ""}`}
+            onClick={() => setStatus("up")}
+            aria-pressed={status === "up"}
+            title="Filter to running services"
+          >
+            ● {dash(up)} running
+          </button>
+          {down > 0 && (
+            <button
+              type="button"
+              className={`ov-legend-filter ov-legend-down${status === "down" ? " active" : ""}`}
+              onClick={() => setStatus("down")}
+              aria-pressed={status === "down"}
+              title="Filter to stopped services"
+            >
+              ● {down} stopped
+            </button>
+          )}
         </div>
       </Card>
 
@@ -108,12 +133,35 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
 
       {/* Monitors */}
       <Card className="ov-tile" elevation="sm">
-        <div className="card-kicker">Monitors</div>
+        <div className="ov-tile-head">
+          <div className="card-kicker">Monitors</div>
+          {mon?.url && (
+            <a
+              className="btn btn-ghost ov-open-btn"
+              href={mon.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open Uptime Kuma"
+            >
+              <ArrowSquareOutIcon size={15} />
+            </a>
+          )}
+        </div>
         <div className="ov-tile-big">
           <span className="ov-tile-num">{dash(mon?.up)}</span>
           <span className="ov-tile-unit">/ {dash(mon?.total)} up</span>
         </div>
-        <div className="ov-tile-caption">Uptime Kuma · {dash(mon?.note)}</div>
+        {downMonitors.length > 0 ? (
+          <div className="ov-mon-down" title={`${downMonitors.length} down`}>
+            {downMonitors.map((m) => (
+              <span key={m.name} className="ov-mon-down-name">
+                {m.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="ov-tile-caption">Uptime Kuma · {dash(mon?.note)}</div>
+        )}
       </Card>
 
       {/* Backups */}
@@ -125,7 +173,11 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
           </span>
         </div>
         <div className="ov-tile-caption">
-          pg dump {dash(backups?.pgAgo)} · kopia {dash(backups?.kopiaAgo)}
+          <span title={backups?.pgAt ?? undefined}>pg dump {dash(backups?.pgAgo)}</span>
+          {" · "}
+          <span title={backups?.kopiaAt ?? undefined}>
+            kopia {dash(backups?.kopiaAgo)}
+          </span>
         </div>
       </Card>
 
@@ -180,24 +232,33 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
             ))}
           </div>
         </div>
-        {(storage?.fs ?? []).map((f) => (
-          <BarMeter
-            key={f.label}
-            label={f.label}
-            value={
-              f.used == null ? "—" : `${formatBytes(f.used)} / ${formatBytes(f.size)}`
-            }
-            pct={f.pct}
-            color="var(--color-neutral-500)"
-          />
+        {(storage?.pools ?? []).map((p) => (
+          <div key={p.name} className="ov-pool-row">
+            {/* Meter shows USABLE used/total (parity excluded) — what the
+                operator cares about. */}
+            <BarMeter
+              label={p.name}
+              value={
+                p.used == null
+                  ? "—"
+                  : `${formatBytesZfs(p.used)} / ${formatBytesZfs(p.size)}`
+              }
+              pct={pct(p.used, p.size)}
+              color="var(--color-neutral-500)"
+            />
+            {/* Raw pool line (incl. parity) as secondary context. */}
+            {p.rawUsed != null && p.rawSize != null && (
+              <div className="ov-pool-raw">
+                raw {formatBytesZfs(p.rawUsed)} / {formatBytesZfs(p.rawSize)} incl. parity
+                {" · "}
+                scrub {dash(p.scrubAgo)} · {p.errors ?? 0} errors
+              </div>
+            )}
+          </div>
         ))}
-        <div className="ov-tile-caption">
-          {storage?.pools?.[0]
-            ? `last scrub ${relativeAgo(storage.pools[0].scrubAgo)} · ${
-                storage.pools[0].errors ?? 0
-              } errors`
-            : "—"}
-        </div>
+        {(storage?.pools ?? []).length === 0 && (
+          <div className="ov-tile-caption">—</div>
+        )}
       </Card>
     </div>
   );

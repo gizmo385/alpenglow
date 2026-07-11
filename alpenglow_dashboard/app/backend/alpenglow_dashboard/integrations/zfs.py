@@ -10,13 +10,19 @@ the ``zfs_status_checker`` host cron (package D3) writes. Real schema (verified)
         "<name>": {
           "name", "state", "healthy", "size", "used", "free",
           "capacity_pct", "last_scrub" (unix secs), "scrub_errors",
-          "read_errors", "write_errors", "checksum_errors", ...
+          "read_errors", "write_errors", "checksum_errors",
+          "usable": {"used", "available", "total"},  # from `zfs list` (parity-excluded)
+          ...
         }, ...
       }
     }
 
-Maps each pool to ``models.StoragePool`` (``used``/``size`` in bytes, ``scrubAgo``
-humanised from ``last_scrub``, ``errors`` = sum of read/write/checksum errors).
+Maps each pool to ``models.StoragePool``. ``used``/``size`` carry the **usable**
+figures (``usable.used`` / ``usable.total`` — parity already excluded, which is
+what the tile meter shows); ``rawUsed``/``rawSize`` keep the raw ``zpool`` alloc/
+size for secondary "incl. parity" context. Older JSON without a ``usable`` block
+degrades to the raw figures. ``scrubAgo`` is humanised from ``last_scrub`` and
+``errors`` = sum of read/write/checksum errors.
 
 Degradation: a missing/unreadable/malformed file, or one older than
 ``STALE_SECONDS`` (~2h — the cron writes more often, so an old stamp means it
@@ -58,6 +64,10 @@ def _pool_errors(pool: dict) -> Optional[int]:
     return int(se) if isinstance(se, (int, float)) else None
 
 
+def _num(v: object) -> Optional[float]:
+    return float(v) if isinstance(v, (int, float)) else None
+
+
 def _to_pool(name: str, pool: dict) -> models.StoragePool:
     last_scrub = pool.get("last_scrub")
     scrub_ago = (
@@ -65,13 +75,25 @@ def _to_pool(name: str, pool: dict) -> models.StoragePool:
         if isinstance(last_scrub, (int, float)) and last_scrub > 0
         else None
     )
-    size = pool.get("size")
-    used = pool.get("used")
+    # USABLE space (from `zfs list`) is what the tile meter uses — on raidz it
+    # already excludes parity. Fall back to raw pool figures only if the cron's
+    # JSON predates the `usable` block (additive schema, old files lack it).
+    usable = pool.get("usable")
+    raw_used = _num(pool.get("used"))
+    raw_size = _num(pool.get("size"))
+    if isinstance(usable, dict):
+        used = _num(usable.get("used"))
+        size = _num(usable.get("total"))
+    else:
+        used = raw_used
+        size = raw_size
     return models.StoragePool(
         name=str(pool.get("name") or name),
         state=str(pool.get("state") or "UNKNOWN"),
-        used=float(used) if isinstance(used, (int, float)) else None,
-        size=float(size) if isinstance(size, (int, float)) else None,
+        used=used,
+        size=size,
+        rawUsed=raw_used,
+        rawSize=raw_size,
         scrubAgo=scrub_ago,
         errors=_pool_errors(pool),
     )

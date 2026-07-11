@@ -17,6 +17,10 @@ OAUTH2_PROXY_REDIRECT_URL=https://dashboard.alpenglow.acbc.house/oauth2/callback
 OAUTH2_PROXY_EMAIL_DOMAINS=*
 # Restrict to the admin group (must match the backend ADMIN_GROUP).
 OAUTH2_PROXY_ALLOWED_GROUPS=/Admin
+# Explicit scope: the realm has no "groups" client scope — the groups CLAIM
+# comes from the client's dedicated mapper. Without this, oauth2-proxy asks
+# for scope "groups" and Keycloak rejects with invalid_scope.
+OAUTH2_PROXY_SCOPE=openid email profile
 OAUTH2_PROXY_OIDC_GROUPS_CLAIM=groups
 
 OAUTH2_PROXY_UPSTREAMS=http://dashboard:8080

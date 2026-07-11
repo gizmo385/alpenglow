@@ -187,56 +187,127 @@ def test_sidebar_meta_shape(monkeypatch, tmp_path):
     assert meta.branch
 
 
-# ── tags JSON round-trip ──────────────────────────────────────────────────────
+# ── settings store round-trip (tags + category) ───────────────────────────────
 
 
 @pytest.fixture()
-def tags_file(monkeypatch, tmp_path):
-    path = tmp_path / "tags.json"
-    monkeypatch.setenv("TAGS_PATH", str(path))
+def settings_file(monkeypatch, tmp_path):
+    path = tmp_path / "settings.json"
+    monkeypatch.setenv("SETTINGS_PATH", str(path))
+    monkeypatch.delenv("TAGS_PATH", raising=False)
     return path
 
 
-async def test_tags_round_trip_persists(tags_file):
+async def test_tags_round_trip_persists(settings_file):
     stored = await tags_store.set_tags("glances", ["Critical", "GPU"])
     assert stored == ["Critical", "GPU"]
-    assert json.loads(tags_file.read_text()) == {"glances": ["Critical", "GPU"]}
+    assert json.loads(settings_file.read_text()) == {
+        "glances": {"tags": ["Critical", "GPU"], "category": None}
+    }
     # a fresh read (simulating a restart) sees the persisted tags
     assert await tags_store.get_tags("glances") == ["Critical", "GPU"]
     assert (await tags_store.all_tags())["glances"] == ["Critical", "GPU"]
 
 
-async def test_tags_dedupe_and_strip(tags_file):
+async def test_tags_dedupe_and_strip(settings_file):
     stored = await tags_store.set_tags("x", ["A", "A", "  ", " B "])
     assert stored == ["A", "B"]
 
 
-async def test_empty_tags_removes_entry(tags_file):
+async def test_empty_tags_removes_entry(settings_file):
     await tags_store.set_tags("x", ["A"])
     await tags_store.set_tags("x", [])
     assert await tags_store.get_tags("x") == []
     assert "x" not in await tags_store.all_tags()
 
 
-async def test_tags_seed_empty_when_missing(tags_file):
+async def test_settings_seed_empty_when_missing(settings_file):
+    assert await tags_store.all_settings() == {}
     assert await tags_store.all_tags() == {}
 
 
-async def test_tags_flow_into_inventory(fixture_env, monkeypatch, tmp_path):
-    path = tmp_path / "tags.json"
-    monkeypatch.setenv("TAGS_PATH", str(path))
+async def test_category_round_trip(settings_file):
+    assert await tags_store.set_category("glances", "Networking") == "Networking"
+    assert await tags_store.get_category("glances") == "Networking"
+    assert json.loads(settings_file.read_text()) == {
+        "glances": {"tags": [], "category": "Networking"}
+    }
+    # clearing removes the override (and the now-empty entry)
+    assert await tags_store.set_category("glances", None) is None
+    assert await tags_store.get_category("glances") is None
+    assert await tags_store.all_settings() == {}
+
+
+async def test_update_settings_partial(settings_file):
+    """tags-only update leaves category untouched; category-only leaves tags."""
+    await tags_store.update_settings("x", tags=["A"])
+    await tags_store.update_settings("x", category="Media", set_category_field=True)
+    entry = (await tags_store.all_settings())["x"]
+    assert entry == {"tags": ["A"], "category": "Media"}
+    # tags-only update (category omitted) keeps the category
+    await tags_store.update_settings("x", tags=["A", "B"])
+    entry = (await tags_store.all_settings())["x"]
+    assert entry == {"tags": ["A", "B"], "category": "Media"}
+
+
+async def test_legacy_tags_json_migrates(monkeypatch, tmp_path):
+    """A pre-F1 flat tags.json is read losslessly when settings.json is absent."""
+    legacy = tmp_path / "tags.json"
+    legacy.write_text(json.dumps({"immich": ["GPU", "User data"], "redis": ["Stateful"]}))
+    monkeypatch.setenv("TAGS_PATH", str(legacy))
+    monkeypatch.delenv("SETTINGS_PATH", raising=False)
+
+    settings = await tags_store.all_settings()
+    assert settings["immich"] == {"tags": ["GPU", "User data"], "category": None}
+    assert settings["redis"] == {"tags": ["Stateful"], "category": None}
+    assert await tags_store.all_tags() == {
+        "immich": ["GPU", "User data"],
+        "redis": ["Stateful"],
+    }
+
+    # the migration is committed to settings.json on the next mutation; the legacy
+    # file is left untouched.
+    await tags_store.set_category("immich", "Media")
+    written = json.loads((tmp_path / "settings.json").read_text())
+    assert written["immich"] == {"tags": ["GPU", "User data"], "category": "Media"}
+    assert written["redis"] == {"tags": ["Stateful"], "category": None}
+    assert json.loads(legacy.read_text()) == {
+        "immich": ["GPU", "User data"],
+        "redis": ["Stateful"],
+    }
+
+
+async def test_tags_flow_into_inventory(fixture_env, settings_file):
     await tags_store.set_tags("apexlit", ["Fixture"])
     detail = await inventory.build_service("apexlit")
     assert detail is not None
     assert detail.tags == ["Fixture"]
 
 
-# ── PUT /tags endpoint against the real JSON store (non-mock) ──────────────────
+async def test_category_override_flows_into_inventory(fixture_env, settings_file):
+    # apexlit's metadata default category is used until an override is set.
+    base = await inventory.build_service("apexlit")
+    assert base is not None
+    await tags_store.set_category("apexlit", "Custom Cat")
+    detail = await inventory.build_service("apexlit")
+    assert detail is not None
+    assert detail.category == "Custom Cat"
 
 
-def test_put_tags_endpoint_persists(monkeypatch, tmp_path):
+def test_resolve_category_precedence():
+    """override → metadata default → 'Infrastructure'."""
+    assert inventory.resolve_category({"category": "Media"}, "Home") == "Home"
+    assert inventory.resolve_category({"category": "Media"}, None) == "Media"
+    assert inventory.resolve_category({}, None) == "Infrastructure"
+    assert inventory.resolve_category({"category": "  "}, "  ") == "Infrastructure"
+
+
+# ── PUT /settings endpoint against the real JSON store (non-mock) ──────────────
+
+
+def test_put_settings_endpoint_persists(monkeypatch, tmp_path):
     """Exercise the PUT route in non-mock mode: it validates the service exists
-    (via compose.yaml) and persists to the JSON store."""
+    (via compose.yaml) and persists tags + category to the settings store."""
     from fastapi.testclient import TestClient
 
     from alpenglow_dashboard.main import create_app
@@ -246,23 +317,38 @@ def test_put_tags_endpoint_persists(monkeypatch, tmp_path):
     monkeypatch.setenv("COOKIE_SECURE", "0")
     monkeypatch.setenv("SERVICES_ROOT", str(FIXTURE_SERVICES))
     monkeypatch.setenv("METADATA_PATH", str(FIXTURES / "metadata.yaml"))
-    monkeypatch.setenv("TAGS_PATH", str(tmp_path / "tags.json"))
+    monkeypatch.setenv("SETTINGS_PATH", str(tmp_path / "settings.json"))
+    monkeypatch.delenv("TAGS_PATH", raising=False)
 
     client = TestClient(create_app())
     token = client.get("/api/csrf").json()["token"]
 
     resp = client.put(
-        "/api/services/apexlit/tags",
-        json={"tags": ["Home", "Home", " Media "]},
+        "/api/services/apexlit/settings",
+        json={"tags": ["Home", "Home", " Media "], "category": "Networking"},
         headers={"X-CSRF-Token": token},
     )
     assert resp.status_code == 200
+    body = resp.json()
+    assert body["tags"] == ["Home", "Media"]
+    assert body["category"] == "Networking"
+    assert json.loads((tmp_path / "settings.json").read_text()) == {
+        "apexlit": {"tags": ["Home", "Media"], "category": "Networking"}
+    }
+
+    # partial update: tags omitted, clear the category → category null, tags kept
+    resp = client.put(
+        "/api/services/apexlit/settings",
+        json={"category": None},
+        headers={"X-CSRF-Token": token},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["category"] is None
     assert resp.json()["tags"] == ["Home", "Media"]
-    assert json.loads((tmp_path / "tags.json").read_text()) == {"apexlit": ["Home", "Media"]}
 
     # unknown service → 404
     resp = client.put(
-        "/api/services/does_not_exist/tags",
+        "/api/services/does_not_exist/settings",
         json={"tags": ["x"]},
         headers={"X-CSRF-Token": token},
     )

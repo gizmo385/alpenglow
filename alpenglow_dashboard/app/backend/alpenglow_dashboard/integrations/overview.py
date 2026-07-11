@@ -68,8 +68,18 @@ async def get_overview() -> models.Overview:
     services, updates, monitors, backups, host, storage = await asyncio.gather(
         _service_counts(),
         _updates_count(),
-        _safe(kuma.monitors(), models.OverviewMonitors(up=None, total=None, note=None)),
-        _safe(kuma.backups(), models.OverviewBackups(pgAgo=None, kopiaAgo=None, ok=None)),
+        _safe(
+            kuma.monitors(),
+            models.OverviewMonitors(
+                up=None, total=None, note=None, monitors=[], url=None
+            ),
+        ),
+        _safe(
+            kuma.backups(),
+            models.OverviewBackups(
+                pgAgo=None, kopiaAgo=None, pgAt=None, kopiaAt=None, ok=None
+            ),
+        ),
         _safe(
             glances.host_stats(),
             models.OverviewHost(

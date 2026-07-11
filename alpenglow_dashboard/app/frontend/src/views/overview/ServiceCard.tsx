@@ -12,7 +12,7 @@ import type { ServiceSummary } from "../../api/types";
 import { Card, StatusDot } from "../../components";
 import { Icon } from "../../lib/icons";
 import { formatUptime } from "../../lib/format";
-import { SSO_META, STATUS_LABEL, TIER_META } from "./meta";
+import { SSO_TAG_META, STATUS_LABEL, TIER_META } from "./meta";
 import "./overview.css";
 
 function priorityClass(s: ServiceSummary): string {
@@ -26,9 +26,13 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
   const s = service;
 
   const busy = s.status === "restarting" || s.status === "updating";
-  const sso = SSO_META[s.sso.state];
   const tier = TIER_META[s.tier];
   const hasUpdate = Boolean(s.latestVersion);
+
+  // SSO tags render as accent chips (key / shield-star) alongside the tier chip;
+  // all other tags render as plain outlined chips in the tag row.
+  const ssoTags = s.tags.filter((t) => t in SSO_TAG_META);
+  const plainTags = s.tags.filter((t) => !(t in SSO_TAG_META));
 
   const openService = (e: MouseEvent) => {
     e.stopPropagation();
@@ -70,25 +74,22 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
 
       {/* SSO + tier chips */}
       <div className="ov-card-chips">
-        <span
-          className={`tag ${
-            sso.kind === "accent" ? "tag-accent" : sso.kind === "neutral" ? "tag-neutral" : ""
-          } ov-sso-chip${sso.kind === "none" ? " sso-none" : ""}`}
-          title={sso.title}
-        >
-          <Icon name={sso.icon} size={10} weight={sso.weight ?? "regular"} />
-          {sso.label}
-        </span>
+        {ssoTags.map((t) => (
+          <span key={t} className="tag tag-accent ov-sso-chip" title={t}>
+            <Icon name={SSO_TAG_META[t].icon} size={10} weight="fill" />
+            {t}
+          </span>
+        ))}
         <span className="tag tag-neutral ov-tier-chip">
           <Icon name={tier.icon} size={10} />
           {tier.label}
         </span>
       </div>
 
-      {/* tag chips */}
-      {s.tags.length > 0 && (
+      {/* tag chips (non-SSO tags) */}
+      {plainTags.length > 0 && (
         <div className="ov-card-tags">
-          {s.tags.map((t) => (
+          {plainTags.map((t) => (
             <span key={t} className="ov-card-tag">
               {t}
             </span>

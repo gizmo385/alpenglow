@@ -55,7 +55,8 @@ def test_action_and_misc_models():
     models.Health(status="ok", version="0.1.0")
     models.Me(user="x@y", groups=["admin"], isAdmin=True)
     models.Csrf(token="tok")
-    models.TagsPayload(tags=["Critical"])
+    models.SettingsRequest(tags=["Critical"], category="Media")
+    models.SettingsPayload(tags=["Critical"], category="Media")
     models.ActionRequest(action="restart", confirm=True)
     assert mock.mock_action("glances", "restart").accepted
 
@@ -127,15 +128,27 @@ def test_updates_routes(client):
     assert models.Updates.model_validate(resp.json()).refreshing
 
 
-def test_tags_route(client):
+def test_settings_route(client):
     token = client.get("/api/csrf").json()["token"]
+    # tags de-dup + strip via the settings endpoint
     resp = client.put(
-        "/api/services/glances/tags",
+        "/api/services/glances/settings",
         json={"tags": ["Critical", "Critical", "  "]},
         headers={"X-CSRF-Token": token},
     )
     assert resp.status_code == 200
-    assert models.TagsPayload.model_validate(resp.json()).tags == ["Critical"]
+    assert models.SettingsPayload.model_validate(resp.json()).tags == ["Critical"]
+
+    # category override round-trips in mock mode
+    resp = client.put(
+        "/api/services/glances/settings",
+        json={"category": "Networking"},
+        headers={"X-CSRF-Token": token},
+    )
+    assert resp.status_code == 200
+    body = models.SettingsPayload.model_validate(resp.json())
+    assert body.category == "Networking"
+    assert client.get("/api/services/glances").json()["category"] == "Networking"
 
 
 def test_action_route_and_guardrail(client):

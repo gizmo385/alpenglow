@@ -3,7 +3,6 @@
 
 export type Status = "up" | "down" | "restarting" | "updating";
 export type Tier = "public" | "tailnet" | "internal" | "management";
-export type SSOState = "keycloak" | "oidc" | "self" | "native" | "none";
 export type ActionName = "restart" | "stop" | "start" | "pull";
 
 // GET /api/health
@@ -35,15 +34,24 @@ export interface OverviewUpdates {
   count: number;
 }
 
+export interface MonitorRef {
+  name: string;
+  status: string; // up | down | pending | maintenance | unknown
+}
+
 export interface OverviewMonitors {
   up: number | null;
   total: number | null;
   note: string | null;
+  monitors: MonitorRef[];
+  url: string | null;
 }
 
 export interface OverviewBackups {
   pgAgo: string | null;
   kopiaAgo: string | null;
+  pgAt: string | null;
+  kopiaAt: string | null;
   ok: boolean | null;
 }
 
@@ -61,8 +69,10 @@ export interface OverviewHost {
 export interface StoragePool {
   name: string;
   state: string;
-  used: number | null;
-  size: number | null;
+  used: number | null; // usable used (parity excluded)
+  size: number | null; // usable total (parity excluded)
+  rawUsed: number | null; // raw zpool alloc (incl. parity)
+  rawSize: number | null; // raw zpool size (incl. parity)
   scrubAgo: string | null;
   errors: number | null;
 }
@@ -101,11 +111,6 @@ export interface ContainerRef {
   status: string;
 }
 
-export interface SSOInfo {
-  state: SSOState;
-  source: string;
-}
-
 export interface ServiceSummary {
   id: string;
   name: string;
@@ -122,7 +127,6 @@ export interface ServiceSummary {
   url: string | null;
   tier: Tier;
   containers: ContainerRef[];
-  sso: SSOInfo;
   tags: string[];
   restartPolicy: string;
   ports: string;
@@ -161,9 +165,17 @@ export interface Stats {
   current: StatsCurrent;
 }
 
-// PUT /api/services/{id}/tags
-export interface TagsPayload {
+// PUT /api/services/{id}/settings
+// Partial update: omit a field to leave it unchanged. `category: null` clears
+// the per-service override (falling back to the metadata default).
+export interface SettingsRequest {
+  tags?: string[];
+  category?: string | null;
+}
+
+export interface SettingsPayload {
   tags: string[];
+  category: string | null;
 }
 
 // POST /api/services/{id}/actions

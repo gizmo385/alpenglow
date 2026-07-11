@@ -45,3 +45,19 @@ export function formatBytes(bytes: number | null | undefined, digits = 1): strin
   const val = i === 0 ? String(Math.round(n)) : n.toFixed(digits);
   return `${val} ${units[i]}`;
 }
+
+/** Bytes → "10.9T" / "928G" / "512M", matching `zpool list`'s own base-1024
+ * single-letter convention. Used by the Storage & ZFS tile only, so its numbers
+ * line up with what `zpool list` reports (10.9T, not 11.99 TB). */
+export function formatBytesZfs(bytes: number | null | undefined, digits = 1): string {
+  if (bytes == null) return "—";
+  const units = ["B", "K", "M", "G", "T", "P"];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i += 1;
+  }
+  const val = i === 0 ? String(Math.round(n)) : n.toFixed(digits);
+  return `${val}${units[i]}`;
+}

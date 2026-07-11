@@ -32,8 +32,12 @@ def _ago(**kwargs) -> str:
 # ── fixture service table ─────────────────────────────────────────────────────
 # One entry per real /services/<dir> that has a compose.yaml.
 # Fields: name, cat, icon, desc, image, version, latest, releasedAgo (days),
-#         changelog, status, uptime (s), url, tier, containers, sso, tags,
+#         changelog, status, uptime (s), url, tier, containers, tags,
 #         restart, ports, memLimit
+#
+# SSO is no longer auto-detected (F1): it is expressed as user-maintained tags.
+# "Keycloak SSO" renders as the accent key chip; "Identity provider" as the
+# accent shield-star chip (mirrors the pre-F1 keycloak/self chip styles).
 
 _D = "unless-stopped"
 
@@ -46,7 +50,7 @@ MOCK_SERVICES: dict[str, dict] = {
         latest="v2.6.0", released=3, changelog="https://github.com/immich-app/immich/releases",
         status="up", uptime=1051200, url="https://photos.acbc.house", tier="public",
         containers=["immich_server", "immich_machine_learning", "immich_public_proxy"],
-        sso=("oidc", "OAUTH enabled in immich config"), tags=["GPU", "User data"],
+        tags=["GPU", "User data"],
         restart=_D, ports="2283", memLimit=None,
     ),
     "jellyfin": dict(
@@ -55,8 +59,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="jellyfin/jellyfin:10.11.11", version="10.11.11",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://jellyfin.acbc.house", tier="public",
-        containers=["jellyfin"], sso=("native", "app-managed login · no OIDC keys"),
-        tags=["GPU", "Family"], restart=_D, ports="8096", memLimit=None,
+        containers=["jellyfin"], tags=["GPU", "Family"], restart=_D, ports="8096", memLimit=None,
     ),
     "music_assistant": dict(
         name="Music Assistant", cat="Media", icon="ph-music-notes",
@@ -64,8 +67,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/music-assistant/server:latest", version="2.6.0",
         latest="2.7.1", released=6, changelog="https://github.com/music-assistant/server/releases",
         status="up", uptime=694800, url="https://music.acbc.house", tier="tailnet",
-        containers=["music-assistant-server"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="8095", memLimit=None,
+        containers=["music-assistant-server"], tags=[], restart=_D, ports="8095", memLimit=None,
     ),
     "immichframe": dict(
         name="ImmichFrame", cat="Media", icon="ph-monitor",
@@ -73,8 +75,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/immichframe/immichframe:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=694800, url="https://immichframe.internal.acbc.house", tier="internal",
-        containers=["immichframe"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="8080", memLimit=None,
+        containers=["immichframe"], tags=[], restart=_D, ports="8080", memLimit=None,
     ),
     # ── Productivity ──
     "nextcloud": dict(
@@ -83,8 +84,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="nextcloud:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://nextcloud.acbc.house", tier="tailnet",
-        containers=["nextcloud"], sso=("keycloak", "user_oidc app configured"),
-        tags=["User data", "Critical"], restart=_D, ports="80", memLimit="2 GB",
+        containers=["nextcloud"], tags=["Keycloak SSO", "User data", "Critical"], restart=_D, ports="80", memLimit="2 GB",
     ),
     "linkwarden": dict(
         name="Linkwarden", cat="Productivity", icon="ph-bookmark-simple",
@@ -92,8 +92,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/linkwarden/linkwarden:latest", version="v2.13.1",
         latest="v2.14.0", released=4, changelog="https://github.com/linkwarden/linkwarden/releases",
         status="up", uptime=1051200, url="https://linkwarden.acbc.house", tier="tailnet",
-        containers=["linkwarden"], sso=("keycloak", "KEYCLOAK_* keys in .env"),
-        tags=[], restart=_D, ports="3000", memLimit=None,
+        containers=["linkwarden"], tags=["Keycloak SSO"], restart=_D, ports="3000", memLimit=None,
     ),
     "tandoor": dict(
         name="Tandoor", cat="Productivity", icon="ph-cooking-pot",
@@ -101,8 +100,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="vabene1111/recipes:2.6.13", version="2.6.13",
         latest="2.7.0", released=2, changelog="https://github.com/TandoorRecipes/recipes/releases",
         status="up", uptime=1051200, url="https://recipes.acbc.house", tier="public",
-        containers=["tandoor"], sso=("keycloak", "SOCIAL_PROVIDERS keycloak in .env"),
-        tags=["Family"], restart=_D, ports="8080", memLimit=None,
+        containers=["tandoor"], tags=["Keycloak SSO", "Family"], restart=_D, ports="8080", memLimit=None,
     ),
     "twenty": dict(
         name="Twenty", cat="Productivity", icon="ph-address-book",
@@ -110,8 +108,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="twentycrm/twenty:latest", version="v1.8.1",
         latest="v1.9.0", released=2, changelog="https://github.com/twentyhq/twenty/releases",
         status="down", uptime=None, url="https://crm.acbc.house", tier="tailnet",
-        containers=["twenty-server-1", "twenty-worker-1"], sso=("none", "no OIDC keys found in .env"),
-        tags=["Beta"], restart=_D, ports="3000", memLimit="2 GB",
+        containers=["twenty-server-1", "twenty-worker-1"], tags=["Beta"], restart=_D, ports="3000", memLimit="2 GB",
     ),
     "freshrss": dict(
         name="FreshRSS", cat="Productivity", icon="ph-rss",
@@ -119,8 +116,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="freshrss/freshrss:latest", version="1.26.3",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://rss.acbc.house", tier="tailnet",
-        containers=["freshrss"], sso=("native", "app-managed login · no OIDC keys"),
-        tags=[], restart=_D, ports="80", memLimit=None,
+        containers=["freshrss"], tags=[], restart=_D, ports="80", memLimit=None,
     ),
     "youtube_rss_manager": dict(
         name="YouTube RSS", cat="Productivity", icon="ph-youtube-logo",
@@ -128,8 +124,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/gizmo385/youtube-rss-manager:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=464400, url="https://youtube-rss.acbc.house", tier="tailnet",
-        containers=["youtube_rss_manager"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="8080", memLimit=None,
+        containers=["youtube_rss_manager"], tags=[], restart=_D, ports="8080", memLimit=None,
     ),
     "trek": dict(
         name="Trek", cat="Productivity", icon="ph-airplane-takeoff",
@@ -137,8 +132,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="mauriceboe/trek:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=259200, url="https://travel.acbc.house", tier="tailnet",
-        containers=["trek"], sso=("none", "no OIDC keys found in .env"),
-        tags=["Family"], restart=_D, ports="3000", memLimit=None,
+        containers=["trek"], tags=["Family"], restart=_D, ports="3000", memLimit=None,
     ),
     "servo_bot": dict(
         name="Servo", cat="Productivity", icon="ph-robot",
@@ -146,8 +140,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/gizmo385/servo:master", version="master",
         latest=None, released=None, changelog=None,
         status="up", uptime=464400, url=None, tier="internal",
-        containers=["servo"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="—", memLimit=None,
+        containers=["servo"], tags=[], restart=_D, ports="—", memLimit=None,
     ),
     # ── Home ──
     "home_assistant": dict(
@@ -156,8 +149,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/home-assistant/home-assistant:stable", version="stable",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://home.acbc.house", tier="tailnet",
-        containers=["home_assistant"], sso=("oidc", "hass-oidc-auth plugin (vendored)"),
-        tags=["Host network"], restart=_D, ports="8123", memLimit=None,
+        containers=["home_assistant"], tags=["Host network"], restart=_D, ports="8123", memLimit=None,
     ),
     "motioneye": dict(
         name="motionEye", cat="Home", icon="ph-video-camera",
@@ -165,8 +157,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/motioneye-project/motioneye:latest", version="0.44.0",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://cameras.acbc.house", tier="tailnet",
-        containers=["motioneye"], sso=("native", "app-managed login · no OIDC keys"),
-        tags=[], restart=_D, ports="8765", memLimit=None,
+        containers=["motioneye"], tags=[], restart=_D, ports="8765", memLimit=None,
     ),
     "mosquitto": dict(
         name="Mosquitto", cat="Home", icon="ph-broadcast",
@@ -174,8 +165,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="eclipse-mosquitto:2", version="2",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url=None, tier="internal",
-        containers=["mosquitto"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="1883", memLimit=None,
+        containers=["mosquitto"], tags=[], restart=_D, ports="1883", memLimit=None,
     ),
     "amniotic": dict(
         name="Amniotic", cat="Home", icon="ph-speaker-high",
@@ -183,8 +173,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="fmtr/amniotic:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=694800, url=None, tier="internal",
-        containers=["amniotic"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="8007", memLimit=None,
+        containers=["amniotic"], tags=[], restart=_D, ports="8007", memLimit=None,
     ),
     # ── Infrastructure ──
     "caddy": dict(
@@ -193,8 +182,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="alpenglow/caddy (local build)", version="local",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url=None, tier="internal",
-        containers=["caddy", "caddy-edge"], sso=("none", "no OIDC keys found in .env"),
-        tags=["Critical"], restart=_D, ports="80/443/10443", memLimit=None,
+        containers=["caddy", "caddy-edge"], tags=["Critical"], restart=_D, ports="80/443/10443", memLimit=None,
     ),
     "postgres": dict(
         name="PostgreSQL", cat="Infrastructure", icon="ph-database",
@@ -202,8 +190,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="alpenglow/postgres-pgvector (local build)", version="local",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url=None, tier="internal",
-        containers=["postgres-postgres-1"], sso=("none", "no OIDC keys found in .env"),
-        tags=["Critical", "Stateful"], restart="always", ports="5432", memLimit="4 GB",
+        containers=["postgres-postgres-1"], tags=["Critical", "Stateful"], restart="always", ports="5432", memLimit="4 GB",
     ),
     "redis": dict(
         name="Redis", cat="Infrastructure", icon="ph-lightning",
@@ -211,8 +198,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="redis:alpine", version="alpine",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url=None, tier="internal",
-        containers=["redis-redis-1"], sso=("none", "no OIDC keys found in .env"),
-        tags=["Stateful"], restart="always", ports="6379", memLimit="512 MB",
+        containers=["redis-redis-1"], tags=["Stateful"], restart="always", ports="6379", memLimit="512 MB",
     ),
     "keycloak": dict(
         name="Keycloak", cat="Infrastructure", icon="ph-key",
@@ -220,8 +206,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="quay.io/keycloak/keycloak:26.6.4", version="26.6.4",
         latest="26.7.0", released=3, changelog="https://github.com/keycloak/keycloak/releases",
         status="up", uptime=1051200, url="https://sso.acbc.house", tier="public",
-        containers=["keycloak-keycloak-1"], sso=("self", "realm: acbc.house"),
-        tags=["Critical"], restart="always", ports="8080", memLimit=None,
+        containers=["keycloak-keycloak-1"], tags=["Identity provider", "Critical"], restart="always", ports="8080", memLimit=None,
     ),
     "pihole": dict(
         name="Pi-hole", cat="Infrastructure", icon="ph-funnel",
@@ -229,8 +214,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="pihole/pihole:2026.05.0", version="2026.05.0",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://pihole.alpenglow.acbc.house", tier="management",
-        containers=["pihole", "dnscrypt-proxy"], sso=("native", "app-managed login · no OIDC keys"),
-        tags=["Critical"], restart=_D, ports="53/80", memLimit=None,
+        containers=["pihole", "dnscrypt-proxy"], tags=["Critical"], restart=_D, ports="53/80", memLimit=None,
     ),
     "ollama": dict(
         name="Ollama", cat="Infrastructure", icon="ph-brain",
@@ -238,8 +222,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ollama/ollama:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=694800, url=None, tier="internal",
-        containers=["ollama"], sso=("none", "no OIDC keys found in .env"),
-        tags=["GPU", "Experimental"], restart=_D, ports="11434", memLimit=None,
+        containers=["ollama"], tags=["GPU", "Experimental"], restart=_D, ports="11434", memLimit=None,
     ),
     "ddclient": dict(
         name="ddclient", cat="Infrastructure", icon="ph-globe-hemisphere-west",
@@ -247,8 +230,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="lscr.io/linuxserver/ddclient:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url=None, tier="internal",
-        containers=["ddclient"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="—", memLimit=None,
+        containers=["ddclient"], tags=[], restart=_D, ports="—", memLimit=None,
     ),
     "copyparty": dict(
         name="Copyparty", cat="Infrastructure", icon="ph-folder-open",
@@ -257,8 +239,7 @@ MOCK_SERVICES: dict[str, dict] = {
         latest=None, released=None, changelog=None,
         status="up", uptime=694800, url="https://files.alpenglow.acbc.house", tier="management",
         containers=["copyparty", "copyparty-oauth2-proxy"],
-        sso=("keycloak", "oauth2-proxy sidecar in compose.yaml"),
-        tags=[], restart=_D, ports="3923", memLimit=None,
+        tags=["Keycloak SSO"], restart=_D, ports="3923", memLimit=None,
     ),
     "attic": dict(
         name="Attic", cat="Infrastructure", icon="ph-package",
@@ -266,8 +247,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/zhaofengli/attic:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=464400, url="https://attic.alpenglow.acbc.house", tier="management",
-        containers=["attic"], sso=("none", "no OIDC keys found in .env"),
-        tags=["Experimental"], restart=_D, ports="8080", memLimit=None,
+        containers=["attic"], tags=["Experimental"], restart=_D, ports="8080", memLimit=None,
     ),
     "homepage": dict(
         name="Homepage", cat="Infrastructure", icon="ph-squares-four",
@@ -275,8 +255,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/gethomepage/homepage:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=259200, url="https://acbc.house", tier="tailnet",
-        containers=["homepage"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="3000", memLimit=None,
+        containers=["homepage"], tags=[], restart=_D, ports="3000", memLimit=None,
     ),
     "alpenglow_dashboard": dict(
         name="Alpenglow Dashboard", cat="Infrastructure", icon="ph-mountains",
@@ -285,8 +264,7 @@ MOCK_SERVICES: dict[str, dict] = {
         latest=None, released=None, changelog=None,
         status="up", uptime=3600, url="https://dashboard.alpenglow.acbc.house", tier="management",
         containers=["alpenglow_dashboard", "alpenglow-dashboard-oauth2-proxy"],
-        sso=("keycloak", "oauth2-proxy sidecar in compose.yaml"),
-        tags=[], restart=_D, ports="8080", memLimit=None,
+        tags=["Keycloak SSO"], restart=_D, ports="8080", memLimit=None,
     ),
     # ── Monitoring ──
     "beszel": dict(
@@ -295,8 +273,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="henrygd/beszel:latest", version="0.17.4",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://dash.alpenglow.acbc.house", tier="management",
-        containers=["beszel", "beszel-agent"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="8090", memLimit=None,
+        containers=["beszel", "beszel-agent"], tags=[], restart=_D, ports="8090", memLimit=None,
     ),
     "glances": dict(
         name="Glances", cat="Monitoring", icon="ph-chart-line",
@@ -304,8 +281,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="nicolargo/glances:latest", version="4.4.1",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://glances.alpenglow.acbc.house", tier="management",
-        containers=["glances"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="61208", memLimit=None,
+        containers=["glances"], tags=[], restart=_D, ports="61208", memLimit=None,
     ),
     "uptime_kuma": dict(
         name="Uptime Kuma", cat="Monitoring", icon="ph-heartbeat",
@@ -313,8 +289,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="louislam/uptime-kuma:2", version="2",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://uptime.alpenglow.acbc.house", tier="management",
-        containers=["uptime_kuma"], sso=("native", "app-managed login · no OIDC keys"),
-        tags=[], restart=_D, ports="3001", memLimit=None,
+        containers=["uptime_kuma"], tags=[], restart=_D, ports="3001", memLimit=None,
     ),
     "updates-tracker": dict(
         name="Updates Tracker", cat="Monitoring", icon="ph-arrows-clockwise",
@@ -323,7 +298,6 @@ MOCK_SERVICES: dict[str, dict] = {
         latest=None, released=None, changelog=None,
         status="up", uptime=464400, url="https://updates.alpenglow.acbc.house", tier="management",
         containers=["updates-tracker-release-feeds-1", "updates-tracker-bot-1"],
-        sso=("none", "no OIDC keys found in .env"),
         tags=[], restart=_D, ports="8585", memLimit=None,
     ),
     "kopia": dict(
@@ -332,8 +306,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="kopia/kopia:latest", version="0.21.1",
         latest=None, released=None, changelog=None,
         status="up", uptime=1051200, url="https://kopia.alpenglow.acbc.house", tier="management",
-        containers=["kopia"], sso=("native", "app-managed login · no OIDC keys"),
-        tags=["Critical"], restart=_D, ports="51515", memLimit=None,
+        containers=["kopia"], tags=["Critical"], restart=_D, ports="51515", memLimit=None,
     ),
     "cup": dict(
         name="Cup", cat="Monitoring", icon="ph-coffee",
@@ -341,8 +314,7 @@ MOCK_SERVICES: dict[str, dict] = {
         image="ghcr.io/sergi0g/cup:latest", version="latest",
         latest=None, released=None, changelog=None,
         status="up", uptime=259200, url="https://cup.alpenglow.acbc.house", tier="management",
-        containers=["cup"], sso=("none", "no OIDC keys found in .env"),
-        tags=[], restart=_D, ports="8000", memLimit=None,
+        containers=["cup"], tags=[], restart=_D, ports="8000", memLimit=None,
     ),
 }
 
@@ -355,7 +327,7 @@ def _summary(sid: str, s: dict) -> models.ServiceSummary:
     return models.ServiceSummary(
         id=sid,
         name=s["name"],
-        category=s["cat"],
+        category=s.get("category_override") or s["cat"],
         icon=s["icon"],
         description=s["desc"],
         image=s["image"],
@@ -371,7 +343,6 @@ def _summary(sid: str, s: dict) -> models.ServiceSummary:
             models.ContainerRef(name=c, status="running" if s["status"] != "down" else "exited")
             for c in s["containers"]
         ],
-        sso=models.SSOInfo(state=s["sso"][0], source=s["sso"][1]),
         tags=list(s["tags"]),
         restartPolicy=s["restart"],
         ports=s["ports"],
@@ -433,8 +404,21 @@ def mock_overview() -> models.Overview:
     return models.Overview(
         services=models.OverviewServices(up=up, down=down, total=len(services)),
         updates=models.OverviewUpdates(count=updates),
-        monitors=models.OverviewMonitors(up=23, total=24, note="1 in maintenance"),
-        backups=models.OverviewBackups(pgAgo=_ago(hours=3), kopiaAgo=_ago(hours=6), ok=True),
+        monitors=models.OverviewMonitors(
+            up=23, total=24, note="1 in maintenance",
+            monitors=[
+                models.MonitorRef(name="Immich", status="down"),
+                models.MonitorRef(name="Jellyfin", status="up"),
+                models.MonitorRef(name="Postgres", status="up"),
+                models.MonitorRef(name="dpool health", status="up"),
+            ],
+            url="https://uptime.alpenglow.acbc.house",
+        ),
+        backups=models.OverviewBackups(
+            pgAgo=_ago(hours=3), kopiaAgo=_ago(hours=6),
+            pgAt="2026-07-11 02:00 MDT", kopiaAt="2026-07-11 05:10 MDT",
+            ok=True,
+        ),
         host=models.OverviewHost(
             load1=0.62, load5=0.55, load15=0.48, cpuPct=18.0,
             memUsed=41.2 * 2**30, memTotal=64 * 2**30,
@@ -443,9 +427,12 @@ def mock_overview() -> models.Overview:
         storage=models.OverviewStorage(
             pools=[
                 models.StoragePool(name="rpool", state="ONLINE", used=89 * 2**30,
-                                   size=240 * 2**30, scrubAgo=_ago(days=4), errors=0),
-                models.StoragePool(name="dpool", state="ONLINE", used=8.4 * 2**40,
-                                   size=16 * 2**40, scrubAgo=_ago(days=4), errors=0),
+                                   size=240 * 2**30, rawUsed=89 * 2**30,
+                                   rawSize=240 * 2**30, scrubAgo=_ago(days=4), errors=0),
+                models.StoragePool(name="dpool", state="ONLINE",
+                                   used=1.9 * 2**40, size=7.1 * 2**40,
+                                   rawUsed=2.9 * 2**40, rawSize=10.9 * 2**40,
+                                   scrubAgo=_ago(days=4), errors=0),
             ],
             fs=[
                 models.StorageFs(label="/data (dpool)", used=8.4 * 2**40, size=16 * 2**40, pct=52.0),

@@ -13,17 +13,16 @@ import {
   ClockIcon,
   CubeIcon,
   GlobeIcon,
-  KeyIcon,
   LinkIcon,
   MemoryIcon,
   PlugsIcon,
-  ShieldStarIcon,
   TagIcon,
 } from "@phosphor-icons/react";
 
-import type { ServiceDetail, SSOState, Tier } from "../../api/types";
+import type { ServiceDetail, Tier } from "../../api/types";
 import { Card } from "../../components";
 import { formatUptime } from "../../lib/format";
+import { CategoryEditor } from "./CategoryEditor";
 import { TagEditor } from "./TagEditor";
 import css from "./detail.module.css";
 
@@ -45,14 +44,6 @@ const TIER_META: Record<Tier, { label: string; icon: ReactNode }> = {
   tailnet: { label: "Tailnet", icon: <GlobeIcon size={13} /> },
   internal: { label: "Internal (LAN)", icon: <GlobeIcon size={13} /> },
   management: { label: "Management", icon: <GlobeIcon size={13} /> },
-};
-
-const SSO_LABEL: Record<SSOState, string> = {
-  keycloak: "Keycloak",
-  oidc: "OIDC",
-  self: "Identity provider",
-  native: "Native auth",
-  none: "No SSO",
 };
 
 type FactProps = {
@@ -88,7 +79,6 @@ export function OverviewTab({ svc, onTagsChanged }: OverviewTabProps) {
   const tier = TIER_META[svc.tier];
   const hasUpdate = Boolean(svc.latestVersion);
   const version = hasUpdate ? `${svc.currentVersion}  →  ${svc.latestVersion}` : svc.currentVersion;
-  const ssoIcon = svc.sso.state === "self" ? <ShieldStarIcon size={13} /> : <KeyIcon size={13} />;
 
   return (
     <>
@@ -120,12 +110,6 @@ export function OverviewTab({ svc, onTagsChanged }: OverviewTabProps) {
         />
         <Fact label="Access tier" icon={tier.icon} value={tier.label} />
         <Fact
-          label="Single sign-on"
-          icon={ssoIcon}
-          value={SSO_LABEL[svc.sso.state]}
-          sub={svc.sso.source || undefined}
-        />
-        <Fact
           label="Restart policy"
           icon={<ArrowClockwiseIcon size={13} />}
           value={svc.restartPolicy}
@@ -147,6 +131,7 @@ export function OverviewTab({ svc, onTagsChanged }: OverviewTabProps) {
 
       {svc.description && <div className={css.desc}>{svc.description}</div>}
 
+      <CategoryEditor serviceId={svc.id} category={svc.category} onChanged={onTagsChanged} />
       <TagEditor serviceId={svc.id} tags={svc.tags} onChanged={onTagsChanged} />
     </>
   );

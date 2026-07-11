@@ -182,29 +182,61 @@ def test_parse_metrics_counts():
 
 
 @pytest.mark.asyncio
-async def test_kuma_monitors_and_backups(monkeypatch):
+async def test_kuma_monitors_and_backups(monkeypatch, tmp_path):
     monkeypatch.setenv("UPTIME_KUMA_API_KEY", "test-key")
+    monkeypatch.setenv("KUMA_PUBLIC_URL", "https://uptime.example")
     monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_kuma_handler_ok))
     mon = await kuma.monitors()
     # 6 real monitors: RSS, Recipes, Nextcloud(down), Root Pool(down), DB Backup, Verify
     assert mon.total == 6
     assert mon.up == 4  # RSS, Recipes, DB Backup, Backup Verification
+    # per-monitor drill-down present, down monitors sorted first, url exposed
+    assert mon.url == "https://uptime.example"
+    assert len(mon.monitors) == 6
+    down = [m.name for m in mon.monitors if m.status == "down"]
+    assert set(down) == {"Nextcloud", "Root Pool Health"}
+    assert mon.monitors[0].status == "down"  # down sorted first
+
+    # Backups: `ok` from Kuma push monitors, freshness from the filesystem
+    pg_dir = tmp_path / "pg"
+    pg_dir.mkdir()
+    (pg_dir / "2026-07-11-daily.sql").write_text("dump")
+    kopia_log = tmp_path / "backup_run.log"
+    kopia_log.write_text("log")
+    monkeypatch.setenv("PG_BACKUP_DIR", str(pg_dir))
+    monkeypatch.setenv("KOPIA_LOG_PATH", str(kopia_log))
     kuma._CACHE.invalidate()
     bk = await kuma.backups()
-    # Database Backup + Backup Verification both up → ok; no freshness ages
+    # Database Backup + Backup Verification both up → ok
     assert bk.ok is True
+    # real freshness strings + absolute tooltips from file mtimes
+    assert bk.pgAgo and bk.pgAgo.endswith("ago")
+    assert bk.kopiaAgo and bk.kopiaAgo.endswith("ago")
+    assert bk.pgAt and bk.kopiaAt
+
+
+@pytest.mark.asyncio
+async def test_kuma_backups_missing_sources_are_truthful(monkeypatch, tmp_path):
+    """No key → ok None; missing backup files → ages None (renders '—')."""
+    monkeypatch.setenv("UPTIME_KUMA_API_KEY", "")
+    monkeypatch.setenv("PG_BACKUP_DIR", str(tmp_path / "absent"))
+    monkeypatch.setenv("KOPIA_LOG_PATH", str(tmp_path / "absent.log"))
+    bk = await kuma.backups()
+    assert bk.ok is None
     assert bk.pgAgo is None and bk.kopiaAgo is None
+    assert bk.pgAt is None and bk.kopiaAt is None
 
 
 @pytest.mark.asyncio
 async def test_kuma_no_key_degrades(monkeypatch):
     monkeypatch.setenv("UPTIME_KUMA_API_KEY", "")
+    monkeypatch.setenv("KUMA_PUBLIC_URL", "https://uptime.example")
     mon = await kuma.monitors()
     assert mon.up is None and mon.total is None
     assert mon.note and "API_KEY" in mon.note.upper() or "key" in (mon.note or "")
-    kuma._CACHE.invalidate()
-    bk = await kuma.backups()
-    assert bk.ok is None and bk.pgAgo is None
+    # url still surfaced even when Kuma can't be read
+    assert mon.url == "https://uptime.example"
+    assert mon.monitors == []
 
 
 @pytest.mark.asyncio
@@ -227,11 +259,17 @@ def _write_zfs(tmp_path: Path, generated_at: float) -> Path:
         "generated_at": generated_at,
         "pools": {
             "rpool": {"name": "rpool", "state": "ONLINE", "size": 996432412672,
-                      "used": 756497440768, "last_scrub": time.time() - 4 * 86400,
+                      "used": 756497440768,
+                      "usable": {"used": 758852247552, "available": 206710087680,
+                                 "total": 965562335232},
+                      "last_scrub": time.time() - 4 * 86400,
                       "scrub_errors": 0, "read_errors": 0, "write_errors": 0,
                       "checksum_errors": 0},
             "dpool": {"name": "dpool", "state": "ONLINE", "size": 11991548690432,
-                      "used": 11157858795520, "last_scrub": time.time() - 4 * 86400,
+                      "used": 2860445474816,
+                      "usable": {"used": 1904991775104, "available": 5944128067200,
+                                 "total": 7849119842304},
+                      "last_scrub": time.time() - 4 * 86400,
                       "scrub_errors": 0, "read_errors": 1, "write_errors": 0,
                       "checksum_errors": 2},
         },
@@ -249,8 +287,30 @@ async def test_zfs_fresh(monkeypatch, tmp_path):
     assert {x.name for x in pools} == {"rpool", "dpool"}
     dpool = next(x for x in pools if x.name == "dpool")
     assert dpool.errors == 3  # 1 read + 0 write + 2 checksum
-    assert dpool.size == 11991548690432
+    # `used`/`size` carry the USABLE figures (parity excluded); raw kept alongside
+    assert dpool.used == 1904991775104
+    assert dpool.size == 7849119842304
+    assert dpool.rawUsed == 2860445474816
+    assert dpool.rawSize == 11991548690432
     assert dpool.scrubAgo and dpool.scrubAgo.endswith("ago")
+
+
+@pytest.mark.asyncio
+async def test_zfs_falls_back_when_usable_absent(monkeypatch, tmp_path):
+    """Older JSON without a `usable` block degrades to raw figures."""
+    doc = {
+        "generated_at": time.time(),
+        "pools": {
+            "dpool": {"name": "dpool", "state": "ONLINE", "size": 11991548690432,
+                      "used": 2860445474816, "last_scrub": 0},
+        },
+    }
+    p = tmp_path / "zfs_status.json"
+    p.write_text(json.dumps(doc))
+    monkeypatch.setenv("ZFS_STATUS_PATH", str(p))
+    (dpool,) = await zfs.pools()
+    assert dpool.used == 2860445474816 and dpool.size == 11991548690432
+    assert dpool.rawUsed == 2860445474816 and dpool.rawSize == 11991548690432
 
 
 @pytest.mark.asyncio

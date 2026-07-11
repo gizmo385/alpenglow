@@ -34,6 +34,11 @@ services:
       - /services:/services:ro
       # tags.json / audit.jsonl; zfs_status.json lands here via host cron (D3).
       - ./data:/data-store
+      # Postgres dump dir (postgres/run_backups.sh writes here) — it lives
+      # OUTSIDE /services, so it needs its own bind mount. Read-only; the
+      # Backups tile only reads the newest *-daily.sql mtime for freshness.
+      # (Kopia's log is already reachable under the /services:ro mount above.)
+      - /data/postgres_backups:/pg-backups:ro
     expose:
       - "8080"
     networks:

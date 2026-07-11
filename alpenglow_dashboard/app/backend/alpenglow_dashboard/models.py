@@ -16,7 +16,6 @@ from pydantic import BaseModel
 
 Status = Literal["up", "down", "restarting", "updating"]
 Tier = Literal["public", "tailnet", "internal", "management"]
-SSOState = Literal["keycloak", "oidc", "self", "native", "none"]
 ActionName = Literal["restart", "stop", "start", "pull"]
 
 
@@ -57,15 +56,29 @@ class OverviewUpdates(BaseModel):
     count: int
 
 
+class MonitorRef(BaseModel):
+    name: str
+    status: str  # up | down | pending | maintenance | unknown
+
+
 class OverviewMonitors(BaseModel):
     up: Optional[int]
     total: Optional[int]
     note: Optional[str]
+    # Per-monitor drill-down: every real monitor with its status, plus the
+    # public Kuma UI URL for the tile's external-link affordance. Empty list +
+    # None url when Kuma can't be read (the tile degrades gracefully).
+    monitors: list[MonitorRef] = []
+    url: Optional[str] = None
 
 
 class OverviewBackups(BaseModel):
     pgAgo: Optional[str]
     kopiaAgo: Optional[str]
+    # Absolute local timestamps ("2026-07-11 02:00 MDT") for the tile tooltips;
+    # None when the corresponding source file is missing.
+    pgAt: Optional[str] = None
+    kopiaAt: Optional[str] = None
     ok: Optional[bool]
 
 
@@ -83,8 +96,14 @@ class OverviewHost(BaseModel):
 class StoragePool(BaseModel):
     name: str
     state: str
+    # USABLE space (from `zfs list`) — what the operator actually cares about.
+    # The bar meter uses these; on a raidz pool they already exclude parity.
     used: Optional[float]
     size: Optional[float]
+    # RAW pool space (from `zpool list`) — allocated/total *including* parity,
+    # surfaced as secondary context ("raw 2.95T / 10.9T incl. parity").
+    rawUsed: Optional[float] = None
+    rawSize: Optional[float] = None
     scrubAgo: Optional[str]
     errors: Optional[int]
 
@@ -125,11 +144,6 @@ class ContainerRef(BaseModel):
     status: str
 
 
-class SSOInfo(BaseModel):
-    state: SSOState
-    source: str
-
-
 class ServiceSummary(BaseModel):
     id: str
     name: str
@@ -146,7 +160,6 @@ class ServiceSummary(BaseModel):
     url: Optional[str]
     tier: Tier
     containers: list[ContainerRef]
-    sso: SSOInfo
     tags: list[str]
     restartPolicy: str
     ports: str
@@ -188,11 +201,28 @@ class Stats(BaseModel):
     current: StatsCurrent
 
 
-# ── PUT /api/services/{id}/tags ───────────────────────────────────────────────
+# ── PUT /api/services/{id}/settings ───────────────────────────────────────────
 
 
-class TagsPayload(BaseModel):
+class SettingsRequest(BaseModel):
+    """Partial update of a service's persisted settings. Either field may be
+    omitted; ``tags`` replaces the tag list, ``category`` sets/clears the
+    per-service category override (``None`` = fall back to the metadata default).
+    ``category`` is a three-state field: absent = leave unchanged, ``null`` =
+    clear the override, a string = set it.
+    """
+
+    tags: Optional[list[str]] = None
+    category: Optional[str] = None
+    # distinguishes "category omitted" from "category: null" on the wire.
+    model_config = {"extra": "forbid"}
+
+
+class SettingsPayload(BaseModel):
+    """The stored per-service settings echoed back after a PUT."""
+
     tags: list[str]
+    category: Optional[str]
 
 
 # ── POST /api/services/{id}/actions ───────────────────────────────────────────

@@ -43,6 +43,12 @@ export type UiState = {
   tag: string | null;
   /** Toggle: passing the already-active tag clears the filter. */
   setTag: (t: string | null) => void;
+
+  /** Active running/stopped status filter, or null. Composes (AND) with the
+   *  query/category/tag filters. Driven by the Services stat-tile legend. */
+  status: "up" | "down" | null;
+  /** Toggle: passing the already-active status clears the filter. */
+  setStatus: (s: "up" | "down" | null) => void;
 };
 
 const UiContext = createContext<UiState | null>(null);
@@ -51,6 +57,7 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   const [category, setCategoryRaw] = useState<string | null>(null);
   const [tag, setTagRaw] = useState<string | null>(null);
+  const [status, setStatusRaw] = useState<"up" | "down" | null>(null);
 
   const value = useMemo<UiState>(
     () => ({
@@ -60,8 +67,10 @@ export function UiStateProvider({ children }: { children: ReactNode }) {
       setCategory: (c) => setCategoryRaw((prev) => (prev === c ? null : c)),
       tag,
       setTag: (t) => setTagRaw((prev) => (prev === t ? null : t)),
+      status,
+      setStatus: (s) => setStatusRaw((prev) => (prev === s ? null : s)),
     }),
-    [query, category, tag],
+    [query, category, tag, status],
   );
 
   return <UiContext.Provider value={value}>{children}</UiContext.Provider>;

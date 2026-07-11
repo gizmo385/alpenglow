@@ -24,13 +24,18 @@
 #         "name": "<poolname>",
 #         "state": "ONLINE" | "DEGRADED" | "FAULTED" | "OFFLINE" | "UNAVAIL" | "REMOVED" | "UNKNOWN",
 #         "healthy": true|false,            # true only when state == ONLINE
-#         "size": <int bytes>,              # total pool size    (null if unknown)
-#         "used": <int bytes>,              # allocated bytes    (null if unknown)
-#         "free": <int bytes>,              # free bytes         (null if unknown)
-#         "capacity_pct": <int 0-100>,      # % capacity used    (null if unknown)
+#         "size": <int bytes>,              # RAW total pool size, incl. parity  (from `zpool list`; null if unknown)
+#         "used": <int bytes>,              # RAW allocated bytes, incl. parity  (from `zpool list`; null if unknown)
+#         "free": <int bytes>,              # RAW free bytes                     (from `zpool list`; null if unknown)
+#         "capacity_pct": <int 0-100>,      # % raw capacity used (from `zpool list`; null if unknown)
 #         "fragmentation_pct": <int>|null,  # % fragmentation
-#         "used_human": "<e.g. 10.1T>",     # human-readable used (from `zpool list`)
-#         "size_human": "<e.g. 10.9T>",     # human-readable size (from `zpool list`)
+#         "used_human": "<e.g. 2.95T>",     # human-readable raw alloc (from `zpool list`)
+#         "size_human": "<e.g. 10.9T>",     # human-readable raw size  (from `zpool list`)
+#         "usable": {                       # USABLE space (from `zfs list`; parity already excluded).
+#           "used": <int bytes>|null,       #   bytes used by data     (`zfs list -o used`)
+#           "available": <int bytes>|null,  #   bytes available        (`zfs list -o available`)
+#           "total": <int bytes>|null       #   used + available       (usable capacity)
+#         },
 #         "last_scrub": <int epoch>|null,   # completion time of the last scrub
 #         "last_scrub_iso": "<ISO-8601>"|null,
 #         "scrub_repaired": "<e.g. 0B>"|null,
@@ -159,13 +164,30 @@ function pool_json() {
 	local healthy="false"
 	[ "$state" == "ONLINE" ] && healthy="true"
 
-	# Machine-parsable sizes: name size alloc free ckpoint expandsz frag cap dedup health altroot
+	# Machine-parsable RAW sizes (incl. parity) from `zpool list`. Request the
+	# columns explicitly by name so we never depend on the default column order
+	# (which has shifted across zfs versions and is what previously mis-parsed
+	# the allocated figure). `used` here == zpool's ALLOC.
 	local size used free frag cap
-	read -r _ size used free _ _ frag cap _ _ _ <<<"$(zpool list -Hp "$pool" 2>/dev/null)"
+	read -r size used free frag cap \
+		<<<"$(zpool list -Hp -o size,alloc,free,frag,cap "$pool" 2>/dev/null)"
 
-	# Human-readable used/size from the default `zpool list`.
+	# Human-readable raw alloc/size, likewise by explicit column name.
 	local used_human size_human
-	read -r _ size_human used_human _ <<<"$(zpool list -H "$pool" 2>/dev/null)"
+	read -r size_human used_human \
+		<<<"$(zpool list -H -o size,alloc "$pool" 2>/dev/null)"
+
+	# USABLE space (parity excluded) from `zfs list` on the pool root dataset.
+	# This is what the dashboard tile's meter uses; on raidz the raw ALLOC above
+	# double-counts parity, so these are the numbers the operator cares about.
+	local usable_used usable_avail usable_total
+	read -r usable_used usable_avail \
+		<<<"$(zfs list -Hp -d 0 -o used,available "$pool" 2>/dev/null)"
+	if [[ "$usable_used" =~ ^[0-9]+$ ]] && [[ "$usable_avail" =~ ^[0-9]+$ ]]; then
+		usable_total=$((usable_used + usable_avail))
+	else
+		usable_total=""
+	fi
 
 	# Top-level vdev error counts: the line whose first field equals the pool name.
 	local read_err write_err cksum_err
@@ -204,6 +226,11 @@ function pool_json() {
 	printf '      "fragmentation_pct": %s,\n' "$(json_num "$frag")"
 	printf '      "used_human": %s,\n' "$(json_str "$used_human")"
 	printf '      "size_human": %s,\n' "$(json_str "$size_human")"
+	printf '      "usable": {\n'
+	printf '        "used": %s,\n' "$(json_num "$usable_used")"
+	printf '        "available": %s,\n' "$(json_num "$usable_avail")"
+	printf '        "total": %s\n' "$(json_num "$usable_total")"
+	printf '      },\n'
 	printf '      "last_scrub": %s,\n' "$(json_num "$last_scrub")"
 	printf '      "last_scrub_iso": %s,\n' "$(json_str "$last_scrub_iso")"
 	printf '      "scrub_repaired": %s,\n' "$(json_str "$scrub_repaired")"

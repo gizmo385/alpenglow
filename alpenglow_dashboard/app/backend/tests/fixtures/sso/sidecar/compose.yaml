@@ -1,9 +1,0 @@
-# synthetic fixture: an oauth2-proxy sidecar fronting an app with NO oidc keys
-services:
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:latest
-    container_name: sidecar-oauth2-proxy
-    restart: unless-stopped
-  app:
-    image: example/app:latest
-    restart: unless-stopped

@@ -1,55 +1,25 @@
-/* SSO-chip, tier-chip and status presentation maps (handoff §SSO model + the
- * prototype's ssoView/tierView/statusView). Kept local to the Overview view
- * per the C2 file-ownership rule; each entry mirrors the prototype's
- * label/icon/title/style exactly. */
+/* SSO-tag, tier-chip and status presentation maps (the prototype's
+ * ssoView/tierView/statusView). Kept local to the Overview view per the C2
+ * file-ownership rule.
+ *
+ * F1: SSO status is no longer auto-detected — it lives in the tag system. The
+ * accent chip visual language survives, driven by two special tag values:
+ * "Keycloak SSO" (accent key chip) and "Identity provider" (accent shield-star
+ * chip). SSO_TAG_META maps those tag strings to their chip glyph; every other
+ * tag renders as a plain outlined chip. */
 
-import type { SSOState, Status, Tier } from "../../api/types";
+import type { Status, Tier } from "../../api/types";
 
-export type SsoMeta = {
-  label: string;
-  title: string;
-  icon: string;
-  /** "accent" | "neutral" | "none" — maps to a chip variant/style. */
-  kind: "accent" | "neutral" | "none";
-  /** Phosphor weight for the glyph (fill for key/shield-star). */
-  weight?: "regular" | "fill";
-};
+/** The two special SSO tags and their accent-chip glyphs (fill weight). */
+export const KEYCLOAK_SSO_TAG = "Keycloak SSO";
+export const IDENTITY_PROVIDER_TAG = "Identity provider";
 
-/** SSO chip presentation, one entry per handoff state. */
-export const SSO_META: Record<SSOState, SsoMeta> = {
-  keycloak: {
-    label: "Keycloak",
-    title: "SSO via Keycloak",
-    icon: "key",
-    kind: "accent",
-    weight: "fill",
-  },
-  oidc: {
-    label: "OIDC",
-    title: "OIDC login via Keycloak",
-    icon: "key",
-    kind: "accent",
-    weight: "fill",
-  },
-  self: {
-    label: "Identity provider",
-    title: "This is the SSO provider",
-    icon: "shield-star",
-    kind: "accent",
-    weight: "fill",
-  },
-  native: {
-    label: "Native auth",
-    title: "Own login, no SSO",
-    icon: "user",
-    kind: "neutral",
-  },
-  none: {
-    label: "No SSO",
-    title: "Not linked to Keycloak",
-    icon: "warning",
-    kind: "none",
-  },
+export type SsoTagMeta = { icon: string };
+
+/** Tags that render as the accent SSO chip instead of a plain outlined chip. */
+export const SSO_TAG_META: Record<string, SsoTagMeta> = {
+  [KEYCLOAK_SSO_TAG]: { icon: "key" },
+  [IDENTITY_PROVIDER_TAG]: { icon: "shield-star" },
 };
 
 export type TierMeta = { label: string; icon: string };
@@ -89,3 +59,20 @@ export const CATEGORY_ICON: Record<string, string> = {
   Infrastructure: "stack",
   Monitoring: "pulse",
 };
+
+/** Fallback glyph for user-created categories not in CATEGORY_ICON. */
+export const CATEGORY_ICON_FALLBACK = "stack";
+
+/** The glyph for a category: known icon, else the fallback (ph-stack). */
+export function categoryIcon(cat: string): string {
+  return CATEGORY_ICON[cat] ?? CATEGORY_ICON_FALLBACK;
+}
+
+/** Categories in display order: the five known ones first (fixed order), then
+ *  any user-created categories present in the data, alphabetically. */
+export function orderCategories(present: Iterable<string>): string[] {
+  const set = new Set(present);
+  const known = CATEGORY_ORDER.filter((c) => set.has(c));
+  const extras = [...set].filter((c) => !CATEGORY_ORDER.includes(c)).sort();
+  return [...known, ...extras];
+}

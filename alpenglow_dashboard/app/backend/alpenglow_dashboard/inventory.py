@@ -14,11 +14,14 @@ The ``/services`` path and docker socket location both come from env
 (``SERVICES_ROOT`` / ``DOCKER_HOST``) with the documented defaults so tests can
 point at fixtures instead of the live repo.
 
+Category resolution (F1): the effective category is the per-service settings
+override (settings.json via :mod:`tags`) → the ``metadata.yaml`` default →
+``"Infrastructure"``. SSO status is no longer auto-detected (F1) — it is a
+user-maintained tag, so there is no ``sso`` field on the contract.
+
 Seams for sibling packages (do not implement here):
 - ``apply_busy_overlay`` — B2 replaces this to overlay ``restarting``/``updating``
   from its in-flight action registry onto the docker-derived status.
-- ``sso_for`` — B5 replaces this with real detection; the default returns the
-  metadata-seeded ``none`` state.
 - ``latestVersion`` / ``releasedAt`` / ``changelogUrl`` stay ``None`` here; B4
   fills them from the updates tracker by image ref.
 """
@@ -516,11 +519,15 @@ def apply_busy_overlay(service_id: str, status: models.Status) -> models.Status:
     return busy_status(service_id) or status
 
 
-async def sso_for(service_id: str, repo: "RepoService") -> models.SSOInfo:
-    """Delegate to :func:`sso.detect` — B5 owns that module."""
-    from .sso import detect  # function-level: avoids import cycle
-
-    return await detect(service_id, repo)
+def resolve_category(meta: dict, override: Optional[str]) -> str:
+    """Effective category: settings override → metadata.yaml default →
+    ``"Infrastructure"``."""
+    if isinstance(override, str) and override.strip():
+        return override.strip()
+    default = meta.get("category")
+    if isinstance(default, str) and default.strip():
+        return default.strip()
+    return _CATEGORY_DEFAULT
 
 
 # ── summary/detail assembly ───────────────────────────────────────────────────
@@ -585,6 +592,7 @@ async def _build_summary(
     meta: dict,
     containers: list[DockerContainer],
     svc_tags: list[str],
+    category_override: Optional[str] = None,
 ) -> models.ServiceDetail:
     primary_name, primary = _select_primary(sid, repo, meta, containers)
 
@@ -610,8 +618,6 @@ async def _build_summary(
     if status != "up":
         uptime = None
 
-    sso = await sso_for(sid, repo)
-
     from .integrations.updates import service_enrichment  # avoids import cycle
 
     enrich = (await service_enrichment()).get(sid) or {}
@@ -621,7 +627,7 @@ async def _build_summary(
     return models.ServiceDetail(
         id=sid,
         name=name,
-        category=meta.get("category", _CATEGORY_DEFAULT),
+        category=resolve_category(meta, category_override),
         icon=meta.get("icon", _ICON_DEFAULT),
         description=meta.get("description", ""),
         image=image,
@@ -634,7 +640,6 @@ async def _build_summary(
         url=repo.url,
         tier=repo.tier,
         containers=refs,
-        sso=sso,
         tags=list(svc_tags),
         restartPolicy=repo.restart_policy,
         ports=repo.ports,
@@ -650,15 +655,19 @@ async def build_inventory() -> list[models.ServiceDetail]:
     repos = scan_repo()
     meta_all = load_metadata()
     docker_all = await docker_inventory()
-    tags_all = await tags_store.all_tags()
+    settings_all = await tags_store.all_settings()
 
     # index docker containers by project, falling back to dir-name match
     out: list[models.ServiceDetail] = []
     for sid, repo in repos.items():
         containers = docker_all.get(sid, [])
         meta = meta_all.get(sid, {})
-        svc_tags = tags_all.get(sid, [])
-        out.append(await _build_summary(sid, repo, meta, containers, svc_tags))
+        settings = settings_all.get(sid, {"tags": [], "category": None})
+        out.append(
+            await _build_summary(
+                sid, repo, meta, containers, settings["tags"], settings["category"]
+            )
+        )
     return out
 
 
@@ -669,8 +678,12 @@ async def build_service(service_id: str) -> Optional[models.ServiceDetail]:
         return None
     meta = load_metadata().get(service_id, {})
     containers = (await docker_inventory()).get(service_id, [])
-    svc_tags = (await tags_store.all_tags()).get(service_id, [])
-    return await _build_summary(service_id, repo, meta, containers, svc_tags)
+    settings = (await tags_store.all_settings()).get(
+        service_id, {"tags": [], "category": None}
+    )
+    return await _build_summary(
+        service_id, repo, meta, containers, settings["tags"], settings["category"]
+    )
 
 
 # ── sidebar meta (host + branch) ──────────────────────────────────────────────

@@ -2,22 +2,15 @@
    filter list + host/branch footer. Category rows toggle the shared UI
    category filter (see store/ui.tsx). */
 
+import { useMemo } from "react";
 import { ArrowsClockwiseIcon, MountainsIcon, SquaresFourIcon } from "@phosphor-icons/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import type { OverviewMeta, ServiceSummary } from "../api/types";
 import { Icon } from "../lib/icons";
 import { useUiState } from "../store/ui";
+import { categoryIcon, orderCategories } from "./overview/meta";
 import styles from "./Sidebar.module.css";
-
-/** Categories in display order, each with its Phosphor glyph (handoff §Sidebar). */
-const CATEGORIES: { name: string; icon: string }[] = [
-  { name: "Media", icon: "play-circle" },
-  { name: "Productivity", icon: "briefcase" },
-  { name: "Home", icon: "house-line" },
-  { name: "Infrastructure", icon: "stack" },
-  { name: "Monitoring", icon: "pulse" },
-];
 
 type SidebarProps = {
   services: ServiceSummary[];
@@ -32,6 +25,18 @@ export function Sidebar({ services, meta }: SidebarProps) {
   const updateCount = services.filter((s) => s.latestVersion).length;
   const countFor = (cat: string) => services.filter((s) => s.category === cat).length;
   const onOverview = location.pathname === "/";
+
+  // Category list is fully dynamic from live data: the five known categories
+  // first (fixed order + icons), then any user-created categories alphabetically
+  // with the fallback glyph. Only categories actually present are shown.
+  const categories = useMemo(
+    () =>
+      orderCategories(services.map((s) => s.category)).map((name) => ({
+        name,
+        icon: categoryIcon(name),
+      })),
+    [services],
+  );
 
   return (
     <aside className={styles.sidebar}>
@@ -67,7 +72,7 @@ export function Sidebar({ services, meta }: SidebarProps) {
       <div className={styles.catBlock}>
         <div className={styles.catHeading}>Categories</div>
         <div className={styles.catList}>
-          {CATEGORIES.map((c) => {
+          {categories.map((c) => {
             const active = onOverview && category === c.name;
             return (
               <button
