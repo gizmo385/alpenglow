@@ -1,0 +1,169 @@
+/* Nocturne design tokens — from the design handoff README §Design Tokens.
+   The single theme layer: plain, token-driven CSS. No framework overrides. */
+
+:root {
+  /* ── color: ground ── */
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+
+  /* ── color: accent ramp ── */
+  --color-accent: #9184d9;
+  --color-accent-100: #f5f4ff;
+  --color-accent-200: #e7e5fe;
+  --color-accent-300: #d2cefd;
+  --color-accent-400: #b5abfc;
+  --color-accent-500: #968ae0;
+  --color-accent-600: #796cbf;
+  --color-accent-700: #5d5294;
+  --color-accent-800: #423a6a;
+  --color-accent-900: #2b2741;
+
+  /* ── color: neutral ramp ── */
+  --color-neutral-100: #f3f5fe;
+  --color-neutral-200: #e4e7f5;
+  --color-neutral-300: #cfd3e5;
+  --color-neutral-400: #b2b6ca;
+  --color-neutral-500: #9397ab;
+  --color-neutral-600: #75798c;
+  --color-neutral-700: #595d6c;
+  --color-neutral-800: #3f424d;
+  --color-neutral-900: #292b31;
+
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+
+  /* ── status colors (dashboard-specific, low-chroma) ── */
+  --color-ok: #6bd39a;
+  --color-down: #e08a8a;
+  --color-busy: var(--color-accent); /* restarting / updating */
+  --color-log-bg: #12131f;
+  --color-sidebar-top: #1a1c2c;
+
+  /* ── typography ── */
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-heading: "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --text-h1: 42px;
+  --text-h2: 32px;
+  --text-h3: 25px;
+  --text-h4: 20px;
+  --text-h5: 16px;
+  --text-h6: 13px; /* uppercase, tracking .08em */
+  --text-body: 15px;
+  --leading-body: 1.55;
+  --tracking-heading: -0.015em;
+  --tracking-caps: 0.08em;
+
+  /* ── spacing (0.7× scale) ── */
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-5: 16.8px;
+  --space-6: 22.4px;
+  --space-7: 33.6px;
+  --space-8: 44.8px;
+
+  /* ── radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  /* ── shadows: elevation = edge + ambient darkness ── */
+  --shadow-sm: 0 0 0 1px #3f424d;
+  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0, 0, 0, 0.65);
+}
+
+/* ── base ── */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-heading);
+  font-weight: 500; /* never bold past 500 */
+  letter-spacing: var(--tracking-heading);
+  margin: 0;
+}
+
+h1 { font-size: var(--text-h1); }
+h2 { font-size: var(--text-h2); }
+h3 { font-size: var(--text-h3); }
+h4 { font-size: var(--text-h4); }
+h5 { font-size: var(--text-h5); }
+
+h6 {
+  font-size: var(--text-h6);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  margin: 0;
+}
+
+a {
+  color: var(--color-accent);
+}
+a:hover {
+  color: var(--color-accent-300);
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Focus ring: never the browser default. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── animations ── */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes softPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

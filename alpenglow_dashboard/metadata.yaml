@@ -1,0 +1,190 @@
+# Per-service metadata overrides, merged into the docker/repo inventory (B1).
+# One entry per service directory in /services. Keys:
+#   category:          Media | Productivity | Home | Infrastructure | Monitoring
+#   icon:              Phosphor icon name (ph-… regular weight)
+#   description:       one-liner shown on cards and the detail view
+#   primary_container: which container supplies image/version/uptime for
+#                      multi-container services (default: container whose
+#                      service name matches the dir, else first)
+#   sso_client:        Keycloak client-id override for B5 SSO matching
+
+services:
+  alpenglow_dashboard:
+    category: Infrastructure
+    icon: ph-mountains
+    description: This dashboard — at-a-glance health, updates and actions for every Alpenglow service.
+    primary_container: alpenglow_dashboard
+
+  amniotic:
+    category: Home
+    icon: ph-speaker-high
+    description: Multi-channel ambient sound machine controlled through Home Assistant over MQTT.
+
+  attic:
+    category: Infrastructure
+    icon: ph-package
+    description: Self-hosted Nix binary cache server.
+
+  beszel:
+    category: Monitoring
+    icon: ph-gauge
+    description: Lightweight host & container resource monitoring with historical charts.
+    primary_container: beszel
+
+  caddy:
+    category: Infrastructure
+    icon: ph-shield-check
+    description: Reverse proxy and TLS termination. Reads routing from container labels (caddy-docker-proxy).
+    primary_container: caddy
+
+  copyparty:
+    category: Infrastructure
+    icon: ph-folder-open
+    description: Fast file server and drop-box for quick transfers, behind oauth2-proxy.
+    primary_container: copyparty
+
+  cup:
+    category: Monitoring
+    icon: ph-coffee
+    description: Lightweight checker for newer tags of running container images.
+
+  ddclient:
+    category: Infrastructure
+    icon: ph-globe-hemisphere-west
+    description: Keeps the dynamic DNS record pointed at the current WAN IP.
+
+  freshrss:
+    category: Productivity
+    icon: ph-rss
+    description: RSS aggregator serving feeds to the household readers.
+
+  glances:
+    category: Monitoring
+    icon: ph-chart-line
+    description: Real-time system overview across CPU, disk, network and sensors.
+
+  home_assistant:
+    category: Home
+    icon: ph-house-line
+    description: Home automation hub. Vendored hass-oidc-auth plugin provides Keycloak login.
+
+  homepage:
+    category: Infrastructure
+    icon: ph-squares-four
+    description: Current apex dashboard at acbc.house. Slated for retirement once this dashboard ships.
+
+  immich:
+    category: Media
+    icon: ph-images
+    description: Self-hosted photo & video backup. OIDC login wired to Keycloak; ML jobs run on the shared GPU.
+    primary_container: immich_server
+
+  immichframe:
+    category: Media
+    icon: ph-monitor
+    description: Digital photo-frame client pulling from Immich. Local network only.
+
+  jellyfin:
+    category: Media
+    icon: ph-film-slate
+    description: Media server with hardware transcoding via /dev/dri. Exposed publicly on :10443.
+
+  keycloak:
+    category: Infrastructure
+    icon: ph-key
+    description: The SSO identity provider itself — realm acbc.house backs every OIDC integration.
+
+  kopia:
+    category: Monitoring
+    icon: ph-archive
+    description: File-level encrypted backups with a nightly verification pass.
+
+  linkwarden:
+    category: Productivity
+    icon: ph-bookmark-simple
+    description: Bookmark & link archive. Uses Keycloak for authentication.
+
+  mosquitto:
+    category: Home
+    icon: ph-broadcast
+    description: MQTT broker bridging Zigbee/Z-Wave devices to Home Assistant. No web UI.
+
+  motioneye:
+    category: Home
+    icon: ph-video-camera
+    description: NVR frontend for the property cameras.
+
+  music_assistant:
+    category: Media
+    icon: ph-music-notes
+    description: Music library and streaming bridge for Home Assistant.
+
+  nextcloud:
+    category: Productivity
+    icon: ph-cloud
+    description: Files, calendar and contacts. Keycloak SSO via the user_oidc app.
+
+  ollama:
+    category: Infrastructure
+    icon: ph-brain
+    description: Local LLM runtime on the GPU. Powers the updates-tracker digest summaries.
+
+  pihole:
+    category: Infrastructure
+    icon: ph-funnel
+    description: Network-wide DNS and ad-blocking, with dnscrypt-proxy upstream. Split-horizon DNS for acbc.house.
+    primary_container: pihole
+
+  postgres:
+    category: Infrastructure
+    icon: ph-database
+    description: Shared Postgres with pgvector. Backed up nightly via pg_dumpall.
+
+  redis:
+    category: Infrastructure
+    icon: ph-lightning
+    description: Cache and job queue shared across services.
+
+  servo_bot:
+    category: Productivity
+    icon: ph-robot
+    description: Discord bot (gizmo385/servo). No web ingress — talks outbound to Discord.
+
+  tandoor:
+    category: Productivity
+    icon: ph-cooking-pot
+    description: Recipe manager and meal planner. Keycloak SSO enabled.
+
+  trek:
+    category: Productivity
+    icon: ph-airplane-takeoff
+    description: Trip and travel planner — replaced the intended AdventureLog deployment.
+
+  twenty:
+    category: Productivity
+    icon: ph-address-book
+    description: Open-source CRM.
+    primary_container: server
+
+  updates-tracker:
+    category: Monitoring
+    icon: ph-arrows-clockwise
+    description: Inspects running containers and checks GitHub for newer releases. Feeds this dashboard.
+    primary_container: release-feeds
+
+  uptime_kuma:
+    category: Monitoring
+    icon: ph-heartbeat
+    description: Uptime monitoring; receives webhook pings from backup and cron scripts.
+
+  youtube_rss_manager:
+    category: Productivity
+    icon: ph-youtube-logo
+    description: Turns YouTube subscriptions into clean RSS feeds for FreshRSS.
+
+  # No compose.yaml — host cron scripts only; kept here so the dir is
+  # documented. B1's inventory (which scans for compose.yaml) skips it.
+  zfs_status_checker:
+    category: Monitoring
+    icon: ph-hard-drives
+    description: Host cron pushing ZFS pool health (rpool/dpool) to Uptime Kuma and zfs_status.json.

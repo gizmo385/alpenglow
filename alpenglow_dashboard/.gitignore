@@ -1,0 +1,17 @@
+# secrets
+.env
+.proxy_env
+
+# runtime data store (tags.json, audit.jsonl, zfs_status.json)
+data/*
+!data/.gitkeep
+
+# frontend
+node_modules/
+dist/
+
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc

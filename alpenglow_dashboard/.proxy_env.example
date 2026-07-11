@@ -1,0 +1,27 @@
+# Copy to .proxy_env and fill in (work package D2 provisions the Keycloak
+# client). Committed example — no real secrets here.
+
+OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+OAUTH2_PROXY_REVERSE_PROXY=true
+
+OAUTH2_PROXY_PROVIDER=keycloak-oidc
+OAUTH2_PROXY_OIDC_ISSUER_URL=https://sso.acbc.house/realms/acbc.house
+OAUTH2_PROXY_CLIENT_ID=alpenglow-dashboard
+OAUTH2_PROXY_CLIENT_SECRET=
+# Generate: python3 -c 'import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'
+OAUTH2_PROXY_COOKIE_SECRET=
+OAUTH2_PROXY_COOKIE_SECURE=true
+
+# Staging URL; E3 cutover adds https://acbc.house/oauth2/callback.
+OAUTH2_PROXY_REDIRECT_URL=https://dashboard.alpenglow.acbc.house/oauth2/callback
+OAUTH2_PROXY_EMAIL_DOMAINS=*
+# Restrict to the admin group (must match the backend ADMIN_GROUP).
+OAUTH2_PROXY_ALLOWED_GROUPS=admin
+OAUTH2_PROXY_OIDC_GROUPS_CLAIM=groups
+
+OAUTH2_PROXY_UPSTREAMS=http://dashboard:8080
+# Forward the authenticated identity to the backend
+# (X-Forwarded-User / X-Forwarded-Groups).
+OAUTH2_PROXY_SET_XAUTHREQUEST=true
+OAUTH2_PROXY_PASS_USER_HEADERS=true
+OAUTH2_PROXY_PREFER_EMAIL_TO_USER=true

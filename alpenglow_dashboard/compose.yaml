@@ -1,0 +1,44 @@
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    container_name: alpenglow-dashboard-oauth2-proxy
+    restart: unless-stopped
+    env_file: .proxy_env
+    networks:
+      - caddy
+    labels:
+      # STAGING labels (phases A–E1). Cutover (E3) switches to the literal
+      # apex label `caddy: acbc.house` — the wildcard does NOT match the apex.
+      caddy: "*.alpenglow.acbc.house"
+      caddy.@dashboard.host: "dashboard.alpenglow.acbc.house"
+      caddy.reverse_proxy: "@dashboard {{upstreams 4180}}"
+    depends_on:
+      - dashboard
+
+  dashboard:
+    build: ./app
+    container_name: alpenglow_dashboard
+    restart: unless-stopped
+    environment:
+      TZ: America/Denver
+    env_file:
+      - path: .env
+        required: true
+    volumes:
+      # rw socket: reads *and* compose actions; oauth2-proxy admin auth is the
+      # trust boundary in front of this container.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same path as the host so `docker compose` run inside the container
+      # resolves bind-mount paths identically for the host daemon. Do not
+      # change this mount path.
+      - /services:/services:ro
+      # tags.json / audit.jsonl; zfs_status.json lands here via host cron (D3).
+      - ./data:/data-store
+    expose:
+      - "8080"
+    networks:
+      - caddy
+
+networks:
+  caddy:
+    external: true
