@@ -67,9 +67,12 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
         {s.image}
       </div>
 
-      {/* tier chip */}
+      {/* tier chip — computed from Caddy labels, not a user tag */}
       <div className="ov-card-chips">
-        <span className="tag tag-neutral ov-tier-chip">
+        <span
+          className="tag tag-neutral ov-tier-chip"
+          title={`Access tier: ${tier.label} — derived from this service's Caddy labels (not a tag)`}
+        >
           <Icon name={tier.icon} size={10} />
           {tier.label}
         </span>
