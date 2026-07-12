@@ -7,9 +7,11 @@ services:
       HOMEPAGE_ALLOWED_HOSTS: acbc.house
     volumes:
       - ./config:/app/config
-    labels:
-      caddy: acbc.house
-      caddy.reverse_proxy: "{{upstreams http 3000}}"
+    # Caddy labels removed (E3): the alpenglow dashboard now owns the apex
+    # acbc.house. Homepage keeps running unlabeled pending retirement; restore
+    # the labels to roll back:
+    #   caddy: acbc.house
+    #   caddy.reverse_proxy: "{{upstreams http 3000}}"
     networks:
       - caddy
 

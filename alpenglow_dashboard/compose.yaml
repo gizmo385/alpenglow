@@ -7,11 +7,11 @@ services:
     networks:
       - caddy
     labels:
-      # STAGING labels (phases A–E1). Cutover (E3) switches to the literal
-      # apex label `caddy: acbc.house` — the wildcard does NOT match the apex.
-      caddy: "*.alpenglow.acbc.house"
-      caddy.@dashboard.host: "dashboard.alpenglow.acbc.house"
-      caddy.reverse_proxy: "@dashboard {{upstreams 4180}}"
+      # Apex cutover (E3). The label must be the LITERAL apex — the
+      # *.acbc.house wildcard does not match it. Tailnet-only via the default
+      # Caddy listener; never add a :10443 label set to this service.
+      caddy: acbc.house
+      caddy.reverse_proxy: "{{upstreams 4180}}"
     depends_on:
       - dashboard
 
