@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "./client";
-import type { Overview, ServiceSummary, Updates } from "./types";
+import type { CategoryInfo, Overview, ServiceSummary, Updates } from "./types";
 
 type Poll<T> = {
   data: T | null;
@@ -93,4 +93,9 @@ export function useOverview(): Poll<Overview> {
 /** /api/updates, polled every 30s (paused while the tab is hidden). */
 export function useUpdates(): Poll<Updates> {
   return usePolling(api.updates, 30_000);
+}
+
+/** /api/categories, polled every 30s. Carries stored order/icons + live counts. */
+export function useCategories(): Poll<CategoryInfo[]> {
+  return usePolling(api.categories, 30_000);
 }

@@ -29,11 +29,6 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
   const tier = TIER_META[s.tier];
   const hasUpdate = Boolean(s.latestVersion);
 
-  // SSO tags render as accent chips (key / shield-star) alongside the tier chip;
-  // all other tags render as plain outlined chips in the tag row.
-  const ssoTags = s.tags.filter((t) => t in SSO_TAG_META);
-  const plainTags = s.tags.filter((t) => !(t in SSO_TAG_META));
-
   const openService = (e: MouseEvent) => {
     e.stopPropagation();
   };
@@ -72,28 +67,32 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
         {s.image}
       </div>
 
-      {/* SSO + tier chips */}
+      {/* tier chip */}
       <div className="ov-card-chips">
-        {ssoTags.map((t) => (
-          <span key={t} className="tag tag-accent ov-sso-chip" title={t}>
-            <Icon name={SSO_TAG_META[t].icon} size={10} weight="fill" />
-            {t}
-          </span>
-        ))}
         <span className="tag tag-neutral ov-tier-chip">
           <Icon name={tier.icon} size={10} />
           {tier.label}
         </span>
       </div>
 
-      {/* tag chips (non-SSO tags) */}
-      {plainTags.length > 0 && (
+      {/* tag chips — EVERY tag renders here (G1 phantom-tag fix). SSO-special
+          tags ("Keycloak SSO" / "Identity provider") keep their accent glyph
+          inline instead of being siphoned into a separate chip row, so a tag
+          the operator filters by is always visibly present on its cards. */}
+      {s.tags.length > 0 && (
         <div className="ov-card-tags">
-          {plainTags.map((t) => (
-            <span key={t} className="ov-card-tag">
-              {t}
-            </span>
-          ))}
+          {s.tags.map((t) =>
+            t in SSO_TAG_META ? (
+              <span key={t} className="tag tag-accent ov-sso-chip" title={t}>
+                <Icon name={SSO_TAG_META[t].icon} size={10} weight="fill" />
+                {t}
+              </span>
+            ) : (
+              <span key={t} className="ov-card-tag">
+                {t}
+              </span>
+            ),
+          )}
         </div>
       )}
 

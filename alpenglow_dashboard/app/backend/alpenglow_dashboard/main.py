@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import actions, auth, inventory, models, streams, tags
+from . import actions, auth, categories, inventory, models, streams, tags
 from .integrations import overview as overview_routes
 from .integrations import updates as updates_routes
 
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(inventory.router)
     app.include_router(tags.router)
+    app.include_router(categories.router)
     app.include_router(actions.router)
     app.include_router(streams.router)
     app.include_router(overview_routes.router)

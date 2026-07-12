@@ -92,12 +92,127 @@
   margin-top: 20px;
   padding: 0 6px;
 }
+.catHeadRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
 .catHeading {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-neutral-600);
-  margin-bottom: 8px;
+}
+.catEditBtn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-neutral-500);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.catEditBtn:hover {
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-300);
+}
+.catEditActive,
+.catEditActive:hover {
+  color: var(--color-accent-200);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+/* ── edit-mode rows ── */
+.catEditRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+.catEditMain {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.catIconBtn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--color-divider);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-neutral-400);
+}
+.catIconBtn:hover {
+  border-color: var(--color-neutral-700);
+}
+.catRenameInput.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 26px;
+  padding: 3px 7px;
+  font-size: 12px;
+}
+.catReorder {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+.catMoveBtn {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-neutral-500);
+  cursor: pointer;
+  padding: 0;
+}
+.catMoveBtn:hover:not(:disabled) {
+  color: var(--color-accent-200);
+}
+.catMoveBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.iconPicker {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  padding: 6px;
+  margin: 2px 0 2px 29px;
+  border: 1px solid var(--color-divider);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.iconChoice {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-neutral-400);
+  cursor: pointer;
+}
+.iconChoice:hover {
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-200);
+}
+.iconChoiceActive {
+  border-color: var(--color-accent);
+  color: var(--color-accent-200);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 .catList {
   display: flex;

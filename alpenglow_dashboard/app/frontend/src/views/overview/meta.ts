@@ -63,6 +63,27 @@ export const CATEGORY_ICON: Record<string, string> = {
 /** Fallback glyph for user-created categories not in CATEGORY_ICON. */
 export const CATEGORY_ICON_FALLBACK = "stack";
 
+/** Curated icon set for the category icon picker (G1). Includes the five known
+ *  category glyphs plus sensible extras; all resolve via lib/icons. */
+export const CATEGORY_ICON_CHOICES = [
+  "play-circle",
+  "briefcase",
+  "house-line",
+  "stack",
+  "pulse",
+  "images",
+  "cloud",
+  "database",
+  "shield-check",
+  "brain",
+  "gauge",
+  "heartbeat",
+  "folder-open",
+  "lightning",
+  "archive",
+  "globe",
+];
+
 /** The glyph for a category: known icon, else the fallback (ph-stack). */
 export function categoryIcon(cat: string): string {
   return CATEGORY_ICON[cat] ?? CATEGORY_ICON_FALLBACK;

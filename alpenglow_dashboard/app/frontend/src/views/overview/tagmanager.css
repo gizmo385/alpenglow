@@ -1,0 +1,128 @@
+/* Tag management modal (G1). Nocturne surface card + shadow-lg, toastIn entrance. */
+
+.tm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 8vh 16px 16px;
+  background: rgba(0, 0, 0, 0.5);
+  animation: toastIn 0.18s ease;
+}
+
+.tm-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 18px 18px 8px;
+  animation: toastIn 0.18s ease;
+}
+
+.tm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tm-title {
+  margin: 0;
+  font-size: 18px;
+}
+.tm-close {
+  padding: 5px;
+}
+.tm-sub {
+  margin: 6px 0 12px;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+
+.tm-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 10px;
+}
+.tm-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-neutral-500);
+  font-size: 13px;
+}
+
+.tm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+}
+.tm-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tm-tag-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.tm-tag-sso {
+  color: var(--color-accent-200);
+}
+.tm-rename-input.input {
+  min-height: 28px;
+  padding: 3px 8px;
+  font-size: 13px;
+  flex: 1;
+  max-width: 240px;
+}
+.tm-count {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+  margin-left: auto;
+}
+.tm-actions {
+  display: flex;
+  gap: 2px;
+}
+.tm-del:hover {
+  color: var(--color-down);
+}
+
+.tm-members {
+  font-size: 11px;
+  color: var(--color-neutral-500);
+  line-height: 1.4;
+}
+
+.tm-warn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-accent-300);
+}
+
+.tm-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-text);
+  padding-top: 4px;
+}
+.tm-confirm-yes {
+  gap: 4px;
+  padding: 4px 9px;
+  border-color: var(--color-down);
+  color: var(--color-down);
+}

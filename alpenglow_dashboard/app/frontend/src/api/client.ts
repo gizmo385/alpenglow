@@ -4,6 +4,10 @@
 import type {
   ActionRequest,
   ActionResponse,
+  CategoryIconRequest,
+  CategoryInfo,
+  CategoryOrderRequest,
+  CategoryRenameRequest,
   Csrf,
   Health,
   Me,
@@ -13,6 +17,10 @@ import type {
   SettingsPayload,
   SettingsRequest,
   Stats,
+  TagDeleteRequest,
+  TagInfo,
+  TagMutationResult,
+  TagRenameRequest,
   Updates,
 } from "./types";
 
@@ -81,6 +89,22 @@ export const api = {
     mutate<ActionResponse>(`/api/services/${id}/actions`, "POST", action),
   updates: () => request<Updates>("/api/updates"),
   refreshUpdates: () => mutate<Updates>("/api/updates/refresh", "POST"),
+
+  // Category management (G1)
+  categories: () => request<CategoryInfo[]>("/api/categories"),
+  renameCategory: (body: CategoryRenameRequest) =>
+    mutate<TagMutationResult>("/api/categories/rename", "POST", body),
+  setCategoryIcon: (body: CategoryIconRequest) =>
+    mutate<CategoryIconRequest>("/api/categories/icon", "POST", body),
+  setCategoryOrder: (body: CategoryOrderRequest) =>
+    mutate<CategoryOrderRequest>("/api/categories/order", "POST", body),
+
+  // Cross-service tag management (G1)
+  tags: () => request<TagInfo[]>("/api/tags"),
+  renameTag: (body: TagRenameRequest) =>
+    mutate<TagMutationResult>("/api/tags/rename", "POST", body),
+  deleteTag: (body: TagDeleteRequest) =>
+    mutate<TagMutationResult>("/api/tags/delete", "POST", body),
   /** SSE log stream; caller owns the EventSource lifecycle. */
   logStream: (id: string) => new EventSource(`/api/services/${id}/logs`),
 };

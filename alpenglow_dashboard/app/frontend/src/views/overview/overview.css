@@ -223,6 +223,17 @@
   background: var(--color-accent-800);
   color: var(--color-accent-100);
 }
+.ov-tagrow-empty {
+  font-size: 11px;
+  color: var(--color-neutral-600);
+  font-style: italic;
+}
+.ov-tag-manage {
+  margin-left: auto;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+}
 
 /* category groups */
 .ov-groups {
@@ -314,6 +325,7 @@
 }
 .ov-card-tags {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 5px;
 }

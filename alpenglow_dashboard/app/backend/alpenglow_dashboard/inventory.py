@@ -655,7 +655,9 @@ async def build_inventory() -> list[models.ServiceDetail]:
     repos = scan_repo()
     meta_all = load_metadata()
     docker_all = await docker_inventory()
-    settings_all = await tags_store.all_settings()
+    # Prune settings for unknown service ids so a stale store entry can never
+    # inject a phantom tag/category into the inventory or the tag-filter union.
+    settings_all = await tags_store.all_settings(known_ids=set(repos))
 
     # index docker containers by project, falling back to dir-name match
     out: list[models.ServiceDetail] = []

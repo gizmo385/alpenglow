@@ -404,6 +404,16 @@ async def lifespan(app):
     """
     poller = get_poller()
     if not mock.mock_enabled():
+        # Prune settings-store entries for service ids that no longer exist as
+        # repo dirs (G1): stale entries must never contribute phantom
+        # tags/categories to the inventory or the management surfaces.
+        try:
+            from . import tags as settings_store
+
+            known = set(inventory.scan_repo().keys())
+            await settings_store.prune_unknown(known)
+        except Exception:
+            pass  # pruning is best-effort; never block startup
         await poller.start()
     try:
         yield

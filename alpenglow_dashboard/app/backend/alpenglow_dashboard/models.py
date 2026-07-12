@@ -225,6 +225,71 @@ class SettingsPayload(BaseModel):
     category: Optional[str]
 
 
+# ── GET /api/categories , category management (G1) ────────────────────────────
+
+
+class CategoryInfo(BaseModel):
+    """One category row for the sidebar/overview management surface.
+
+    ``count`` is computed live from the current inventory. Categories that carry
+    metadata (icon/order) but have zero members are still listed so their
+    ordering/icon survives while empty.
+    """
+
+    name: str
+    icon: str
+    order: int
+    count: int
+
+
+class CategoryRenameRequest(BaseModel):
+    name: str  # current category name
+    to: str  # new category name
+    model_config = {"extra": "forbid"}
+
+
+class CategoryIconRequest(BaseModel):
+    name: str
+    icon: str
+    model_config = {"extra": "forbid"}
+
+
+class CategoryOrderRequest(BaseModel):
+    """A full ordering of category names, top to bottom."""
+
+    order: list[str]
+    model_config = {"extra": "forbid"}
+
+
+# ── GET /api/tags , cross-service tag management (G1) ──────────────────────────
+
+
+class TagInfo(BaseModel):
+    """One tag with its usage across services (for the tag-management panel)."""
+
+    name: str
+    count: int
+    services: list[str]  # member service ids
+    sso: bool = False  # renders/rendered as a special SSO accent chip
+
+
+class TagRenameRequest(BaseModel):
+    name: str  # current tag name
+    to: str  # new tag name
+    model_config = {"extra": "forbid"}
+
+
+class TagDeleteRequest(BaseModel):
+    name: str
+    model_config = {"extra": "forbid"}
+
+
+class TagMutationResult(BaseModel):
+    """Echoed after a cross-service tag rename/delete: which services changed."""
+
+    changed: list[str]  # service ids whose tag list changed
+
+
 # ── POST /api/services/{id}/actions ───────────────────────────────────────────
 
 

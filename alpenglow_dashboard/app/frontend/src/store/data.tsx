@@ -15,7 +15,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { Overview, ServiceSummary } from "../api/types";
+import type { CategoryInfo, Overview, ServiceSummary } from "../api/types";
 
 export type DataContextValue = {
   services: ServiceSummary[];
@@ -27,6 +27,10 @@ export type DataContextValue = {
   overviewError: Error | null;
   overviewLoading: boolean;
   refreshOverview: () => void;
+
+  /** Stored category order/icons + live counts (G1). */
+  categories: CategoryInfo[];
+  refreshCategories: () => void;
 };
 
 export const DataContext = createContext<DataContextValue | null>(null);

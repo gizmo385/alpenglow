@@ -5,8 +5,8 @@
  * (query × category × tag) come from the shared UI store and compose (AND);
  * the Sidebar writes the category, so navigating a category filters here. */
 
-import { useMemo } from "react";
-import { MagnifyingGlassIcon, TagIcon } from "@phosphor-icons/react";
+import { useMemo, useState } from "react";
+import { MagnifyingGlassIcon, SlidersHorizontalIcon, TagIcon } from "@phosphor-icons/react";
 
 import { useData } from "../store/data";
 import { useUiState } from "../store/ui";
@@ -15,6 +15,7 @@ import { Icon } from "../lib/icons";
 import { Input } from "../components";
 import { StatTiles } from "./overview/StatTiles";
 import { ServiceCard } from "./overview/ServiceCard";
+import { TagManager } from "./overview/TagManager";
 import {
   KEYCLOAK_SSO_TAG,
   categoryIcon,
@@ -26,6 +27,7 @@ import "./overview/overview.css";
 export function Overview() {
   const { services, overview, servicesLoading } = useData();
   const { query, category, tag, status, setQuery, setTag } = useUiState();
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
 
   // Header summary counts (prefer authoritative overview numbers, fall back to
   // the services list so the line still renders before /api/overview resolves).
@@ -105,7 +107,7 @@ export function Overview() {
         />
       </div>
 
-      {usedTags.length > 0 && (
+      {(usedTags.length > 0 || services.length > 0) && (
         <div className="ov-tagrow">
           <span className="ov-tagrow-label">
             <TagIcon size={12} /> Tags
@@ -121,8 +123,22 @@ export function Overview() {
               {t}
             </button>
           ))}
+          {usedTags.length === 0 && (
+            <span className="ov-tagrow-empty">No tags in use</span>
+          )}
+          <button
+            type="button"
+            className="btn btn-ghost ov-tag-manage"
+            onClick={() => setTagManagerOpen(true)}
+            title="Manage tags across services"
+          >
+            <SlidersHorizontalIcon size={13} />
+            Manage
+          </button>
         </div>
       )}
+
+      {tagManagerOpen && <TagManager onClose={() => setTagManagerOpen(false)} />}
 
       {hasResults ? (
         <div className="ov-groups">

@@ -178,6 +178,49 @@ export interface SettingsPayload {
   category: string | null;
 }
 
+// GET /api/categories , category management (G1)
+export interface CategoryInfo {
+  name: string;
+  icon: string;
+  order: number;
+  count: number;
+}
+
+export interface CategoryRenameRequest {
+  name: string;
+  to: string;
+}
+
+export interface CategoryIconRequest {
+  name: string;
+  icon: string;
+}
+
+export interface CategoryOrderRequest {
+  order: string[];
+}
+
+// GET /api/tags , cross-service tag management (G1)
+export interface TagInfo {
+  name: string;
+  count: number;
+  services: string[];
+  sso: boolean;
+}
+
+export interface TagRenameRequest {
+  name: string;
+  to: string;
+}
+
+export interface TagDeleteRequest {
+  name: string;
+}
+
+export interface TagMutationResult {
+  changed: string[];
+}
+
 // POST /api/services/{id}/actions
 export interface ActionRequest {
   action: ActionName;

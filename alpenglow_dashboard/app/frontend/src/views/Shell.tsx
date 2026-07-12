@@ -4,7 +4,7 @@
 
 import { Outlet } from "react-router-dom";
 
-import { useOverview, useServices } from "../api/hooks";
+import { useCategories, useOverview, useServices } from "../api/hooks";
 import { DataContext } from "../store/data";
 import type { DataContextValue } from "../store/data";
 import { Sidebar } from "./Sidebar";
@@ -13,6 +13,7 @@ import styles from "./Shell.module.css";
 export function Shell() {
   const services = useServices();
   const overview = useOverview();
+  const categories = useCategories();
 
   const value: DataContextValue = {
     services: services.data ?? [],
@@ -23,6 +24,8 @@ export function Shell() {
     overviewError: overview.error,
     overviewLoading: overview.loading,
     refreshOverview: overview.refresh,
+    categories: categories.data ?? [],
+    refreshCategories: categories.refresh,
   };
 
   return (
