@@ -158,6 +158,149 @@ async def test_compose_path_is_real(fixture_env):
     assert detail.composePath.endswith("apexlit/compose.yaml")
 
 
+# ── one-shot / init container status aggregation ──────────────────────────────
+#
+# Reproduces the ollama bug: a completed `restart: no` model-pull job exits 0
+# and must NOT drag the running service's aggregate status to "down".
+
+
+def _dc(name, *, service, state, exit_code=None, restart_policy=None,
+        project="oneshot_proj", working_dir=None):
+    return inventory.DockerContainer(
+        name=name,
+        project=project,
+        service=service,
+        state=state,
+        image="example/app:v1.0.0",
+        started_at="2026-07-05T14:00:00.000000000Z",
+        working_dir=working_dir,
+        exit_code=exit_code,
+        restart_policy=restart_policy,
+    )
+
+
+def test_completed_oneoff_detection():
+    # ollama-pull shape: restart:no + clean exit → completed one-shot
+    assert inventory._is_completed_oneoff(
+        _dc("pull", service="init-pull", state="exited", exit_code=0, restart_policy="no")
+    )
+    # docker default empty restart policy also counts as one-shot
+    assert inventory._is_completed_oneoff(
+        _dc("pull", service="init-pull", state="exited", exit_code=0, restart_policy="")
+    )
+    # a running container is never a "completed" one-shot
+    assert not inventory._is_completed_oneoff(
+        _dc("app", service="app", state="running", exit_code=None, restart_policy="unless-stopped")
+    )
+    # crashed one-shot (non-zero exit) is a real failure → not masked
+    assert not inventory._is_completed_oneoff(
+        _dc("pull", service="init-pull", state="exited", exit_code=1, restart_policy="no")
+    )
+    # a long-running service that exited (restart policy set) is a real outage
+    assert not inventory._is_completed_oneoff(
+        _dc("app", service="app", state="exited", exit_code=0, restart_policy="unless-stopped")
+    )
+
+
+async def test_running_service_with_completed_oneshot_is_up(fixture_env):
+    """ollama scenario: app running + init-pull exited(0) → service is UP."""
+    repos = inventory.scan_repo()
+    repo = repos["oneshot"]
+    containers = [
+        _dc("oneshot-app", service="app", state="running", restart_policy="unless-stopped"),
+        _dc("oneshot_proj-init-pull-1", service="init-pull", state="exited",
+            exit_code=0, restart_policy="no"),
+    ]
+    detail = await inventory._build_summary("oneshot", repo, {}, containers, [])
+    assert detail.status == "up"
+    # both containers still listed for transparency
+    names = {c.name for c in detail.containers}
+    assert names == {"oneshot-app", "oneshot_proj-init-pull-1"}
+
+
+async def test_running_service_with_crashed_oneshot_is_down(fixture_env):
+    """A non-zero-exit init job is a real failure and still surfaces as down."""
+    repos = inventory.scan_repo()
+    repo = repos["oneshot"]
+    containers = [
+        _dc("oneshot-app", service="app", state="running", restart_policy="unless-stopped"),
+        _dc("oneshot_proj-init-pull-1", service="init-pull", state="exited",
+            exit_code=1, restart_policy="no"),
+    ]
+    detail = await inventory._build_summary("oneshot", repo, {}, containers, [])
+    assert detail.status == "down"
+
+
+async def test_only_completed_oneshots_not_masked_to_up(fixture_env):
+    """If a service is *only* completed one-shots, don't spuriously report up."""
+    repos = inventory.scan_repo()
+    repo = repos["oneshot"]
+    containers = [
+        _dc("oneshot_proj-init-pull-1", service="init-pull", state="exited",
+            exit_code=0, restart_policy="no"),
+    ]
+    detail = await inventory._build_summary("oneshot", repo, {}, containers, [])
+    assert detail.status == "down"
+
+
+# ── project-name / working-dir container matching ─────────────────────────────
+
+
+def test_scan_repo_honours_top_level_name(fixture_env):
+    repos = inventory.scan_repo()
+    # top-level `name:` overrides the dir-name default for the project label
+    assert repos["oneshot"].project_name == "oneshot_proj"
+    # dirs without a `name:` key default to the dir name
+    assert repos["apexlit"].project_name == "apexlit"
+
+
+def test_containers_for_matches_by_project_name(fixture_env):
+    repos = inventory.scan_repo()
+    repo = repos["oneshot"]
+    root = FIXTURE_SERVICES
+    docker_all = {
+        "oneshot_proj": [_dc("oneshot-app", service="app", state="running",
+                             restart_policy="unless-stopped")],
+    }
+    got = inventory._containers_for(repo, docker_all, root)
+    assert [c.name for c in got] == ["oneshot-app"]
+
+
+def test_containers_for_falls_back_to_working_dir(fixture_env):
+    """When the project *name* doesn't match, working_dir == service dir rescues it."""
+    repos = inventory.scan_repo()
+    repo = repos["oneshot"]
+    root = FIXTURE_SERVICES
+    target = str((root / "oneshot").resolve())
+    # container grouped under an unexpected project key, but working_dir points home
+    docker_all = {
+        "some_shared_ai_project": [
+            _dc("oneshot-app", service="app", state="running",
+                restart_policy="unless-stopped", project="some_shared_ai_project",
+                working_dir=target),
+        ],
+    }
+    got = inventory._containers_for(repo, docker_all, root)
+    assert [c.name for c in got] == ["oneshot-app"]
+
+
+def test_containers_for_working_dir_does_not_steal_other_dirs(fixture_env):
+    """working_dir fallback only claims containers whose dir path matches exactly."""
+    repos = inventory.scan_repo()
+    repo = repos["oneshot"]
+    root = FIXTURE_SERVICES
+    other = str((root / "apexlit").resolve())
+    docker_all = {
+        "some_other_project": [
+            _dc("apex-app", service="app", state="running",
+                restart_policy="unless-stopped", project="some_other_project",
+                working_dir=other),
+        ],
+    }
+    got = inventory._containers_for(repo, docker_all, root)
+    assert got == []
+
+
 # ── sidebar meta ──────────────────────────────────────────────────────────────
 
 

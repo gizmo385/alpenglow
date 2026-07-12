@@ -247,6 +247,10 @@ class RepoService:
     id: str
     compose_path: Path
     services: dict[str, dict]  # compose "services:" block
+    # Effective compose project name: the compose file's top-level ``name:`` key
+    # when present (it overrides the dir-name default), else the dir name. This
+    # is what docker stamps as ``com.docker.compose.project``.
+    project_name: str = ""
     labels: dict[str, str] = field(default_factory=dict)  # merged across containers
     tier: models.Tier = "internal"
     url: Optional[str] = None
@@ -395,12 +399,17 @@ def scan_repo(root: Optional[Path] = None) -> dict[str, RepoService]:
         services_block = doc.get("services") if isinstance(doc, dict) else None
         if not isinstance(services_block, dict):
             services_block = {}
+        # Honour the compose file's top-level ``name:`` override (compose stamps
+        # it as com.docker.compose.project); default to the directory name.
+        raw_name = doc.get("name") if isinstance(doc, dict) else None
+        project_name = str(raw_name).strip() if isinstance(raw_name, (str, int)) and str(raw_name).strip() else entry.name
         labels = _merged_labels(services_block)
         tier, url = derive_tier_and_url(labels)
         result[entry.name] = RepoService(
             id=entry.name,
             compose_path=compose,
             services=services_block,
+            project_name=project_name,
             labels=labels,
             tier=tier,
             url=url,
@@ -436,10 +445,41 @@ class DockerContainer:
     state: str  # docker "State": running / exited / …
     image: str
     started_at: Optional[str]
+    # com.docker.compose.project.working_dir — the absolute service dir on the
+    # host; used as the authoritative fallback for attributing a container to a
+    # /services directory when the project *name* doesn't equal the dir name.
+    working_dir: Optional[str] = None
+    exit_code: Optional[int] = None  # State.ExitCode (0 = clean exit)
+    # docker HostConfig.RestartPolicy.Name — "no"/"" for one-shot/init jobs,
+    # "always"/"unless-stopped"/"on-failure" otherwise.
+    restart_policy: Optional[str] = None
+
+
+def _is_completed_oneoff(c: DockerContainer) -> bool:
+    """True for a compose service that ran to completion and is *meant* to exit.
+
+    An init/one-shot container (compose ``restart: no``, e.g. ollama's
+    ``ollama-pull`` model-download job) that exited cleanly (code 0) is a
+    *success*, not an outage — it must not drag a service's aggregate status to
+    ``down``. We require BOTH signals so a crashed/never-restarted service
+    (``restart: no`` + non-zero exit) still surfaces as down.
+    """
+    if c.state == "running":
+        return False
+    policy = (c.restart_policy or "").strip().lower()
+    is_oneoff = policy in ("", "no")
+    return is_oneoff and c.exit_code == 0
 
 
 async def docker_inventory() -> dict[str, list[DockerContainer]]:
     """Return running+stopped containers grouped by compose project.
+
+    Grouping key preference (so containers land on the right ``/services`` dir
+    even when the compose project *name* was overridden or the dir renamed):
+    the ``com.docker.compose.project.working_dir`` basename when it points into
+    the services root, else the ``com.docker.compose.project`` label, else the
+    container name. Consumers additionally index by working-dir path (see
+    :func:`_containers_for`).
 
     Returns ``{}`` (never raises) if the docker socket is unavailable, so the
     inventory degrades to repo-only data rather than 500ing.
@@ -455,19 +495,27 @@ async def docker_inventory() -> dict[str, list[DockerContainer]]:
                 info = await c.show()
             except Exception:
                 continue
-            labels = (info.get("Config", {}) or {}).get("Labels") or {}
+            config = info.get("Config", {}) or {}
+            labels = config.get("Labels") or {}
             project = labels.get("com.docker.compose.project")
             service = labels.get("com.docker.compose.service")
+            working_dir = labels.get("com.docker.compose.project.working_dir")
             names = info.get("Name", "")
             name = names.lstrip("/") if isinstance(names, str) else str(c.id)[:12]
             state_obj = info.get("State", {}) or {}
+            exit_raw = state_obj.get("ExitCode")
+            host_config = info.get("HostConfig", {}) or {}
+            restart = (host_config.get("RestartPolicy") or {}).get("Name")
             dc = DockerContainer(
                 name=name,
                 project=project,
                 service=service,
                 state=str(state_obj.get("Status", "")),
-                image=str((info.get("Config", {}) or {}).get("Image", "")),
+                image=str(config.get("Image", "")),
                 started_at=state_obj.get("StartedAt"),
+                working_dir=working_dir,
+                exit_code=int(exit_raw) if isinstance(exit_raw, int) else None,
+                restart_policy=str(restart) if restart is not None else None,
             )
             grouped.setdefault(project or name, []).append(dc)
     except Exception:
@@ -597,12 +645,25 @@ async def _build_summary(
     primary_name, primary = _select_primary(sid, repo, meta, containers)
 
     # container refs + aggregate status
+    #
+    # A completed one-shot/init container (compose ``restart: no`` that exited
+    # 0 — e.g. ollama's model-pull job) is listed for transparency but excluded
+    # from the worst-of aggregate: a *successful* run-to-completion must not
+    # report the whole service as down. If EVERY container is such a one-shot we
+    # fall back to worst-of-all so the service isn't spuriously "up".
     refs: list[models.ContainerRef] = []
     statuses: list[models.Status] = []
+    oneoff_statuses: list[models.Status] = []
     for c in containers:
         st = _docker_state_to_status(c.state)
-        statuses.append(st)
         refs.append(models.ContainerRef(name=c.name, status=c.state or ("running" if st == "up" else "down")))
+        if _is_completed_oneoff(c):
+            oneoff_statuses.append(st)
+        else:
+            statuses.append(st)
+    if not statuses and oneoff_statuses:
+        # only one-shots (all completed) → don't mask them; use their statuses
+        statuses = oneoff_statuses
     if not containers:
         # nothing running/known → present the compose services as down
         for name in repo.services:
@@ -650,9 +711,47 @@ async def _build_summary(
     )
 
 
+def _containers_for(
+    repo: RepoService,
+    docker_all: dict[str, list[DockerContainer]],
+    services_dir: Path,
+) -> list[DockerContainer]:
+    """Attribute running/stopped containers to a service directory.
+
+    Two matching strategies, in order, both anchored to values docker itself
+    stamps on the container — so a container can never be mis-attributed to a
+    dir it wasn't started from:
+
+    1. **Project name** — the compose project label
+       (``com.docker.compose.project``), which equals the compose file's
+       top-level ``name:`` when set, else the dir name. This is the normal path.
+    2. **Working directory** — the ``com.docker.compose.project.working_dir``
+       label equals the absolute service dir path. This rescues services whose
+       project *name* was overridden or whose dir was renamed after the
+       containers started, where strategy 1 finds nothing. Matching on the
+       absolute path is unambiguous: exactly one ``/services/<id>`` dir owns it.
+
+    Strategy 2 only runs as a fallback when strategy 1 is empty, and never
+    reassigns a container already grouped under a different project name, so the
+    two strategies cannot double-count or steal another dir's containers.
+    """
+    by_name = docker_all.get(repo.project_name, [])
+    if by_name:
+        return by_name
+    target = str((services_dir / repo.id).resolve())
+    matched = [
+        c
+        for group in docker_all.values()
+        for c in group
+        if c.working_dir and str(Path(c.working_dir)) == target
+    ]
+    return matched
+
+
 async def build_inventory() -> list[models.ServiceDetail]:
     """The full inventory: repo scan × docker × metadata × tags."""
-    repos = scan_repo()
+    root = services_root()
+    repos = scan_repo(root)
     meta_all = load_metadata()
     docker_all = await docker_inventory()
     # Prune settings for unknown service ids so a stale store entry can never
@@ -662,7 +761,7 @@ async def build_inventory() -> list[models.ServiceDetail]:
     # index docker containers by project, falling back to dir-name match
     out: list[models.ServiceDetail] = []
     for sid, repo in repos.items():
-        containers = docker_all.get(sid, [])
+        containers = _containers_for(repo, docker_all, root)
         meta = meta_all.get(sid, {})
         settings = settings_all.get(sid, {"tags": [], "category": None})
         out.append(
@@ -674,12 +773,13 @@ async def build_inventory() -> list[models.ServiceDetail]:
 
 
 async def build_service(service_id: str) -> Optional[models.ServiceDetail]:
-    repos = scan_repo()
+    root = services_root()
+    repos = scan_repo(root)
     repo = repos.get(service_id)
     if repo is None:
         return None
     meta = load_metadata().get(service_id, {})
-    containers = (await docker_inventory()).get(service_id, [])
+    containers = _containers_for(repo, await docker_inventory(), root)
     settings = (await tags_store.all_settings()).get(
         service_id, {"tags": [], "category": None}
     )

@@ -1,0 +1,18 @@
+# A service with a long-running container plus a one-shot init/pull job that
+# runs to completion (restart: no) — the ollama shape. Also carries a top-level
+# `name:` project override that differs from the dir name, exercising the
+# project-name/working-dir container matching.
+name: oneshot_proj
+services:
+  app:
+    image: example/app:v1.0.0
+    container_name: oneshot-app
+    restart: unless-stopped
+    expose:
+      - "8080"
+  init-pull:
+    image: example/app:v1.0.0
+    restart: "no"
+    depends_on:
+      - app
+    entrypoint: ["/bin/sh", "-c", "echo warmed"]
