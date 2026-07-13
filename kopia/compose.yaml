@@ -15,7 +15,10 @@ services:
     volumes:
       # Mount local folders needed by kopia
       - ./config/dir:/app/config
-      - ./cache:/app/cache
+      # Cache lives outside /services so pyznap snapshots don't capture its
+      # constant churn (rpool/var/cache is not snapshotted). Container path
+      # stays /app/cache, matching repository.config's relative cacheDirectory.
+      - /var/cache/kopia:/app/cache
       - ./logs/dir:/app/logs
         # Mount local folders to snapshot
       - /data:/data:ro

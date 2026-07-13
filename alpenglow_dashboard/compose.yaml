@@ -7,9 +7,6 @@ services:
     networks:
       - caddy
     labels:
-      # Apex cutover (E3). The label must be the LITERAL apex — the
-      # *.acbc.house wildcard does not match it. Tailnet-only via the default
-      # Caddy listener; never add a :10443 label set to this service.
       caddy: acbc.house
       caddy.reverse_proxy: "{{upstreams 4180}}"
     depends_on:
@@ -25,19 +22,9 @@ services:
       - path: .env
         required: true
     volumes:
-      # rw socket: reads *and* compose actions; oauth2-proxy admin auth is the
-      # trust boundary in front of this container.
       - /var/run/docker.sock:/var/run/docker.sock
-      # Same path as the host so `docker compose` run inside the container
-      # resolves bind-mount paths identically for the host daemon. Do not
-      # change this mount path.
       - /services:/services:ro
-      # tags.json / audit.jsonl; zfs_status.json lands here via host cron (D3).
       - ./data:/data-store
-      # Postgres dump dir (postgres/run_backups.sh writes here) — it lives
-      # OUTSIDE /services, so it needs its own bind mount. Read-only; the
-      # Backups tile only reads the newest *-daily.sql mtime for freshness.
-      # (Kopia's log is already reachable under the /services:ro mount above.)
       - /data/postgres_backups:/pg-backups:ro
     expose:
       - "8080"
