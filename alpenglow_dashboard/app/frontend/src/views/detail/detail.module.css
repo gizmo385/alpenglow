@@ -226,6 +226,66 @@
   font-size: 13px;
 }
 
+/* Beszel per-container charts */
+.beszelCard {
+  margin-top: 12px;
+}
+.beszelBlocks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.beszelBlock {
+  border-top: 1px solid var(--color-neutral-900);
+  padding-top: 10px;
+}
+.beszelBlock:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.beszelBlockHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.beszelName {
+  color: var(--color-neutral-300);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.beszelStatus {
+  color: var(--color-neutral-500);
+  font-size: 11px;
+}
+.beszelCharts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.beszelChart {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.beszelChartHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--color-neutral-500);
+}
+.beszelChartValue {
+  font-family: var(--font-mono);
+  color: var(--color-neutral-400);
+}
+@media (max-width: 640px) {
+  .beszelCharts {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── logs + compose panels ── */
 .panel {
   padding: 0;

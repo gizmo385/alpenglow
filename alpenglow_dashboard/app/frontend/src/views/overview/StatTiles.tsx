@@ -12,7 +12,7 @@ import {
 
 import type { Overview } from "../../api/types";
 import { Card } from "../../components";
-import { formatBytes, formatBytesZfs } from "../../lib/format";
+import { formatBytes, formatBytesZfs, formatUptime } from "../../lib/format";
 import { useUiState } from "../../store/ui";
 import "./overview.css";
 
@@ -70,6 +70,16 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
     host && host.load1 != null
       ? `load ${host.load1?.toFixed(2)} / ${host.load5?.toFixed(2)} / ${host.load15?.toFixed(2)}`
       : "load —";
+
+  // Beszel-sourced extras; each only shown when present so a missing/degraded
+  // Beszel integration leaves the header as just the load line.
+  const hostMeta = [
+    loadLine,
+    host?.cpuTemp != null ? `${Math.round(host.cpuTemp)}°C` : null,
+    host?.uptime != null ? `up ${formatUptime(host.uptime)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const memPct = pct(host?.memUsed ?? null, host?.memTotal ?? null);
   const swapPct = pct(host?.swapUsed ?? null, host?.swapTotal ?? null);
@@ -185,7 +195,7 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
       <Card className="ov-tile-span2" elevation="sm">
         <div className="ov-tile-head">
           <div className="card-kicker">Host resources</div>
-          <div className="ov-tile-load">{loadLine}</div>
+          <div className="ov-tile-load">{hostMeta}</div>
         </div>
         <BarMeter
           label="CPU"

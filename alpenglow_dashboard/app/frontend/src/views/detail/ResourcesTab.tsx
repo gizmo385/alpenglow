@@ -11,6 +11,7 @@ import { api } from "../../api/client";
 import type { Stats } from "../../api/types";
 import { Card, Sparkline } from "../../components";
 import { formatBytes } from "../../lib/format";
+import { BeszelContainersCard } from "./BeszelContainersCard";
 import css from "./detail.module.css";
 
 const STATS_POLL_MS = 15_000;
@@ -101,6 +102,8 @@ export function ResourcesTab({ serviceId }: { serviceId: string }) {
           <div className={css.resStat}>{current.restarts ?? "—"}</div>
         </div>
       </Card>
+
+      <BeszelContainersCard serviceId={serviceId} />
     </>
   );
 }

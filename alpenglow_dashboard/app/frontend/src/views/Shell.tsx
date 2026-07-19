@@ -7,6 +7,7 @@ import { Outlet } from "react-router-dom";
 import { useCategories, useOverview, useServices } from "../api/hooks";
 import { DataContext } from "../store/data";
 import type { DataContextValue } from "../store/data";
+import { CommandPalette } from "./CommandPalette";
 import { Sidebar } from "./Sidebar";
 import styles from "./Shell.module.css";
 
@@ -36,6 +37,7 @@ export function Shell() {
           <Outlet />
         </main>
       </div>
+      <CommandPalette services={value.services} />
     </DataContext.Provider>
   );
 }

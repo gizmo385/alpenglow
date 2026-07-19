@@ -249,14 +249,6 @@ MOCK_SERVICES: dict[str, dict] = {
         status="up", uptime=464400, url="https://attic.alpenglow.acbc.house", tier="management",
         containers=["attic"], tags=["Experimental"], restart=_D, ports="8080", memLimit=None,
     ),
-    "homepage": dict(
-        name="Homepage", cat="Infrastructure", icon="ph-squares-four",
-        desc="Current apex dashboard at acbc.house. Slated for retirement once this dashboard ships.",
-        image="ghcr.io/gethomepage/homepage:latest", version="latest",
-        latest=None, released=None, changelog=None,
-        status="up", uptime=259200, url="https://acbc.house", tier="tailnet",
-        containers=["homepage"], tags=[], restart=_D, ports="3000", memLimit=None,
-    ),
     "alpenglow_dashboard": dict(
         name="Alpenglow Dashboard", cat="Infrastructure", icon="ph-mountains",
         desc="This dashboard — at-a-glance health, updates and actions for every Alpenglow service.",
@@ -423,6 +415,7 @@ def mock_overview() -> models.Overview:
             load1=0.62, load5=0.55, load15=0.48, cpuPct=18.0,
             memUsed=41.2 * 2**30, memTotal=64 * 2**30,
             swapUsed=0.3 * 2**30, swapTotal=8 * 2**30,
+            cpuTemp=47.5, uptime=737378,
         ),
         storage=models.OverviewStorage(
             pools=[
@@ -442,6 +435,69 @@ def mock_overview() -> models.Overview:
         polledAt=datetime.now(timezone.utc).isoformat(),
         meta=models.OverviewMeta(host="alpenglow", branch="main"),
     )
+
+
+def mock_host_charts() -> models.HostCharts:
+    """Synthetic ~2h of one-minute host samples for the Overview chart card."""
+    n = 120
+    step = 60.0
+    now = time.time()
+
+    def series(base: float, amp: float, period: float, phase: float) -> list[models.StatPoint]:
+        return [
+            models.StatPoint(
+                t=now - (n - 1 - i) * step,
+                v=round(base + amp * math.sin(i / period + phase), 2),
+            )
+            for i in range(n)
+        ]
+
+    return models.HostCharts(
+        cpu=series(18.0, 9.0, 7.0, 0.0),
+        mem=series(52.0, 4.0, 11.0, 1.3),
+        temp=series(47.0, 3.0, 9.0, 0.6),
+        bandwidth=series(160_000, 90_000, 5.0, 2.1),
+    )
+
+
+def mock_beszel_containers(detail: models.ServiceDetail) -> list[models.BeszelContainer]:
+    """Synthetic Beszel per-container stats for a service's containers.
+
+    Only the running containers are "tracked" (mirrors Beszel, which reports
+    stats for running containers), so stopped ones are omitted.
+    """
+    n = 60
+    step = 60.0
+    now = time.time()
+
+    def series(base: float, amp: float, period: float, phase: float) -> list[models.StatPoint]:
+        return [
+            models.StatPoint(
+                t=now - (n - 1 - j) * step,
+                v=round(max(0.0, base + amp * math.sin(j / period + phase)), 2),
+            )
+            for j in range(n)
+        ]
+
+    out: list[models.BeszelContainer] = []
+    for i, c in enumerate(detail.containers):
+        if c.status == "down":
+            continue
+        cpu = round(0.5 + 2.3 * ((i * 7 + 3) % 9) / 3.0, 2)
+        memory = round(80.0 + 90.0 * ((i * 5 + 2) % 7), 2)
+        out.append(
+            models.BeszelContainer(
+                name=c.name,
+                cpu=cpu,
+                memory=memory,
+                net=round(10.0 + i * 3.5, 1),
+                status="running",
+                image=detail.image,
+                cpuHistory=series(cpu, 1.2 + i * 0.1, 6.0 + i, 0.4 * i),
+                memHistory=series(memory, 20.0, 9.0 + i, 0.7 * i),
+            )
+        )
+    return out
 
 
 def mock_updates() -> models.Updates:

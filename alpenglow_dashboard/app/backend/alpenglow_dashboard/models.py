@@ -91,6 +91,10 @@ class OverviewHost(BaseModel):
     memTotal: Optional[float]
     swapUsed: Optional[float]
     swapTotal: Optional[float]
+    # CPU temperature (°C) and uptime (seconds) come from Beszel, not Glances;
+    # None when Beszel is unconfigured/unreachable so the tile degrades.
+    cpuTemp: Optional[float] = None
+    uptime: Optional[float] = None
 
 
 class StoragePool(BaseModel):
@@ -199,6 +203,48 @@ class StatsCurrent(BaseModel):
 class Stats(BaseModel):
     history: StatsHistory
     current: StatsCurrent
+
+
+# ── GET /api/host/charts ──────────────────────────────────────────────────────
+
+
+class HostCharts(BaseModel):
+    """Recent host time-series from Beszel for the Overview sparkline card.
+
+    Each list is a series of ``StatPoint`` (``t`` epoch seconds, ``v`` value):
+    ``cpu``/``mem`` in percent, ``temp`` in °C (the hottest sensor per sample),
+    ``bandwidth`` in bytes/second (combined send+receive). Empty lists when
+    Beszel is unconfigured or unreachable — the card degrades to a flat "—".
+    """
+
+    cpu: list[StatPoint]
+    mem: list[StatPoint]
+    temp: list[StatPoint]
+    bandwidth: list[StatPoint]
+
+
+# ── GET /api/services/{id}/beszel ─────────────────────────────────────────────
+
+
+class BeszelContainer(BaseModel):
+    """Live per-container stats from Beszel for one of a service's containers.
+
+    ``cpu`` is a percentage, ``memory`` is mebibytes (Beszel's unit), ``net`` is
+    Beszel's combined network figure. Fields are ``None`` when Beszel doesn't
+    report them; the list is empty when Beszel is unconfigured/unreachable or the
+    container isn't tracked, so the detail tab simply hides the section.
+    """
+
+    name: str
+    cpu: Optional[float]
+    memory: Optional[float]
+    net: Optional[float]
+    status: Optional[str]
+    image: Optional[str]
+    # Recent per-container history from Beszel's container_stats (cpu %, memory
+    # MiB). Empty when Beszel has no history for this container.
+    cpuHistory: list[StatPoint] = []
+    memHistory: list[StatPoint] = []
 
 
 # ── PUT /api/services/{id}/settings ───────────────────────────────────────────

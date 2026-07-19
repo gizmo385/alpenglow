@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from alpenglow_dashboard import models
 from alpenglow_dashboard.integrations import (
     _common,
+    beszel,
     glances,
     kuma,
     zfs,
@@ -51,11 +52,17 @@ def _mock_client(handler):
 @pytest.fixture(autouse=True)
 def _reset_caches():
     """Each test starts with cold integration caches."""
-    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE):
+    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE,
+                  beszel._INFO_CACHE, beszel._CHARTS_CACHE, beszel._CONTAINERS_CACHE,
+                  beszel._CONTAINER_HISTORY_CACHE):
         cache.invalidate()
+    beszel._TOKENS.clear()
     yield
-    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE):
+    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE,
+                  beszel._INFO_CACHE, beszel._CHARTS_CACHE, beszel._CONTAINERS_CACHE,
+                  beszel._CONTAINER_HISTORY_CACHE):
         cache.invalidate()
+    beszel._TOKENS.clear()
 
 
 @pytest.fixture()
@@ -527,3 +534,219 @@ def test_mock_mode_updates_still_works(monkeypatch):
     assert ov.status_code == 200 and ov.json()["monitors"]["up"] == 23
     up = client.get("/api/updates")
     assert up.status_code == 200 and len(up.json()["services"]) > 0
+
+
+# ── beszel ────────────────────────────────────────────────────────────────────
+
+# `info` and `stats` arrive as JSON *strings* inside PocketBase records, exactly
+# as the live hub returns them.
+BESZEL_SYSTEM = {
+    "id": "sys1",
+    "name": "Alpenglow",
+    "status": "up",
+    "info": json.dumps({"dt": 47.85, "u": 737378, "cpu": 10.12, "mp": 59.51, "t": 8}),
+}
+
+BESZEL_STATS = [
+    {"created": "2026-07-14 03:49:45.897Z",
+     "stats": json.dumps({"cpu": 8.5, "mp": 52.85, "t": {"a": 27.8, "b": 46.85}, "b": [34705, 31399]})},
+    {"created": "2026-07-14 03:50:45.897Z",
+     "stats": json.dumps({"cpu": 9.1, "mp": 53.1, "t": {"a": 28.0, "b": 47.9}, "b": [10000, 20000]})},
+]
+
+BESZEL_CONTAINERS = [
+    {"name": "immich_server", "cpu": 0.06, "memory": 933.23, "net": 5, "status": "Up 8 days", "image": "img"},
+    {"name": "ollama", "cpu": 0.0, "memory": 68.99, "net": 0, "status": "Up 2 days", "image": "ollama"},
+]
+
+# container_stats: each sample's `stats` is a JSON *string* array of per-container
+# {n(ame), c(pu %), m(emory MiB), b(andwidth)}.
+BESZEL_CONTAINER_STATS = [
+    {"created": "2026-07-14 03:49:45.897Z",
+     "stats": json.dumps([{"n": "immich_server", "c": 0.05, "m": 900.0, "b": [1, 2]},
+                          {"n": "ollama", "c": 0.0, "m": 68.0}])},
+    {"created": "2026-07-14 03:50:45.897Z",
+     "stats": json.dumps([{"n": "immich_server", "c": 0.07, "m": 933.2},
+                          {"n": "ollama", "c": 0.1, "m": 69.0}])},
+]
+
+
+def _beszel_handler(*, auth_status=200, fail_first_get=False):
+    """PocketBase-shaped handler for the Beszel hub.
+
+    Records the Authorization header seen on each GET; can force an auth failure
+    or a one-off 401 on the first GET (to exercise the re-auth path).
+    """
+    state = {"gets": 0, "auth_headers": []}
+
+    def handler(request):
+        path = request.url.path
+        if request.method == "POST" and path.endswith("/auth-with-password"):
+            if auth_status != 200:
+                return httpx.Response(auth_status, json={"message": "Failed to authenticate."})
+            return httpx.Response(200, json={"token": "tok-123", "record": {"id": "u1"}})
+        # Everything else is an authenticated GET.
+        state["auth_headers"].append(request.headers.get("authorization"))
+        state["gets"] += 1
+        if fail_first_get and state["gets"] == 1:
+            return httpx.Response(401)
+        if path.endswith("/systems/records"):
+            return httpx.Response(200, json={"items": [BESZEL_SYSTEM]})
+        if path.endswith("/system_stats/records"):
+            return httpx.Response(200, json={"items": BESZEL_STATS})
+        if path.endswith("/containers/records"):
+            return httpx.Response(200, json={"items": BESZEL_CONTAINERS})
+        if path.endswith("/container_stats/records"):
+            return httpx.Response(200, json={"items": BESZEL_CONTAINER_STATS})
+        return httpx.Response(404)
+
+    handler.state = state
+    return handler
+
+
+@pytest.fixture()
+def beszel_creds(monkeypatch):
+    monkeypatch.setenv("BESZEL_USER", "svc@example")
+    monkeypatch.setenv("BESZEL_PASSWORD", "secret")
+    monkeypatch.setenv("BESZEL_SYSTEM", "Alpenglow")
+    yield
+
+
+@pytest.mark.asyncio
+async def test_beszel_host_info(monkeypatch, beszel_creds):
+    h = _beszel_handler()
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(h))
+    info = await beszel.host_info()
+    assert info is not None
+    assert info.cpu_temp == 47.85  # dt, °C
+    assert info.uptime == 737378  # u, seconds
+    assert info.status == "up"
+    # The GET carried the raw token (no "Bearer " prefix — PocketBase convention).
+    assert h.state["auth_headers"] and h.state["auth_headers"][0] == "tok-123"
+
+
+@pytest.mark.asyncio
+async def test_beszel_host_charts(monkeypatch, beszel_creds):
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_beszel_handler()))
+    charts = await beszel.host_charts()
+    assert [p.v for p in charts.cpu] == [8.5, 9.1]
+    assert [p.v for p in charts.mem] == [52.85, 53.1]
+    # temp = hottest sensor in each sample's `t` map
+    assert [p.v for p in charts.temp] == [46.85, 47.9]
+    # bandwidth = sent + received
+    assert [p.v for p in charts.bandwidth] == [66104.0, 30000.0]
+    # created strings parsed to ascending epoch seconds
+    assert charts.cpu[0].t < charts.cpu[1].t
+
+
+@pytest.mark.asyncio
+async def test_beszel_containers_for(monkeypatch, beszel_creds):
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_beszel_handler()))
+    rows = await beszel.containers_for(["immich_server", "not-tracked", "ollama"])
+    # untracked name skipped, requested order preserved
+    assert [r.name for r in rows] == ["immich_server", "ollama"]
+    assert rows[0].cpu == 0.06 and rows[0].memory == 933.23
+    assert rows[0].status == "Up 8 days"
+    # per-container history stitched from container_stats, in time order
+    assert [p.v for p in rows[0].cpuHistory] == [0.05, 0.07]
+    assert [p.v for p in rows[0].memHistory] == [900.0, 933.2]
+    assert [p.v for p in rows[1].cpuHistory] == [0.0, 0.1]
+
+
+@pytest.mark.asyncio
+async def test_beszel_no_credentials_never_calls_hub(monkeypatch):
+    monkeypatch.setenv("BESZEL_USER", "")
+    monkeypatch.setenv("BESZEL_PASSWORD", "")
+
+    def explode(request):
+        raise AssertionError("beszel must not call the hub without credentials")
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(explode))
+    assert await beszel.host_info() is None
+    beszel._CHARTS_CACHE.invalidate()
+    assert await beszel.host_charts() == models.HostCharts(cpu=[], mem=[], temp=[], bandwidth=[])
+    beszel._CONTAINERS_CACHE.invalidate()
+    assert await beszel.containers_for(["immich_server"]) == []
+
+
+@pytest.mark.asyncio
+async def test_beszel_auth_failure_degrades(monkeypatch, beszel_creds):
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_beszel_handler(auth_status=400)))
+    assert await beszel.host_info() is None
+    beszel._CHARTS_CACHE.invalidate()
+    assert (await beszel.host_charts()).cpu == []
+
+
+@pytest.mark.asyncio
+async def test_beszel_reauths_on_401(monkeypatch, beszel_creds):
+    h = _beszel_handler(fail_first_get=True)
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(h))
+    info = await beszel.host_info()
+    # first GET 401 → token cleared, re-auth, retry succeeds
+    assert info is not None and info.cpu_temp == 47.85
+    assert h.state["gets"] == 2  # the 401'd GET + the successful retry
+
+
+@pytest.mark.asyncio
+async def test_beszel_unreachable_degrades(monkeypatch, beszel_creds):
+    def dead(request):
+        raise httpx.ConnectError("no route")
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(dead))
+    assert await beszel.host_info() is None
+    beszel._CHARTS_CACHE.invalidate()
+    assert (await beszel.host_charts()).temp == []
+
+
+@pytest.mark.asyncio
+async def test_beszel_wrong_system_name_yields_nothing(monkeypatch, beszel_creds):
+    # Hub only knows "Alpenglow"; asking for another name returns no record.
+    monkeypatch.setenv("BESZEL_SYSTEM", "Nonexistent")
+
+    def handler(request):
+        path = request.url.path
+        if path.endswith("/auth-with-password"):
+            return httpx.Response(200, json={"token": "tok-123"})
+        return httpx.Response(200, json={"items": []})  # filter matches nothing
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(handler))
+    assert await beszel.host_info() is None
+
+
+def test_host_charts_route_real(monkeypatch, real_mode, beszel_creds):
+    """The /api/host/charts route surfaces Beszel series and never 500s."""
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_beszel_handler()))
+    client = TestClient(create_app())
+    resp = client.get("/api/host/charts")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [p["v"] for p in body["temp"]] == [46.85, 47.9]
+
+
+def test_host_charts_route_degrades_without_beszel(monkeypatch, real_mode):
+    """No creds → empty series, still 200."""
+    monkeypatch.setenv("BESZEL_USER", "")
+    monkeypatch.setenv("BESZEL_PASSWORD", "")
+    client = TestClient(create_app())
+    resp = client.get("/api/host/charts")
+    assert resp.status_code == 200
+    assert resp.json() == {"cpu": [], "mem": [], "temp": [], "bandwidth": []}
+
+
+def test_beszel_routes_and_overview_temp_mock(monkeypatch):
+    """MOCK_DATA=1 serves synthetic Beszel data across the new surfaces."""
+    monkeypatch.setenv("MOCK_DATA", "1")
+    monkeypatch.setenv("DEV_NO_AUTH", "1")
+    client = TestClient(create_app())
+
+    charts = client.get("/api/host/charts")
+    assert charts.status_code == 200
+    assert len(charts.json()["cpu"]) == 120
+
+    host = client.get("/api/overview").json()["host"]
+    assert host["cpuTemp"] == 47.5 and host["uptime"] == 737378
+
+    # per-container stats for a known mock service; unknown id → 404
+    beszel_rows = client.get("/api/services/immich/beszel")
+    assert beszel_rows.status_code == 200 and isinstance(beszel_rows.json(), list)
+    assert client.get("/api/services/does-not-exist/beszel").status_code == 404

@@ -21,6 +21,13 @@ export function relativeAgo(iso: string | null | undefined): string {
   return `${months} months ago`;
 }
 
+/** Epoch seconds → local "HH:MM" clock time, for chart hover tooltips. */
+export function formatClock(t: number | null | undefined): string {
+  if (t == null) return "—";
+  const d = new Date(t * 1000);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 /** Uptime seconds → "12d 4h" / "3h 12m" / "8m". */
 export function formatUptime(seconds: number | null | undefined): string {
   if (seconds == null) return "—";

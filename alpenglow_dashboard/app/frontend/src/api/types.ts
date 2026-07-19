@@ -64,6 +64,8 @@ export interface OverviewHost {
   memTotal: number | null;
   swapUsed: number | null;
   swapTotal: number | null;
+  cpuTemp: number | null; // °C, from Beszel
+  uptime: number | null; // seconds, from Beszel
 }
 
 export interface StoragePool {
@@ -163,6 +165,28 @@ export interface StatsCurrent {
 export interface Stats {
   history: StatsHistory;
   current: StatsCurrent;
+}
+
+// GET /api/host/charts — recent host time-series from Beszel.
+// cpu/mem in %, temp in °C, bandwidth in bytes/s.
+export interface HostCharts {
+  cpu: StatPoint[];
+  mem: StatPoint[];
+  temp: StatPoint[];
+  bandwidth: StatPoint[];
+}
+
+// GET /api/services/{id}/beszel — live per-container stats from Beszel.
+// cpu in %, memory in MiB.
+export interface BeszelContainer {
+  name: string;
+  cpu: number | null;
+  memory: number | null;
+  net: number | null;
+  status: string | null;
+  image: string | null;
+  cpuHistory: StatPoint[];
+  memHistory: StatPoint[];
 }
 
 // PUT /api/services/{id}/settings

@@ -71,11 +71,6 @@ services:
     # Keycloak clientId 'homeassistant' vs dir 'home_assistant' (B5 SSO match).
     keycloak_client: homeassistant
 
-  homepage:
-    category: Infrastructure
-    icon: ph-squares-four
-    description: Current apex dashboard at acbc.house. Slated for retirement once this dashboard ships.
-
   immich:
     category: Media
     icon: ph-images

@@ -135,6 +135,37 @@
   gap: 5px;
 }
 
+/* Host trends card (Beszel): full-width, four mini sparklines */
+.ov-charts {
+  margin-top: 12px;
+  gap: 10px;
+}
+.ov-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.ov-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+}
+.ov-chart-value {
+  color: var(--color-neutral-400);
+  font-family: var(--font-mono);
+}
+@media (max-width: 720px) {
+  .ov-charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* per-pool storage rows: usable meter + raw parity secondary line */
 .ov-pool-row {
   display: flex;

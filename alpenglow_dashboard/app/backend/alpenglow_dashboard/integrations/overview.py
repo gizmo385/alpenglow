@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 
 from .. import inventory, mock, models
-from . import glances, kuma, zfs
+from . import beszel, glances, kuma, zfs
 from . import updates as updates_mod
 
 router = APIRouter(prefix="/api", tags=["overview"])
@@ -53,6 +53,28 @@ async def _storage() -> models.OverviewStorage:
     return models.OverviewStorage(pools=pools, fs=fs)
 
 
+async def _host() -> models.OverviewHost:
+    """Glances host stats, enriched with Beszel's CPU temp + uptime.
+
+    Both sources are isolated: Glances failing yields a nulled host, and Beszel
+    failing simply leaves ``cpuTemp``/``uptime`` at ``None`` — neither propagates.
+    """
+    host, info = await asyncio.gather(
+        _safe(
+            glances.host_stats(),
+            models.OverviewHost(
+                load1=None, load5=None, load15=None, cpuPct=None,
+                memUsed=None, memTotal=None, swapUsed=None, swapTotal=None,
+            ),
+        ),
+        _safe(beszel.host_info(), None),
+    )
+    if info is not None:
+        host.cpuTemp = info.cpu_temp
+        host.uptime = info.uptime
+    return host
+
+
 def _meta() -> models.OverviewMeta:
     try:
         return inventory.sidebar_meta()
@@ -80,13 +102,7 @@ async def get_overview() -> models.Overview:
                 pgAgo=None, kopiaAgo=None, pgAt=None, kopiaAt=None, ok=None
             ),
         ),
-        _safe(
-            glances.host_stats(),
-            models.OverviewHost(
-                load1=None, load5=None, load15=None, cpuPct=None,
-                memUsed=None, memTotal=None, swapUsed=None, swapTotal=None,
-            ),
-        ),
+        _host(),
         _storage(),
     )
 
@@ -99,4 +115,19 @@ async def get_overview() -> models.Overview:
         storage=storage,
         polledAt=datetime.now(timezone.utc).isoformat(),
         meta=_meta(),
+    )
+
+
+@router.get("/host/charts")
+async def get_host_charts() -> models.HostCharts:
+    """Recent host time-series (Beszel) for the Overview sparkline card.
+
+    Always 200s: Beszel being down/unconfigured yields empty series, which the
+    card renders as a flat "—" rather than erroring.
+    """
+    if mock.mock_enabled():
+        return mock.mock_host_charts()
+    return await _safe(
+        beszel.host_charts(),
+        models.HostCharts(cpu=[], mem=[], temp=[], bandwidth=[]),
     )

@@ -40,6 +40,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 
 from . import mock, models, tags as tags_store
+from .integrations import beszel
 
 router = APIRouter(prefix="/api", tags=["inventory"])
 
@@ -837,6 +838,28 @@ async def get_service(service_id: str) -> models.ServiceDetail:
     if detail is None:
         raise HTTPException(status_code=404, detail=f"unknown service '{service_id}'")
     return detail
+
+
+@router.get("/services/{service_id}/beszel")
+async def get_service_beszel(service_id: str) -> list[models.BeszelContainer]:
+    """Live Beszel per-container stats for the service's containers.
+
+    Always 200s with a (possibly empty) list — Beszel being unconfigured/down,
+    or none of the service's containers being tracked, just yields ``[]`` and the
+    detail tab hides the section. 404 only for an unknown service id.
+    """
+    if mock.mock_enabled():
+        detail = mock.mock_service_detail(service_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail=f"unknown service '{service_id}'")
+        return mock.mock_beszel_containers(detail)
+    detail = await build_service(service_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"unknown service '{service_id}'")
+    try:
+        return await beszel.containers_for([c.name for c in detail.containers])
+    except Exception:
+        return []
 
 
 @router.get("/services/{service_id}/compose", response_class=PlainTextResponse)

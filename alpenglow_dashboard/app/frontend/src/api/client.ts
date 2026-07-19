@@ -4,12 +4,14 @@
 import type {
   ActionRequest,
   ActionResponse,
+  BeszelContainer,
   CategoryIconRequest,
   CategoryInfo,
   CategoryOrderRequest,
   CategoryRenameRequest,
   Csrf,
   Health,
+  HostCharts,
   Me,
   Overview,
   ServiceDetail,
@@ -79,9 +81,12 @@ export const api = {
   health: () => request<Health>("/api/health"),
   me: () => request<Me>("/api/me"),
   overview: () => request<Overview>("/api/overview"),
+  hostCharts: () => request<HostCharts>("/api/host/charts"),
   services: () => request<ServiceSummary[]>("/api/services"),
   service: (id: string) => request<ServiceDetail>(`/api/services/${id}`),
   stats: (id: string) => request<Stats>(`/api/services/${id}/stats`),
+  beszelContainers: (id: string) =>
+    request<BeszelContainer[]>(`/api/services/${id}/beszel`),
   compose: (id: string) => request<string>(`/api/services/${id}/compose`),
   putSettings: (id: string, patch: SettingsRequest) =>
     mutate<SettingsPayload>(`/api/services/${id}/settings`, "PUT", patch),

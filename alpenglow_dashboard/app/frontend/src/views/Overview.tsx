@@ -14,6 +14,7 @@ import { relativeAgo } from "../lib/format";
 import { Icon } from "../lib/icons";
 import { Input } from "../components";
 import { StatTiles } from "./overview/StatTiles";
+import { HostChartsCard } from "./overview/HostChartsCard";
 import { ServiceCard } from "./overview/ServiceCard";
 import { TagManager } from "./overview/TagManager";
 import {
@@ -94,6 +95,8 @@ export function Overview() {
       </div>
 
       <StatTiles overview={overview} />
+
+      <HostChartsCard />
 
       <div className="ov-svc-head">
         <h3>Services</h3>
