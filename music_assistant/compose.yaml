@@ -21,6 +21,7 @@ services:
       # Provide logging level as environment variable.
       # default=info, possible=(critical, error, warning, info, debug)
       - LOG_LEVEL=info
+      - XDG_CACHE_HOME=/data/.cache
 
 networks:
   caddy:
