@@ -27,7 +27,7 @@ overrides:
   pihole/pihole: pi-hole/pi-hole
   jellyfin/jellyfin: jellyfin/jellyfin
   # No OCI source label on the image; GitHub repo name is uppercase
-  mauriceboe/trek: mauriceboe/TREK
+  mauriceboe/trek: liketrek/TREK
 
 names:
   home-assistant/core: Home Assistant
