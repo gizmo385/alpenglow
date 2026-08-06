@@ -20,6 +20,25 @@
   gap: 10px;
 }
 
+/* Tablet: 2-up small tiles, span-2 tiles fill the row. */
+@media (max-width: 720px) {
+  .ov-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ov-tile-span2 {
+    grid-column: 1 / -1;
+  }
+}
+/* Phone: single column throughout. */
+@media (max-width: 440px) {
+  .ov-tiles {
+    grid-template-columns: 1fr;
+  }
+  .ov-tile-span2 {
+    grid-column: auto;
+  }
+}
+
 .ov-tile-big {
   display: flex;
   align-items: baseline;
@@ -211,6 +230,18 @@
 .ov-search .input {
   min-height: 34px;
   font-size: 13px;
+}
+
+/* Let the search drop below the heading and span the row on small screens. */
+@media (max-width: 520px) {
+  .ov-svc-head {
+    flex-wrap: wrap;
+  }
+  .ov-search {
+    margin-left: 0;
+    width: 100%;
+    flex-basis: 100%;
+  }
 }
 
 /* tag-filter row */

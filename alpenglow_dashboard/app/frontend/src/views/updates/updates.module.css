@@ -6,6 +6,7 @@
 .headActions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* "ⓘ Tracked by …" sub-line. */
@@ -21,6 +22,19 @@
 /* The table lives in a card with the prototype's tighter padding. */
 .tableCard {
   padding: 6px 14px 10px;
+}
+
+/* The six-column table can't shrink gracefully; below the drawer breakpoint
+   let the card scroll horizontally rather than squeeze the columns to nothing. */
+@media (max-width: 720px) {
+  .tableCard {
+    padding: 6px 10px 10px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tableCard :global(.table) {
+    min-width: 560px;
+  }
 }
 
 /* Service cell: icon + name. */

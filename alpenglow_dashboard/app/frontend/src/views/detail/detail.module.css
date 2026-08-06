@@ -68,6 +68,21 @@
   border-bottom: 1px solid var(--color-divider);
   margin-bottom: 18px;
 }
+/* Keep the tab row on one line and scrollable if it can't fit. */
+@media (max-width: 560px) {
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab {
+    white-space: nowrap;
+    flex: none;
+  }
+}
 .tab {
   padding: 8px 15px;
   border: none;
@@ -206,6 +221,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+@media (max-width: 480px) {
+  .resGrid {
+    grid-template-columns: 1fr;
+  }
 }
 .bigNum {
   font-size: 26px;

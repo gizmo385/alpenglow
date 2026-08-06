@@ -33,9 +33,13 @@ import styles from "./Sidebar.module.css";
 type SidebarProps = {
   services: ServiceSummary[];
   meta: OverviewMeta | null;
+  /** Drawer open state (mobile only; ignored by the desktop fixed rail). */
+  open?: boolean;
+  /** Called when a nav target is chosen, so the shell can close the drawer. */
+  onNavigate?: () => void;
 };
 
-export function Sidebar({ services, meta }: SidebarProps) {
+export function Sidebar({ services, meta, open = false, onNavigate }: SidebarProps) {
   const { category, setCategory } = useUiState();
   const { categories: catInfos, refreshCategories, refreshServices } = useData();
   const toast = useToast();
@@ -120,7 +124,7 @@ export function Sidebar({ services, meta }: SidebarProps) {
   }
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`${styles.sidebar} ${open ? styles.open : ""}`}>
       <div className={styles.brand}>
         <span className={styles.brandTile}>
           <MountainsIcon size={17} weight="fill" color="var(--color-sidebar-top)" />
@@ -135,6 +139,7 @@ export function Sidebar({ services, meta }: SidebarProps) {
         <NavLink
           to="/"
           className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ""}`}
+          onClick={() => onNavigate?.()}
           end
         >
           <SquaresFourIcon size={17} />
@@ -143,6 +148,7 @@ export function Sidebar({ services, meta }: SidebarProps) {
         <NavLink
           to="/updates"
           className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ""}`}
+          onClick={() => onNavigate?.()}
         >
           <ArrowsClockwiseIcon size={17} />
           <span className={styles.navLabel}>Updates</span>
@@ -251,6 +257,7 @@ export function Sidebar({ services, meta }: SidebarProps) {
                 onClick={() => {
                   if (!onOverview) navigate("/");
                   setCategory(c.name);
+                  onNavigate?.();
                 }}
               >
                 <Icon name={c.icon} size={14} className={styles.catIcon} />

@@ -18,6 +18,7 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
+  flex-wrap: wrap;
 }
 .pageSub {
   margin: 4px 0 0;
@@ -54,4 +55,18 @@
 .backBtn {
   margin-bottom: 14px;
   padding-left: 0;
+}
+
+/* Tighter gutters once the sidebar is a drawer and width is at a premium. */
+@media (max-width: 720px) {
+  .page {
+    padding: 20px 16px 48px;
+  }
+  .page.detail {
+    padding: 16px 16px 48px;
+  }
+  .pageHead {
+    align-items: flex-start;
+    margin-bottom: 18px;
+  }
 }
