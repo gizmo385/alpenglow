@@ -7,9 +7,12 @@ services:
       - ./data:/app/data
       - ./uploads:/app/uploads
     labels:
-      caddy: "*.acbc.house"
-      caddy.@trek.host: "travel.acbc.house"
-      caddy.reverse_proxy: "@trek {{upstreams http 3000}}"
+      caddy_0: "*.acbc.house"
+      caddy_0.@trek.host: "travel.acbc.house"
+      caddy_0.reverse_proxy: "@trek {{upstreams http 3000}}"
+      caddy_1: "*.acbc.house:10443"
+      caddy_1.@trek.host: "travel.acbc.house"
+      caddy_1.reverse_proxy: "@trek {{upstreams http 3000}}"
     networks:
       - caddy
 
