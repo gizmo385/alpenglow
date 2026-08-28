@@ -2,7 +2,7 @@ services:
   amniotic:
     container_name: amniotic
     hostname: amniotic
-    image: fmtr/amniotic:latest 
+    image: fmtr/amniotic:v1.9.18 # 1.10.{0,1} seem to fail to start with uv issues?
     restart: unless-stopped
 
     # Expose container port to host
