@@ -2,7 +2,7 @@ services:
   amniotic:
     container_name: amniotic
     hostname: amniotic
-    image: fmtr/amniotic:v1.9.18 # 1.10.{0,1} seem to fail to start with uv issues?
+    image: fmtr/amniotic:v1.10.1 
     restart: unless-stopped
 
     # Expose container port to host
@@ -14,9 +14,18 @@ services:
       - ./audio:/amniotic/audio
       - ./config:/amniotic/config
 
+    # root required for uv cache, dropped for app via entrypoint
+    user: root
+
+    entrypoint:
+      - sh
+      - -c
+      - 'chmod 711 /root && chown -R 1000:1000 /root/.cache/uv && exec setpriv --reuid=1000 --regid=1000 --clear-groups uv run --no-project --offline --with "$$PACKAGE_SPEC" "$$ENTRYPOINT_NAME" "$$@"'
+
     environment:
       PUID: 1000
       PGID: 1000
+
       # Home Assistant URL and token
       AMNIOTIC__HA_CORE_API: "http://homeassistant:8123/api"  # API URL for your HA instance 
 
@@ -31,8 +40,6 @@ services:
       AMNIOTIC__PATH_CONFIG: "/amniotic/config"              # Path inside container for config files (mapped above)
     env_file: .env
 
-    # No need for root
-    user: "1000:1000"
     networks:
       - mosquitto
 
