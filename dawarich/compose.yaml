@@ -30,7 +30,7 @@ services:
     tty: true
     entrypoint: web-entrypoint.sh
     command: ['bin/rails', 'server', '-p', '3000', '-b', '::']
-    restart: on-failure
+    restart: unless-stopped
     env_file:
       - path: .env
         required: true
@@ -96,7 +96,7 @@ services:
     tty: true
     entrypoint: sidekiq-entrypoint.sh
     command: ['sidekiq']
-    restart: on-failure
+    restart: unless-stopped
     env_file:
       - path: .env
         required: true
