@@ -1,15 +1,49 @@
 services:
   youtube_rss_manager:
     image: ghcr.io/gizmo385/youtube-rss-manager:latest
+    # Temporary: build from the local working tree for archive/podcast testing
+    # instead of pulling :latest. Revert to the plain image (see
+    # compose.yaml.bak) once the changes are merged and CI has published :latest.
+    build:
+      context: /home/chris/workspace/youtube-rss-manager
     restart: unless-stopped
     env_file: .env
     user: "994:985"
+    environment:
+      MEDIA_ROOT: /media/youtube
+    volumes:
+      # Read-only: lets the web process serve podcast audio enclosures over HTTP
+      # range. Same host path the downloader mounts read-write.
+      - /data/jellyfin/media/youtube:/media/youtube:ro
     labels:
+      # Public HTTPS only (no :10443 caddy-edge listener). One site block under
+      # the *.acbc.house wildcard cert: youtube-rss is the canonical app; yt. and
+      # podcasts. are conveniences that 301 to it, so login/cookies and feed URLs
+      # all resolve to a single host (the session cookie is host-scoped, and
+      # BASE_URL already emits youtube-rss URLs in feeds).
       caddy: "*.acbc.house"
       caddy.@youtube_rss_manager.host: "youtube-rss.acbc.house"
       caddy.reverse_proxy: "@youtube_rss_manager {{upstreams http 8000}}"
+      caddy.@aliases.host: "yt.acbc.house podcasts.acbc.house"
+      caddy.redir: "@aliases https://youtube-rss.acbc.house{uri} permanent"
     networks:
       - caddy
+      - postgres
+
+  youtube_rss_downloader:
+    build:
+      context: /home/chris/workspace/youtube-rss-manager
+      dockerfile: Dockerfile.downloader
+    restart: unless-stopped
+    env_file: .env
+    user: "994:985"
+    environment:
+      MEDIA_ROOT: /media/youtube
+    volumes:
+      # Read-write: the worker downloads, hardlinks into per-user subtrees, and
+      # prunes here. Must be the same host path Jellyfin has mounted.
+      - /data/jellyfin/media/youtube:/media/youtube
+    networks:
       - postgres
 
 networks:

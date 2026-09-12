@@ -37,3 +37,41 @@
     entity_id: 8c5e8c9becaf4d9861e18d1b2fd36e20
     domain: switch
   mode: single
+- id: '1780382819117'
+  alias: Set motion detection when not home
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - zone.home
+    attribute: persons
+    below: 1
+  conditions: []
+  actions:
+  - action: camera.enable_motion_detection
+    metadata: {}
+    target:
+      entity_id:
+      - camera.entryway
+      - camera.porch
+    data: {}
+  mode: single
+- id: '1780382894019'
+  alias: Disable motion detection when home
+  description: ''
+  triggers:
+  - trigger: numeric_state
+    entity_id:
+    - zone.home
+    attribute: persons
+    above: 0
+  conditions: []
+  actions:
+  - action: camera.disable_motion_detection
+    metadata: {}
+    target:
+      entity_id:
+      - camera.entryway
+      - camera.porch
+    data: {}
+  mode: single

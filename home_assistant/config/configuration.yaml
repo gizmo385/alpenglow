@@ -11,11 +11,6 @@ script: !include scripts.yaml
 scene: !include scenes.yaml
 sensor: !include sensors.yaml
 
-http:
-  use_x_forwarded_for: true
-  trusted_proxies:
-    - 10.0.3.0/24
-
 homeassistant:
   auth_providers:
     - type: homeassistant

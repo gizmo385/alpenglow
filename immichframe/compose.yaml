@@ -4,7 +4,6 @@ services:
     image: ghcr.io/immichframe/immichframe:latest
     environment:
       TZ: America/Denver
-      LOG_LEVEL: Debug
     volumes:
       - ./config:/app/Config
     networks:

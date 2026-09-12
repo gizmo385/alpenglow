@@ -4,7 +4,7 @@
     media_player.bedroom:
       group_members:
       - media_player.bedroom
-      volume_level: 0.4
+      volume_level: 0.3
       is_volume_muted: false
       media_content_type: music
       shuffle: false
