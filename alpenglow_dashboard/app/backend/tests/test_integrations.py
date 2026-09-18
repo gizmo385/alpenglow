@@ -456,6 +456,47 @@ async def test_updates_tracker_unavailable(monkeypatch, updates_env):
 
 
 @pytest.mark.asyncio
+async def test_refreshing_payload_is_not_cached(monkeypatch, updates_env):
+    """A scan in flight must not be held for the TTL.
+
+    The tracker's /refresh is asynchronous, so the UI polls GET /api/updates
+    waiting for ``refreshing`` to flip. Caching the in-flight snapshot would
+    pin that flag true for up to the TTL after the scan actually finished.
+    """
+    calls = []
+
+    def handler(request):
+        if request.url.path.endswith("/api/updates"):
+            calls.append(1)
+            # first read: scan still running; second: finished
+            return httpx.Response(200, json={**TRACKER_PAYLOAD, "refreshing": len(calls) == 1})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(handler))
+    assert (await updates_mod.get_updates()).refreshing is True
+    assert (await updates_mod.get_updates()).refreshing is False
+    # the in-flight snapshot was re-read rather than served from cache
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_settled_payload_is_still_cached(monkeypatch, updates_env):
+    """A finished scan IS cached — that cache is what keeps /api/services cheap."""
+    calls = []
+
+    def handler(request):
+        if request.url.path.endswith("/api/updates"):
+            calls.append(1)
+            return httpx.Response(200, json={**TRACKER_PAYLOAD, "refreshing": False})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(handler))
+    await updates_mod.get_updates()
+    await updates_mod.get_updates()
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
 async def test_updates_enrichment_empty_when_unavailable(monkeypatch, updates_env):
     def dead(request):
         raise httpx.ConnectError("down")

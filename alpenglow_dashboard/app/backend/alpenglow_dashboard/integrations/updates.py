@@ -91,7 +91,16 @@ async def _fetch_tracker() -> Optional[dict]:
 
 
 async def _tracker_cached() -> Optional[dict]:
-    return await _CACHE.get(_fetch_tracker)
+    payload = await _CACHE.get(_fetch_tracker)
+    # A payload with a scan in flight is stale by definition. The tracker's
+    # ``/refresh`` is asynchronous — it returns the moment the scan *starts* and
+    # the scan itself runs for ~8s — so caching a ``refreshing`` snapshot for the
+    # full TTL would leave the UI's poll showing "Checking…" for up to ``ttl``
+    # seconds after the tracker had actually finished. Drop it and let the next
+    # call re-read; this only bypasses the cache for the seconds a scan is live.
+    if isinstance(payload, dict) and payload.get("refreshing"):
+        _CACHE.invalidate()
+    return payload
 
 
 # ── matching ──────────────────────────────────────────────────────────────────

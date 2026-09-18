@@ -12,7 +12,7 @@
  *   cd /services/{id} && sudo docker compose pull && sudo docker compose up -d
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "../api/client";
 import { useUpdates } from "../api/hooks";
@@ -30,10 +30,28 @@ function updateCommand(id: string): string {
   return `cd /services/${id} && sudo docker compose pull && sudo docker compose up -d`;
 }
 
+/** How often to re-check the tracker while an async refresh scan is running. */
+const REFRESH_POLL_MS = 1_500;
+/** Stop waiting on a scan after this long (it normally settles in well under 15s). */
+const REFRESH_TIMEOUT_MS = 90_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function Updates() {
   const { data, refresh } = useUpdates();
   const { services, refreshServices } = useData();
   const toast = useToast();
+  const [checking, setChecking] = useState(false);
+
+  // Guards the refresh poll below: it outlives a quick navigation away, and
+  // must not setState (or toast) once this view is gone.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   const trackerUnavailable = data?.trackerUnavailable ?? false;
   const entries = trackerUnavailable ? [] : (data?.services ?? []);
@@ -52,6 +70,54 @@ export function Updates() {
     const timer = setInterval(refreshServices, 1500);
     return () => clearInterval(timer);
   }, [anyBusy, refreshServices]);
+
+  /** Ask the tracker to re-scan every image, then wait for the result. */
+  async function checkForUpdates() {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const started = await api.refreshUpdates();
+      if (started.trackerUnavailable) {
+        toast("Update tracker is unreachable — can't check right now");
+        return;
+      }
+      // The tracker's /refresh is asynchronous: it returns as soon as the scan
+      // *starts*, then queries GitHub for ~8s. Poll until it reports done, so
+      // the table lands on fresh data instead of the pre-refresh snapshot.
+      const deadline = Date.now() + REFRESH_TIMEOUT_MS;
+      let settled = false;
+      while (alive.current && Date.now() < deadline) {
+        await sleep(REFRESH_POLL_MS);
+        if (!alive.current) return;
+        try {
+          if (!(await api.updates()).refreshing) {
+            settled = true;
+            break;
+          }
+        } catch {
+          /* transient blip mid-scan — keep waiting until the deadline */
+        }
+      }
+      if (!alive.current) return;
+      refresh();
+      toast(
+        settled
+          ? "Update check complete"
+          : "Update check is still running — results will appear when it finishes",
+      );
+    } catch (e) {
+      if (!alive.current) return;
+      const why =
+        e instanceof ApiError && e.status === 403
+          ? `you aren't in the admin group`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      toast(`Could not check for updates: ${why}`);
+    } finally {
+      if (alive.current) setChecking(false);
+    }
+  }
 
   async function pull(entry: UpdateEntry, confirm = false) {
     try {
@@ -110,21 +176,37 @@ export function Updates() {
           <h2>Updates</h2>
           <p className={viewStyles.pageSub}>{line}</p>
         </div>
-        {count > 0 && (
-          <div className={styles.headActions}>
-            <Button variant="secondary" onClick={copyAll}>
-              <Icon name="copy" size={15} /> Copy all commands
-            </Button>
-            <Button variant="primary" onClick={updateAll}>
-              <Icon name="arrows-clockwise" size={15} /> Update all
-            </Button>
-          </div>
-        )}
+        <div className={styles.headActions}>
+          {/* Always offered — including when the tracker is down or everything
+              is current, which is exactly when you want to re-check. */}
+          <Button variant="secondary" onClick={checkForUpdates} disabled={checking}>
+            {checking ? (
+              <>
+                <Icon name="spinner" size={15} className={styles.spin} /> Checking…
+              </>
+            ) : (
+              <>
+                <Icon name="arrow-clockwise" size={15} /> Check for updates
+              </>
+            )}
+          </Button>
+          {count > 0 && (
+            <>
+              <Button variant="secondary" onClick={copyAll}>
+                <Icon name="copy" size={15} /> Copy all commands
+              </Button>
+              <Button variant="primary" onClick={updateAll}>
+                <Icon name="arrows-clockwise" size={15} /> Update all
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <p className={styles.trackedBy}>
         <Icon name="info" size={14} /> Tracked by image-updates-tracker · cross-checked against
         GitHub releases
+        {data?.lastUpdated && ` · last checked ${relativeAgo(data.lastUpdated)}`}
       </p>
 
       {trackerUnavailable ? (
