@@ -496,3 +496,115 @@ def test_put_settings_endpoint_persists(monkeypatch, tmp_path):
         headers={"X-CSRF-Token": token},
     )
     assert resp.status_code == 404
+
+
+# ── scan/metadata memoisation ─────────────────────────────────────────────────
+#
+# scan_repo() and load_metadata() are cached against an mtime fingerprint (it is
+# what keeps /api/services off the CPU). These pin the invalidation contract: a
+# cache that never refreshed would serve stale compose facts forever.
+
+
+@pytest.fixture()
+def live_root(tmp_path, monkeypatch):
+    """A writable services root + metadata.yaml, so tests can edit them."""
+    root = tmp_path / "services"
+    (root / "svc_a").mkdir(parents=True)
+    (root / "svc_a" / "compose.yaml").write_text(
+        "services:\n  app:\n    image: example/a:1.0\n    restart: always\n"
+    )
+    meta = tmp_path / "metadata.yaml"
+    meta.write_text("services:\n  svc_a:\n    name: Service A\n")
+    monkeypatch.setenv("MOCK_DATA", "0")
+    monkeypatch.setenv("SERVICES_ROOT", str(root))
+    monkeypatch.setenv("METADATA_PATH", str(meta))
+    return root, meta
+
+
+def test_scan_repo_is_memoised_between_calls(live_root):
+    first = inventory.scan_repo()
+    # identical tree → the very same cached object, not a re-parse
+    assert inventory.scan_repo() is first
+
+
+def test_scan_repo_picks_up_a_compose_edit(live_root):
+    root, _ = live_root
+    assert inventory.scan_repo()["svc_a"].restart_policy == "always"
+    (root / "svc_a" / "compose.yaml").write_text(
+        "services:\n  app:\n    image: example/a:1.0\n    restart: unless-stopped\n"
+    )
+    assert inventory.scan_repo()["svc_a"].restart_policy == "unless-stopped"
+
+
+def test_scan_repo_picks_up_added_and_removed_services(live_root):
+    root, _ = live_root
+    assert set(inventory.scan_repo()) == {"svc_a"}
+
+    (root / "svc_b").mkdir()
+    (root / "svc_b" / "compose.yaml").write_text("services:\n  app:\n    image: example/b:2.0\n")
+    assert set(inventory.scan_repo()) == {"svc_a", "svc_b"}
+
+    (root / "svc_b" / "compose.yaml").unlink()
+    assert set(inventory.scan_repo()) == {"svc_a"}
+
+
+def test_scan_repo_cache_is_keyed_by_root(live_root, tmp_path):
+    root, _ = live_root
+    other = tmp_path / "other_services"
+    (other / "svc_z").mkdir(parents=True)
+    (other / "svc_z" / "compose.yaml").write_text("services:\n  app:\n    image: example/z:1\n")
+    # a second root must not be served the first root's cached scan
+    assert set(inventory.scan_repo(root)) == {"svc_a"}
+    assert set(inventory.scan_repo(other)) == {"svc_z"}
+    assert set(inventory.scan_repo(root)) == {"svc_a"}
+
+
+def test_load_metadata_picks_up_an_edit(live_root):
+    _, meta = live_root
+    assert inventory.load_metadata()["svc_a"]["name"] == "Service A"
+    meta.write_text("services:\n  svc_a:\n    name: Renamed Service\n    icon: ph-star\n")
+    reloaded = inventory.load_metadata()
+    assert reloaded["svc_a"]["name"] == "Renamed Service"
+    assert reloaded["svc_a"]["icon"] == "ph-star"
+
+
+async def test_build_inventory_applies_hoisted_enrichment(live_root, monkeypatch):
+    """The enrichment map is fetched once for the build and still lands per service."""
+    root, _ = live_root
+    # several services, so "fetched once" is distinguishable from "once per service"
+    for sid in ("svc_b", "svc_c"):
+        (root / sid).mkdir()
+        (root / sid / "compose.yaml").write_text(f"services:\n  app:\n    image: example/{sid}:1\n")
+    calls = []
+
+    async def fake_enrichment():
+        calls.append(1)
+        return {"svc_a": {"latestVersion": "9.9.9", "releasedAt": "2026-01-01T00:00:00Z",
+                          "changelogUrl": "https://example.test/releases"}}
+
+    monkeypatch.setattr(
+        "alpenglow_dashboard.integrations.updates.service_enrichment", fake_enrichment
+    )
+    details = await inventory.build_inventory()
+    assert len(details) == 3
+    svc = next(d for d in details if d.id == "svc_a")
+    assert svc.latestVersion == "9.9.9"
+    assert svc.changelogUrl == "https://example.test/releases"
+    # services with no tracker entry stay null rather than borrowing svc_a's
+    assert next(d for d in details if d.id == "svc_b").latestVersion is None
+    # fetched exactly once for the whole build, not once per service
+    assert len(calls) == 1
+
+
+async def test_build_inventory_survives_enrichment_failure(live_root, monkeypatch):
+    """Tracker blowing up must degrade to null versions, never fail the build."""
+
+    async def boom():
+        raise RuntimeError("tracker exploded")
+
+    monkeypatch.setattr(
+        "alpenglow_dashboard.integrations.updates.service_enrichment", boom
+    )
+    details = await inventory.build_inventory()
+    svc = next(d for d in details if d.id == "svc_a")
+    assert svc.latestVersion is None

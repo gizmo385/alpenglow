@@ -379,13 +379,60 @@ def _container_names(services_block: dict[str, dict]) -> dict[str, str]:
     return out
 
 
+# Memoised repo scans, keyed by root path: ``{root: (fingerprint, result)}``.
+# See :func:`scan_repo` for why.
+_REPO_CACHE: dict[str, tuple[tuple, dict[str, "RepoService"]]] = {}
+
+
+def _repo_fingerprint(root: Path) -> tuple:
+    """A cheap signature of the compose tree: (dir, mtime_ns, size) per file.
+
+    Stat-ing the ~33 compose files costs well under a millisecond, versus ~35ms
+    to YAML-parse them, so this is what makes caching free *and* exact: any edit,
+    added dir or removed dir changes the signature and is picked up on the very
+    next call. No TTL, so no staleness window after a compose edit.
+    """
+    try:
+        entries = sorted(root.iterdir())
+    except OSError:
+        return ()
+    out: list[tuple[str, int, int]] = []
+    for entry in entries:
+        try:
+            st = (entry / "compose.yaml").stat()
+        except OSError:
+            continue  # no compose.yaml here (or not a dir) — scan skips it too
+        out.append((entry.name, st.st_mtime_ns, st.st_size))
+    return tuple(out)
+
+
 def scan_repo(root: Optional[Path] = None) -> dict[str, RepoService]:
     """Scan ``<root>/*/compose.yaml`` and derive per-service repo facts.
 
     Directories without a compose.yaml (e.g. ``zfs_status_checker``, ``docs``)
     are skipped, per the contract.
+
+    The parse is memoised against :func:`_repo_fingerprint`. This is load-bearing
+    rather than a micro-optimisation: the inventory build, the updates matcher,
+    the categories/tags routes and the action guard all call this, several times
+    per request, and re-parsing every compose file each time dominated the
+    ``/api/services`` and ``/api/overview`` response cost.
+
+    The cached dict is shared with every caller, so treat the result as
+    read-only — nothing in the codebase mutates it.
     """
     root = root or services_root()
+    key = str(root)
+    fingerprint = _repo_fingerprint(root)
+    cached = _REPO_CACHE.get(key)
+    if cached is not None and cached[0] == fingerprint:
+        return cached[1]
+    result = _scan_repo_uncached(root)
+    _REPO_CACHE[key] = (fingerprint, result)
+    return result
+
+
+def _scan_repo_uncached(root: Path) -> dict[str, RepoService]:
     result: dict[str, RepoService] = {}
     if not root.is_dir():
         return result
@@ -425,14 +472,35 @@ def scan_repo(root: Optional[Path] = None) -> dict[str, RepoService]:
 # ── metadata.yaml merge ───────────────────────────────────────────────────────
 
 
+# Memoised metadata.yaml parses, keyed by path: ``{path: (fingerprint, result)}``.
+_METADATA_CACHE: dict[str, tuple[tuple, dict[str, dict]]] = {}
+
+
 def load_metadata(path: Optional[Path] = None) -> dict[str, dict]:
+    """Parse ``metadata.yaml``'s ``services:`` block (``{}`` when absent/broken).
+
+    Memoised on (mtime_ns, size) like :func:`scan_repo`: this is read on every
+    inventory, categories and updates request, and an edit to the file is still
+    picked up on the next call. The cached dict is shared — treat as read-only.
+    """
     path = path or metadata_path()
+    key = str(path)
+    try:
+        st = path.stat()
+        fingerprint: tuple = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        fingerprint = ()
+    cached = _METADATA_CACHE.get(key)
+    if cached is not None and cached[0] == fingerprint:
+        return cached[1]
     try:
         doc = yaml.safe_load(path.read_text()) or {}
     except (OSError, yaml.YAMLError):
         return {}
     services = doc.get("services") if isinstance(doc, dict) else None
-    return services if isinstance(services, dict) else {}
+    result = services if isinstance(services, dict) else {}
+    _METADATA_CACHE[key] = (fingerprint, result)
+    return result
 
 
 # ── docker socket inventory (aiodocker) ───────────────────────────────────────
@@ -642,6 +710,7 @@ async def _build_summary(
     containers: list[DockerContainer],
     svc_tags: list[str],
     category_override: Optional[str] = None,
+    enrich_all: Optional[dict[str, dict]] = None,
 ) -> models.ServiceDetail:
     primary_name, primary = _select_primary(sid, repo, meta, containers)
 
@@ -680,9 +749,15 @@ async def _build_summary(
     if status != "up":
         uptime = None
 
-    from .integrations.updates import service_enrichment  # avoids import cycle
+    # ``enrich_all`` is the whole ``{dir_id: fields}`` map, fetched ONCE by the
+    # caller. Building it walks the tracker payload against the full compose
+    # scan, so calling it per service made an inventory build do that work N
+    # times over. Single-service callers may omit it and pay for one build.
+    if enrich_all is None:
+        from .integrations.updates import service_enrichment  # avoids import cycle
 
-    enrich = (await service_enrichment()).get(sid) or {}
+        enrich_all = await service_enrichment()
+    enrich = enrich_all.get(sid) or {}
 
     name = meta.get("name") or sid.replace("_", " ").replace("-", " ").title()
 
@@ -758,6 +833,13 @@ async def build_inventory() -> list[models.ServiceDetail]:
     # Prune settings for unknown service ids so a stale store entry can never
     # inject a phantom tag/category into the inventory or the tag-filter union.
     settings_all = await tags_store.all_settings(known_ids=set(repos))
+    # Fetch the updates enrichment once for the whole build, not per service.
+    from .integrations.updates import service_enrichment  # avoids import cycle
+
+    try:
+        enrich_all = await service_enrichment()
+    except Exception:
+        enrich_all = {}  # tracker down → no latestVersion fields, never a 500
 
     # index docker containers by project, falling back to dir-name match
     out: list[models.ServiceDetail] = []
@@ -767,7 +849,8 @@ async def build_inventory() -> list[models.ServiceDetail]:
         settings = settings_all.get(sid, {"tags": [], "category": None})
         out.append(
             await _build_summary(
-                sid, repo, meta, containers, settings["tags"], settings["category"]
+                sid, repo, meta, containers, settings["tags"], settings["category"],
+                enrich_all=enrich_all,
             )
         )
     return out
