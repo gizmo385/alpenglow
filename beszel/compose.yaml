@@ -25,6 +25,7 @@ services:
       - /dev/sdb:/dev/sdb
       - /dev/sdc:/dev/sdc
       - /dev/nvme0:/dev/nvme0
+      - /dev/zfs:/dev/zfs # Required for ZFS pool monitoring
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     cap_add:
