@@ -31,6 +31,7 @@ overrides:
 
 names:
   home-assistant/core: Home Assistant
+  music-assistant/server: Music Assistant
   immich-app/immich: Immich
   keycloak/keycloak: Keycloak
   nextcloud/server: Nextcloud
