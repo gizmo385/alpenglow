@@ -33,7 +33,7 @@ processors_profile_log:
   ttl: event_date + INTERVAL 1 DAY DELETE
 profiles:
   default:
-    allow_simdjson: 0
+    allow_simdjson: 1
     load_balancing: random
     log_queries: 1
 query_log:

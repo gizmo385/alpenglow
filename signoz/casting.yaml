@@ -25,6 +25,18 @@ spec:
     spec:
       image: signoz/signoz-otel-collector:v0.144.12
 
+  telemetrystore:
+    spec:
+      config:
+        data:
+          # Foundry defaults allow_simdjson to 0, but ClickHouse 25.12 has no
+          # fallback parser, so JSON_VALUE (used by SigNoz for log body
+          # queries) fails with "Functions JSON* are not supported".
+          config-0-0.yaml: |
+            profiles:
+              default:
+                allow_simdjson: 1
+
   # The metadata store (dashboards, alerts, users) uses the shared Postgres
   # instead of a bundled one. `enabled: false` doesn't drop the bundled
   # container in Foundry v0.3.0, so the patches below remove it.
