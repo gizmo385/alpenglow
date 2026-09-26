@@ -5,4 +5,18 @@ services:
     env_file:
       - path: .env
         required: true
+    environment:
+      # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
+      # for this container's logs so SigNoz can correlate them.
+      OTEL_SERVICE_NAME: servo
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=servo_bot
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     restart: unless-stopped
+    networks:
+      - default
+      - otel
+
+networks:
+  otel:
+    external: true

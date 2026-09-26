@@ -25,6 +25,8 @@ services:
     networks:
       - signoz-network
       - caddy
+      # For apps that push OTLP but aren't otherwise on the caddy network.
+      - otel
 
   # OpenTelemetry eBPF Instrumentation: traces for every listening container
   # without app changes (see obi/config.yaml).
@@ -46,3 +48,7 @@ services:
 
 volumes:
   alloy-data:
+
+networks:
+  otel:
+    external: true

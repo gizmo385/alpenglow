@@ -5,6 +5,13 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./overrides.yaml:/config/overrides.yaml:ro
     env_file: .env
+    environment:
+      # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
+      # for this container's logs so SigNoz can correlate them.
+      OTEL_SERVICE_NAME: updates-tracker-release-feeds
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=updates-tracker
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     restart: unless-stopped
     networks:
       - caddy
@@ -20,12 +27,20 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./overrides.yaml:/config/overrides.yaml:ro
     env_file: .env
+    environment:
+      OTEL_SERVICE_NAME: updates-tracker-discord-bot
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=updates-tracker
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     restart: unless-stopped
     networks:
       - ai
+      - otel
 
 networks:
   caddy:
     external: true
   ai:
+    external: true
+  otel:
     external: true

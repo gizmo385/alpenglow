@@ -46,10 +46,15 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
 - **Traces** for every listening container come from OBI automatically
   (request-level HTTP/gRPC/SQL/Redis spans). OBI runs `privileged` with
   `pid: host`; remove the `obi` service from compose.yaml to turn it off.
-  Services that export their own traces are detected and skipped by OBI.
-- **Traces/OTLP** from instrumented apps: point OTEL exporters at `http://signoz-alloy:4317` (gRPC)
-  or `http://signoz-alloy:4318` (HTTP) from a container on the `caddy`
-  network, e.g. `OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-alloy:4318`.
+  Stopping or restarting OBI takes a minute or so while the kernel detaches
+  its probes (`docker compose restart` may report a zombie; just wait).
+- **Traces/OTLP** from instrumented apps: point OTEL exporters at
+  `http://signoz-alloy:4318` (HTTP) or `:4317` (gRPC) from a container on the
+  `caddy` or `otel` network, set `OTEL_SERVICE_NAME` to the name Alloy gives
+  the container's logs, and add the container to OBI's `exclude_instrument`
+  list in `obi/config.yaml` (OBI's own detection misses SDK-instrumented
+  apps). The dashboard, youtube_rss_manager, updates-tracker and servo are
+  instrumented this way.
 
 Alloy's pipeline graph and discovered targets:
 https://alloy.alpenglow.acbc.house

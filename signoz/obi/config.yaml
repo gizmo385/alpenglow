@@ -2,8 +2,9 @@
 # SQL, Redis, ...) for every listening container, captured in the kernel
 # without changing the apps. https://opentelemetry.io/docs/zero-code/obi/
 #
-# Services that already export their own OTLP traces (e.g. Keycloak) are
-# detected and skipped automatically (exclude_otel_instrumented_services).
+# OBI tries to detect services that already export their own OTLP traces and
+# skip them (exclude_otel_instrumented_services). That worked for Keycloak but
+# not for our Python apps, so those are also excluded explicitly below.
 discovery:
   instrument:
     # Any Docker container (host processes have no container name, so they
@@ -14,6 +15,13 @@ discovery:
   exclude_instrument:
     # The telemetry pipeline itself; tracing it would trace its own exports.
     - container_name: "signoz-*"
+    # Apps with their own OpenTelemetry SDK instrumentation. OBI's automatic
+    # detection of those (exclude_otel_instrumented_services) didn't catch
+    # them, so they're listed explicitly to avoid duplicate/orphan spans.
+    - container_name: "alpenglow_dashboard"
+    - container_name: "youtube_rss_manager-*"
+    - container_name: "servo"
+    - container_name: "updates-tracker-*"
 
 # Traces only: SigNoz derives request rate/latency/error metrics from them.
 otel_traces_export:

@@ -18,6 +18,12 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Denver
+      # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
+      # for this container's logs so SigNoz can correlate them.
+      OTEL_SERVICE_NAME: alpenglow_dashboard
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=alpenglow_dashboard
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     env_file:
       - path: .env
         required: true

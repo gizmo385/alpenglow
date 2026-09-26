@@ -26,7 +26,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
-    STATIC_DIR=/app/static
+    STATIC_DIR=/app/static \
+    # OpenTelemetry auto-instrumentation is wired in but exports nothing
+    # unless compose points it at a collector (OTEL_TRACES_EXPORTER=otlp).
+    OTEL_TRACES_EXPORTER=none \
+    OTEL_METRICS_EXPORTER=none \
+    OTEL_LOGS_EXPORTER=none \
+    OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
+    OTEL_PYTHON_FASTAPI_EXCLUDE_SPANS=receive,send
 
 WORKDIR /app/backend
 
@@ -40,4 +47,4 @@ RUN uv sync --frozen --no-dev
 COPY --from=frontend /build/dist /app/static
 
 EXPOSE 8080
-CMD ["uv", "run", "--no-sync", "uvicorn", "alpenglow_dashboard.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uv", "run", "--no-sync", "opentelemetry-instrument", "uvicorn", "alpenglow_dashboard.main:app", "--host", "0.0.0.0", "--port", "8080"]

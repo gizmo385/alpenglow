@@ -11,6 +11,12 @@ services:
     user: "994:985"
     environment:
       MEDIA_ROOT: /media/youtube
+      # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
+      # for this container's logs so SigNoz can correlate them.
+      OTEL_SERVICE_NAME: youtube_rss_manager
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=youtube_rss_manager
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     volumes:
       # Read-only: lets the web process serve podcast audio enclosures over HTTP
       # range. Same host path the downloader mounts read-write.
@@ -39,15 +45,22 @@ services:
     user: "994:985"
     environment:
       MEDIA_ROOT: /media/youtube
+      OTEL_SERVICE_NAME: youtube_rss_manager-youtube_rss_downloader
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=youtube_rss_manager
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     volumes:
       # Read-write: the worker downloads, hardlinks into per-user subtrees, and
       # prunes here. Must be the same host path Jellyfin has mounted.
       - /data/jellyfin/media/youtube:/media/youtube
     networks:
       - postgres
+      - otel
 
 networks:
   caddy:
     external: true
   postgres:
+    external: true
+  otel:
     external: true

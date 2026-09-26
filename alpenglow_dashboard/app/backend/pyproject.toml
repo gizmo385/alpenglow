@@ -11,6 +11,10 @@ dependencies = [
     "httpx>=0.28",
     "sse-starlette>=2.1",
     "aiodocker>=0.24",
+    "opentelemetry-distro>=0.66b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.0",
+    "opentelemetry-instrumentation-fastapi>=0.66b0",
+    "opentelemetry-instrumentation-httpx>=0.66b0",
 ]
 
 [dependency-groups]
