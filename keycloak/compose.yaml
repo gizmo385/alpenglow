@@ -4,6 +4,12 @@ services:
     #command: start
     entrypoint: ["/bin/sh", "-c", "/opt/keycloak/bin/kc.sh build && /opt/keycloak/bin/kc.sh start"]
     env_file: .env
+    environment:
+      # Observability: metrics on the management port (9000) are scraped by
+      # SigNoz's Alloy agent; traces are pushed to it over the caddy network.
+      KC_METRICS_ENABLED: "true"
+      KC_TRACING_ENABLED: "true"
+      KC_TRACING_ENDPOINT: "http://signoz-alloy:4317"
     restart: always
     volumes:
       - ./providers:/opt/keycloak/providers
@@ -18,6 +24,8 @@ services:
       caddy_1.@keycloak.host: "sso.acbc.house"
       caddy_1.@keycloak.path: "/realms/acbc.house/* /resources/*"
       caddy_1.reverse_proxy: "@keycloak {{upstreams http 8080}}"
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9000"
     deploy:
       resources:
         limits:

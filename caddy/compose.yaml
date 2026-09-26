@@ -8,6 +8,10 @@ services:
       - NET_ADMIN
     networks:
       - caddy
+    labels:
+      # Scraped by SigNoz's Alloy agent (metrics are on the admin endpoint).
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "2019"
     ports:
       - "80:80"
       - "443:443"
