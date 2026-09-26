@@ -123,13 +123,19 @@ otelcol.receiver.prometheus "default" {
 }
 
 // ---------------------------------------------------------------------------
-// Container identity for logs and scraped metrics
+// Container identity for logs, scraped metrics and OBI traces
 //
-//   service.name       container name minus compose's replica suffix, or just
-//                      the compose project when the service is named the same
-//                      (keycloak-keycloak-1 -> keycloak, so it matches the
-//                      service name apps report in their own traces)
-//   service.namespace  compose project
+//   service.name       container name minus compose's replica suffix, except
+//                      that "<svc>-<svc>" collapses to "<svc>"
+//                      (keycloak-keycloak-1 -> keycloak, tandoor-web_recipes-1
+//                      -> tandoor-web_recipes, immich_server -> immich_server)
+//   service.namespace  compose project (logs and metrics only; OBI doesn't
+//                      report it)
+//
+// The rule only needs the container name and compose service, both of which
+// OBI traces carry too (OBI names services after the compose service), so all
+// three signals agree and SigNoz can correlate them. Apps that export their
+// own OTLP (no container.name) keep the name they report.
 //
 // Loki entries each become their own resource and scraped resources are per
 // target, so setting resource attributes from per-record labels is safe.
@@ -143,25 +149,38 @@ otelcol.processor.transform "containers" {
     statements = [
       `set(resource.attributes["container.name"], attributes["container"])`,
       `set(resource.attributes["service.name"], attributes["service_name"])`,
-      `set(resource.attributes["service.name"], attributes["compose_project"]) where attributes["compose_project"] != nil and attributes["compose_service"] == attributes["compose_project"]`,
+      `set(resource.attributes["service.name"], attributes["compose_service"]) where attributes["compose_service"] != nil and attributes["service_name"] == Concat([attributes["compose_service"], attributes["compose_service"]], "-")`,
       `set(resource.attributes["service.namespace"], attributes["compose_project"]) where attributes["compose_project"] != nil`,
       `delete_matching_keys(attributes, "^(container|service_name|compose_project|compose_service|loki\\.attribute\\.labels)$")`,
     ]
   }
 
-  // otelcol.receiver.prometheus already set service.name from the job label.
+  // otelcol.receiver.prometheus already set service.name from the job label
+  // (the suffix-stripped container name).
   metric_statements {
     context    = "datapoint"
     statements = [
-      `set(resource.attributes["service.name"], attributes["compose_project"]) where attributes["compose_project"] != nil and attributes["compose_service"] == attributes["compose_project"]`,
+      `set(resource.attributes["service.name"], attributes["compose_service"]) where attributes["compose_service"] != nil and resource.attributes["service.name"] == Concat([attributes["compose_service"], attributes["compose_service"]], "-")`,
       `set(resource.attributes["service.namespace"], attributes["compose_project"]) where attributes["compose_project"] != nil`,
       `delete_matching_keys(attributes, "^compose_(project|service)$")`,
+    ]
+  }
+
+  // OBI sets service.name to the compose service (or the process's
+  // OTEL_SERVICE_NAME) and container.name to the container.
+  trace_statements {
+    context    = "resource"
+    statements = [
+      `set(cache["base"], attributes["container.name"]) where attributes["container.name"] != nil`,
+      `replace_pattern(cache["base"], "-[0-9]+$", "") where cache["base"] != nil`,
+      `set(attributes["service.name"], cache["base"]) where cache["base"] != nil and cache["base"] != Concat([attributes["service.name"], attributes["service.name"]], "-")`,
     ]
   }
 
   output {
     logs    = [otelcol.processor.batch.default.input]
     metrics = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
   }
 }
 
@@ -180,7 +199,7 @@ otelcol.receiver.otlp "default" {
   output {
     metrics = [otelcol.processor.batch.default.input]
     logs    = [otelcol.processor.batch.default.input]
-    traces  = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.transform.containers.input]
   }
 }
 

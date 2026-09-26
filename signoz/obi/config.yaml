@@ -1,0 +1,20 @@
+# OpenTelemetry eBPF Instrumentation (OBI): request-level traces (HTTP, gRPC,
+# SQL, Redis, ...) for every listening container, captured in the kernel
+# without changing the apps. https://opentelemetry.io/docs/zero-code/obi/
+#
+# Services that already export their own OTLP traces (e.g. Keycloak) are
+# detected and skipped automatically (exclude_otel_instrumented_services).
+discovery:
+  instrument:
+    # Any Docker container (host processes have no container name, so they
+    # never match). Not `containers_only`: that compares network namespaces,
+    # so from OBI's bridge network every host process looks containerized.
+    - open_ports: 1-65535
+      container_name: "*"
+  exclude_instrument:
+    # The telemetry pipeline itself; tracing it would trace its own exports.
+    - container_name: "signoz-*"
+
+# Traces only: SigNoz derives request rate/latency/error metrics from them.
+otel_traces_export:
+  endpoint: http://signoz-alloy:4318
