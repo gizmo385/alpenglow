@@ -1,0 +1,206 @@
+// Grafana Alloy: the collection agent in front of SigNoz.
+//
+//   * Logs:    stdout/stderr of every container on the host.
+//   * Metrics: scraped from containers labelled prometheus.io/scrape=true.
+//   * OTLP:    traces/metrics/logs pushed by instrumented services to
+//              signoz-alloy:4317 (gRPC) or :4318 (HTTP) on the caddy network.
+//
+// Everything is converted to OTLP and sent to the SigNoz ingester. See the
+// "Container identity" section for how service.name is derived.
+//
+// Pipeline status and discovered targets: https://alloy.alpenglow.acbc.house
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// ---------------------------------------------------------------------------
+// Logs
+// ---------------------------------------------------------------------------
+
+discovery.relabel "docker_logs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*?)(?:-[0-9]+)?"
+    target_label  = "service_name"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.docker_logs.rules
+  forward_to    = [otelcol.receiver.loki.docker_logs.receiver]
+}
+
+otelcol.receiver.loki "docker_logs" {
+  output {
+    logs = [otelcol.processor.transform.containers.input]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Metrics: opt in per container with Prometheus' conventional labels
+//
+//   labels:
+//     prometheus.io/scrape: "true"
+//     prometheus.io/port: "9000"
+//     prometheus.io/path: "/metrics"   # optional, defaults to /metrics
+//
+// The container must be on the caddy network, which Alloy shares.
+// ---------------------------------------------------------------------------
+
+discovery.relabel "scrape_targets" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_prometheus_io_scrape"]
+    regex         = "true"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_network_name"]
+    regex         = "caddy"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_network_ip", "__meta_docker_container_label_prometheus_io_port"]
+    regex         = "(.+);(.+)"
+    replacement   = "$1:$2"
+    target_label  = "__address__"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_prometheus_io_path"]
+    regex         = "(.+)"
+    target_label  = "__metrics_path__"
+  }
+  // otelcol.receiver.prometheus maps job -> service.name.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*?)(?:-[0-9]+)?"
+    target_label  = "job"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "instance"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+prometheus.scrape "containers" {
+  targets         = discovery.relabel.scrape_targets.output
+  scrape_interval = "30s"
+  forward_to      = [otelcol.receiver.prometheus.default.receiver]
+}
+
+otelcol.receiver.prometheus "default" {
+  output {
+    metrics = [otelcol.processor.transform.containers.input]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Container identity for logs and scraped metrics
+//
+//   service.name       container name minus compose's replica suffix, or just
+//                      the compose project when the service is named the same
+//                      (keycloak-keycloak-1 -> keycloak, so it matches the
+//                      service name apps report in their own traces)
+//   service.namespace  compose project
+//
+// Loki entries each become their own resource and scraped resources are per
+// target, so setting resource attributes from per-record labels is safe.
+// ---------------------------------------------------------------------------
+
+otelcol.processor.transform "containers" {
+  error_mode = "ignore"
+
+  log_statements {
+    context    = "log"
+    statements = [
+      `set(resource.attributes["container.name"], attributes["container"])`,
+      `set(resource.attributes["service.name"], attributes["service_name"])`,
+      `set(resource.attributes["service.name"], attributes["compose_project"]) where attributes["compose_project"] != nil and attributes["compose_service"] == attributes["compose_project"]`,
+      `set(resource.attributes["service.namespace"], attributes["compose_project"]) where attributes["compose_project"] != nil`,
+      `delete_matching_keys(attributes, "^(container|service_name|compose_project|compose_service|loki\\.attribute\\.labels)$")`,
+    ]
+  }
+
+  // otelcol.receiver.prometheus already set service.name from the job label.
+  metric_statements {
+    context    = "datapoint"
+    statements = [
+      `set(resource.attributes["service.name"], attributes["compose_project"]) where attributes["compose_project"] != nil and attributes["compose_service"] == attributes["compose_project"]`,
+      `set(resource.attributes["service.namespace"], attributes["compose_project"]) where attributes["compose_project"] != nil`,
+      `delete_matching_keys(attributes, "^compose_(project|service)$")`,
+    ]
+  }
+
+  output {
+    logs    = [otelcol.processor.batch.default.input]
+    metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OTLP from instrumented services
+// ---------------------------------------------------------------------------
+
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.batch.default.input]
+    traces  = [otelcol.processor.batch.default.input]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Export to SigNoz
+// ---------------------------------------------------------------------------
+
+otelcol.processor.batch "default" {
+  output {
+    metrics = [otelcol.exporter.otlp.signoz.input]
+    logs    = [otelcol.exporter.otlp.signoz.input]
+    traces  = [otelcol.exporter.otlp.signoz.input]
+  }
+}
+
+otelcol.exporter.otlp "signoz" {
+  client {
+    endpoint = "signoz-ingester:4317"
+    tls {
+      insecure = true
+    }
+  }
+}

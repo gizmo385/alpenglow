@@ -1,0 +1,78 @@
+# SigNoz deployment spec for Foundry (https://github.com/SigNoz/foundry).
+#
+# pours/ is generated from this file -- don't edit it by hand. After changing
+# this file, regenerate and redeploy (see README.md):
+#
+#   foundryctl forge --no-ledger --no-updater
+#   sudo docker compose up -d
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: compose
+    mode: docker
+
+  signoz:
+    spec:
+      image: signoz/signoz:v0.143.0
+      env:
+        # Don't phone home usage stats (which include user emails by default).
+        SIGNOZ_STATSREPORTER_ENABLED: "false"
+
+  ingester:
+    spec:
+      image: signoz/signoz-otel-collector:v0.144.12
+
+  # The metadata store (dashboards, alerts, users) uses the shared Postgres
+  # instead of a bundled one. `enabled: false` doesn't drop the bundled
+  # container in Foundry v0.3.0, so the patches below remove it.
+  metastore:
+    kind: postgres
+    spec:
+      enabled: false
+
+  patches:
+    - target: deployment/compose.yaml
+      operations:
+        # --- Drop the bundled Postgres ---
+        - op: remove
+          path: /services/signoz-metastore-postgres-0
+        - op: remove
+          path: /volumes/signoz-metastore-postgres-0-data
+        - op: test
+          path: /services/signoz-signoz-0/environment/0
+          value: SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
+        - op: remove
+          path: /services/signoz-signoz-0/environment/0
+
+        # --- SigNoz UI/API: shared Postgres DSN from .env, served via Caddy ---
+        # Paths are relative to pours/deployment/ since compose.yaml includes it.
+        - op: add
+          path: /services/signoz-signoz-0/env_file
+          value:
+            - path: ../../.env
+              required: true
+        - op: remove
+          path: /services/signoz-signoz-0/ports
+        - op: replace
+          path: /services/signoz-signoz-0/networks
+          value: [signoz-network, caddy, postgres]
+        - op: add
+          path: /services/signoz-signoz-0/labels
+          value:
+            caddy: "*.alpenglow.acbc.house"
+            caddy.@signoz.host: "signoz.alpenglow.acbc.house"
+            caddy.reverse_proxy: "@signoz {{upstreams http 8080}}"
+
+        # --- Ingester: only Alloy talks to it, over signoz-network ---
+        - op: remove
+          path: /services/ingester/ports
+
+        - op: add
+          path: /networks/caddy
+          value: { external: true }
+        - op: add
+          path: /networks/postgres
+          value: { external: true }
