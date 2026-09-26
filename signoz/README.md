@@ -36,7 +36,8 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
 ## Sending data
 
 - **Logs** from every container are collected automatically.
-- **Metrics**: add labels to a service on the `caddy` network:
+- **Metrics**: add labels to a service on the `caddy` network (metric types
+  come through via Alloy's experimental `honor_metadata`):
   ```yaml
   labels:
     prometheus.io/scrape: "true"
@@ -55,6 +56,22 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
   list in `obi/config.yaml` (OBI's own detection misses SDK-instrumented
   apps). The dashboard, youtube_rss_manager, updates-tracker and servo are
   instrumented this way.
+
+## Dashboards
+
+`dashboards/dashboards.py` defines the dashboards (Service Health, Ingress,
+Logs, Databases, Background Jobs, Keycloak) plus unmodified SigNoz library
+dashboards in `dashboards/library/`. It runs every panel's query against live
+data, then creates or updates the dashboards by name:
+
+```sh
+./dashboards/dashboards.py            # check + publish
+./dashboards/dashboards.py --check    # check only
+```
+
+It needs a service-account key with the Editor role in `.api_env`
+(`SIGNOZ_API_KEY=...`, gitignored). Edits made in the UI are overwritten on the
+next run, so make lasting changes in the script.
 
 Alloy's pipeline graph and discovered targets:
 https://alloy.alpenglow.acbc.house
