@@ -71,15 +71,26 @@ def key(name: str, context: str = "", data_type: str = "string") -> dict:
     return {"name": name, "signal": "", "fieldContext": context, "fieldDataType": data_type}
 
 
-def metric(name: str, time_agg: str = "rate", space_agg: str = "sum") -> dict:
-    """A metrics aggregation: time_agg per series, then space_agg across them."""
+def metric(name: str, time_agg: str = "rate", space_agg: str = "sum", reduce: str = "avg") -> dict:
+    """A metrics aggregation: time_agg per series, then space_agg across them.
+    `reduce` turns the series into one number for tables and number panels."""
     return {
         "metricName": name,
         "temporality": "",
         "timeAggregation": time_agg,
         "spaceAggregation": space_agg,
-        "reduceTo": "avg",
+        "reduceTo": reduce,
     }
+
+
+def counter_total(name: str) -> dict:
+    """Increase of a counter: per step in charts, summed over the range in tables."""
+    return metric(name, "increase", "sum", "sum")
+
+
+def gauge_now(name: str) -> dict:
+    """Latest value of a gauge, summed across series."""
+    return metric(name, "latest", "sum", "last")
 
 
 @dataclass
@@ -150,6 +161,7 @@ REQUEST_TYPES = {
     "timeseries": "time_series",
     "bar": "time_series",
     "number": "scalar",
+    "pie": "scalar",
     "table": "scalar",
     "list": "raw",
 }
@@ -169,7 +181,7 @@ class Panel:
     fields: list[dict] = field(default_factory=list)  # list panels: columns
     width: int = 6
     height: int = 6
-    empty_ok: bool = False  # failure panels: no data just means nothing failed
+    empty_ok: bool = False  # event panels: no data just means it hasn't happened yet
 
     def plugin(self) -> dict:
         formatting = {"unit": self.unit, "decimalPrecision": "2"}
@@ -207,6 +219,11 @@ class Panel:
             return {
                 "kind": "signoz/NumberPanel",
                 "spec": {"visualization": visualization, "formatting": formatting, "thresholds": None},
+            }
+        if self.kind == "pie":
+            return {
+                "kind": "signoz/PieChartPanel",
+                "spec": {"visualization": visualization, "formatting": formatting, "legend": LEGEND},
             }
         if self.kind == "table":
             return {
@@ -367,7 +384,7 @@ def main() -> None:
         for panel in dashboard.panels():
             problem = check(panel)
             if problem == NO_DATA and panel.empty_ok:
-                print(f"  {dashboard.name} / {panel.title}: no data (fine: nothing failed)")
+                print(f"  {dashboard.name} / {panel.title}: no data yet (allowed: shows only when it happens)")
             elif problem:
                 problems += 1
                 print(f"  {dashboard.name} / {panel.title}: {problem}")
@@ -661,7 +678,142 @@ keycloak = Dashboard(
     ],
 )
 
-DASHBOARDS = [service_health, ingress, logs, databases, jobs, keycloak]
+# --- YouTube RSS Manager -------------------------------------------------------
+# Metrics come from the app itself (youtube_subs_opml/metrics.py for events,
+# web/services/library_metrics.py for library gauges refreshed every 5 minutes).
+
+YT_ATTEMPTS = "yt_rss_feed_fetch_attempts"
+YT_POLLS = "yt_rss_feed_polls"
+YOUTUBE = "platform = 'youtube'"
+FAILED_POLL = "outcome != 'ok'"
+BY_CHANNEL = {"by": ["channel"], "order_by": "__result", "limit": 20}
+
+youtube_rss = Dashboard(
+    name="YouTube RSS Manager",
+    description=(
+        "Feed polling health (incl. YouTube's intermittent 404s, counted on every "
+        "attempt including retries), the library by channel and category, and the "
+        "downloader. Video lengths come from the downloader's probe, so length "
+        "figures cover probed videos only."
+    ),
+    rows=[
+        [
+            Panel("Poll success rate", "number", [
+                Query("A", "metrics", counter_total(YT_POLLS), ["outcome = 'ok'"], hidden=True),
+                Query("B", "metrics", counter_total(YT_POLLS), hidden=True),
+                Formula("F1", "A / B * 100"),
+            ], unit="percent", width=2, height=3,
+                description="Channel polls that ended in a usable feed, after retries."),
+            Panel("404 responses", "number",
+                  [Query("A", "metrics", counter_total(YT_ATTEMPTS), ["status = '404'"])],
+                  width=2, height=3, empty_ok=True,
+                  description="Every 404 from a feed request, including ones a retry recovered from."),
+            Panel("New videos found", "number",
+                  [Query("A", "metrics", counter_total("yt_rss_feed_new_videos"))],
+                  width=2, height=3, empty_ok=True),
+            Panel("Channels followed", "number",
+                  [Query("A", "metrics", gauge_now("yt_rss_channels"), ["ignored = 'false'"])],
+                  width=2, height=3),
+            Panel("Videos recorded", "number",
+                  [Query("A", "metrics", gauge_now("yt_rss_channel_videos"))], width=2, height=3),
+            Panel("Archive size", "number",
+                  [Query("A", "metrics", gauge_now("yt_rss_archive_bytes"))], unit="bytes", width=2, height=3),
+        ],
+        [
+            Panel("Feed requests by status", "bar",
+                  [Query("A", "metrics", counter_total(YT_ATTEMPTS), by=["status"], legend="{{status}}")],
+                  description="Every feed request, retries included, by HTTP status (or network_error)."),
+            Panel("YouTube 404 rate", "timeseries", [
+                Query("A", "metrics", counter_total(YT_ATTEMPTS), [YOUTUBE, "status = '404'"], hidden=True),
+                Query("B", "metrics", counter_total(YT_ATTEMPTS), [YOUTUBE], hidden=True),
+                Formula("F1", "A / B * 100", "404 %"),
+            ], unit="percent", empty_ok=True,
+                description="Share of YouTube feed requests answered with 404, per minute of sweeping."),
+        ],
+        [
+            Panel("Channels with failed polls", "table", [
+                Query("A", "metrics", counter_total(YT_POLLS), [FAILED_POLL], legend="failed", **BY_CHANNEL),
+                Query("B", "metrics", counter_total(YT_POLLS), ["outcome = 'ok'"], by=["channel"], legend="ok"),
+            ], width=8, height=8, empty_ok=True,
+                description=(
+                    "Polls that still failed after retries, per channel, next to its successful polls. "
+                    "A channel with failures and no successes over a long range is persistently broken."
+                )),
+            Panel("Failed polls by final status", "pie",
+                  [Query("A", "metrics", counter_total(YT_POLLS), [FAILED_POLL], by=["status"],
+                         legend="{{status}}")], width=4, height=8, empty_ok=True),
+        ],
+        [
+            Panel("Requests by attempt number", "bar",
+                  [Query("A", "metrics", counter_total(YT_ATTEMPTS), by=["attempt"], legend="attempt {{attempt}}")],
+                  description="Attempt 2+ means the first request was throttled or failed and was retried."),
+            Panel("Poll time p95 by platform", "timeseries",
+                  [Query("A", "metrics", metric("yt_rss_feed_poll_duration.bucket", "", "p95"), by=["platform"],
+                         legend="{{platform}}")], unit="s",
+                  description="Per channel, including retries and backoff."),
+        ],
+        [
+            Panel("Categories", "table", [
+                Query("A", "metrics", gauge_now("yt_rss_category_channels"), by=["category"], legend="channels",
+                      order_by="__result"),
+                Query("B", "metrics", gauge_now("yt_rss_category_videos"), by=["category"], legend="videos"),
+                Query("C", "metrics", gauge_now("yt_rss_category_avg_video_duration"), by=["category"],
+                      legend="avg length"),
+                Query("D", "metrics", gauge_now("yt_rss_category_total_duration"), by=["category"],
+                      legend="total runtime"),
+            ], column_units={"C": "s", "D": "s"}, width=8, height=8,
+                description="Lengths cover probed videos only."),
+            Panel("Video lengths", "pie",
+                  [Query("A", "metrics", gauge_now("yt_rss_videos_by_length"), by=["length"], legend="{{length}}")],
+                  width=4, height=8, description="Probed videos only."),
+        ],
+        [
+            Panel("Most active channels (last 30 days)", "table", [
+                Query("A", "metrics", gauge_now("yt_rss_channel_recent_uploads"), legend="uploads (30d)",
+                      **BY_CHANNEL),
+                Query("B", "metrics", gauge_now("yt_rss_channel_videos"), by=["channel"], legend="videos recorded"),
+            ], height=8),
+            Panel("Quietest channels", "table",
+                  [Query("A", "metrics", gauge_now("yt_rss_channel_days_since_upload"), legend="days since upload",
+                         **BY_CHANNEL)],
+                  height=8, description="Days since each channel's newest recorded video."),
+        ],
+        [
+            Panel("Largest channels in the archive", "table",
+                  [Query("A", "metrics", gauge_now("yt_rss_archive_bytes"), legend="archived", **BY_CHANNEL)],
+                  column_units={"A": "bytes"}, height=8),
+            Panel("Longest videos on average", "table",
+                  [Query("A", "metrics", gauge_now("yt_rss_channel_avg_video_duration"), legend="avg length",
+                         **BY_CHANNEL)],
+                  column_units={"A": "s"}, height=8, description="Probed videos only."),
+        ],
+        [
+            Panel("Download attempts by outcome", "bar",
+                  [Query("A", "metrics", counter_total("yt_rss_downloads"), by=["outcome"],
+                         legend="{{outcome}}")], empty_ok=True),
+            Panel("Download queue and history", "table",
+                  [Query("A", "metrics", gauge_now("yt_rss_download_states"), by=["status", "reason"],
+                         order_by="__result", legend="downloads")],
+                  description="Every download row by status and skip reason, right now."),
+        ],
+        [
+            Panel("Bytes downloaded", "bar",
+                  [Query("A", "metrics", counter_total("yt_rss_downloaded_bytes"), by=["kind"],
+                         legend="{{kind}}")], unit="bytes", width=4, empty_ok=True),
+            Panel("Download attempt time p95", "timeseries",
+                  [Query("A", "metrics", metric("yt_rss_download_duration.bucket", "", "p95"), by=["outcome"],
+                         legend="{{outcome}}")], unit="s", width=4, empty_ok=True),
+            Panel("Videos with a known length", "number", [
+                Query("A", "metrics", gauge_now("yt_rss_videos"), ["duration_known = 'true'"], hidden=True),
+                Query("B", "metrics", gauge_now("yt_rss_videos"), hidden=True),
+                Formula("F1", "A / B * 100"),
+            ], unit="percent", width=4,
+                description="Only probed videos have a duration; length panels above cover these."),
+        ],
+    ],
+)
+
+DASHBOARDS = [service_health, ingress, logs, databases, jobs, keycloak, youtube_rss]
 
 if __name__ == "__main__":
     main()

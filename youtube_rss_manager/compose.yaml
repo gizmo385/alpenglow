@@ -16,6 +16,11 @@ services:
       OTEL_SERVICE_NAME: youtube_rss_manager
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=youtube_rss_manager
       OTEL_TRACES_EXPORTER: otlp
+      # Feed-poll and library metrics (yt_rss_*), plus HTTP/DB client metrics.
+      # Delta so each export carries only new counts: counters that tick once
+      # per channel per sweep don't lose their first increment after a restart.
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: delta
       OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     volumes:
       # Read-only: lets the web process serve podcast audio enclosures over HTTP
@@ -48,6 +53,8 @@ services:
       OTEL_SERVICE_NAME: youtube_rss_manager-youtube_rss_downloader
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=youtube_rss_manager
       OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: delta
       OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
     volumes:
       # Read-write: the worker downloads, hardlinks into per-user subtrees, and
