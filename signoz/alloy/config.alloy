@@ -113,6 +113,10 @@ discovery.relabel "scrape_targets" {
 prometheus.scrape "containers" {
   targets         = discovery.relabel.scrape_targets.output
   scrape_interval = "30s"
+  // Pass metric types on to otelcol.receiver.prometheus; without them every
+  // counter and histogram arrives in SigNoz as a plain gauge. Experimental,
+  // hence --stability.level=experimental in compose.yaml.
+  honor_metadata  = true
   forward_to      = [otelcol.receiver.prometheus.default.receiver]
 }
 

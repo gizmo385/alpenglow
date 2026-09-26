@@ -1,5 +1,8 @@
 {
-	metrics
+	# per_host adds a `host` label so SigNoz can break traffic down by site.
+	metrics {
+		per_host
+	}
 	debug
 	admin 0.0.0.0:2019
 	servers {
