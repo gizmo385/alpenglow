@@ -875,7 +875,90 @@ youtube_rss = Dashboard(
     ],
 )
 
-DASHBOARDS = [service_health, ingress, logs, databases, jobs, keycloak, youtube_rss]
+# --- Security ----------------------------------------------------------------
+# Host journal entries (the "Host journal" section of alloy/config.alloy) and
+# CrowdSec (/services/crowdsec, watch-only). alerts.py alerts on the same
+# filters, so they're defined once here.
+
+HOST = "service.namespace = 'host'"
+SUDO = [HOST, "service.name = 'sudo'"]
+SUDO_COMMAND = [*SUDO, "body CONTAINS 'COMMAND='"]
+SSH_LOGIN = [HOST, "service.name = 'sshd'", "body CONTAINS 'Accepted '"]
+FIREWALL_BLOCK = [HOST, "service.name = 'kernel'", "body CONTAINS 'UFW BLOCK'"]
+# The LAN (192.168.68.0/22) and the tailnet (100.64.0.0/10, fd7a:115c:a1e0::/48).
+TRUSTED_SOURCE = (
+    "from (192[.]168[.](6[89]|7[01])[.]|100[.](6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])[.]|fd7a:115c:a1e0:)"
+)
+SUDO_REFUSED = (
+    "body CONTAINS 'password is required' OR body CONTAINS 'NOT in sudoers' "
+    "OR body CONTAINS 'incorrect password' OR body CONTAINS 'command not allowed'"
+)
+DOCKER_VIA_SUDO = "body CONTAINS 'COMMAND=/usr/bin/docker'"
+PRIVILEGED_FLAGS = "body CONTAINS '--privileged' OR body CONTAINS '--pid=host' OR body CONTAINS 'docker.sock'"
+PRIVILEGED_DOCKER = [*SUDO, DOCKER_VIA_SUDO, PRIVILEGED_FLAGS]
+# CrowdSec logs "<scope> <value> performed '<scenario>' (N events over T) at <time>"
+# once per detection.
+CROWDSEC_DETECTION = ["service.name = 'crowdsec'", "body CONTAINS ' performed '"]
+CROWDSEC_PARSED = "cs_parser_hits_ok_total"
+CADDY_ACCESS_LOG = "/var/log/host/caddy/access.log"
+LOG_FIELDS = [key("service.name", "resource"), key("body", "log")]
+
+security = Dashboard(
+    name="Security",
+    description=(
+        "CrowdSec detections (watch-only: nothing is blocked), plus sudo, SSH and firewall "
+        "activity from the host journal. Alerts on the same data are in alerts.py."
+    ),
+    rows=[
+        [
+            Panel("CrowdSec detections", "number", [Query("A", "logs", "count()", CROWDSEC_DETECTION)],
+                  width=3, height=3, empty_ok=True),
+            Panel("SSH logins", "number", [Query("A", "logs", "count()", SSH_LOGIN)],
+                  width=3, height=3, empty_ok=True),
+            Panel("sudo commands", "number", [Query("A", "logs", "count()", SUDO_COMMAND)], width=3, height=3),
+            Panel("Firewall blocks", "number", [Query("A", "logs", "count()", FIREWALL_BLOCK)],
+                  width=3, height=3, description="Inbound packets UFW dropped (LAN and tailnet)."),
+        ],
+        [
+            Panel("Recent CrowdSec detections", "list",
+                  [Query("A", "logs", None, CROWDSEC_DETECTION, order_by="timestamp", limit=100)],
+                  fields=LOG_FIELDS, width=7, height=7, empty_ok=True,
+                  description="Each line names the IP and the scenario it triggered."),
+            Panel("Log lines CrowdSec parsed / min by source", "bar",
+                  [Query("A", "metrics", counter_total(CROWDSEC_PARSED), by=["source"], legend="{{source}}")],
+                  width=5, height=7,
+                  description=(
+                      "If Caddy's access log drops to zero, CrowdSec is blind to web attacks "
+                      "(alerts.py alerts after an hour)."
+                  )),
+        ],
+        [
+            Panel("Recent sudo commands", "list",
+                  [Query("A", "logs", None, SUDO_COMMAND, order_by="timestamp", limit=200)],
+                  fields=LOG_FIELDS, width=12, height=8,
+                  description="Every sudo invocation with its full command line (sudo docker is root)."),
+        ],
+        [
+            Panel("Recent SSH logins", "list", [Query("A", "logs", None, SSH_LOGIN, order_by="timestamp", limit=50)],
+                  fields=LOG_FIELDS, width=6, height=6, empty_ok=True),
+            Panel("Refused sudo and privileged docker runs", "list",
+                  [Query("A", "logs", None,
+                         [*SUDO, f"({SUDO_REFUSED}) OR ({DOCKER_VIA_SUDO} AND ({PRIVILEGED_FLAGS}))"],
+                         order_by="timestamp", limit=50)],
+                  fields=LOG_FIELDS, width=6, height=6, empty_ok=True),
+        ],
+        [
+            Panel("Firewall blocks / min", "bar", [Query("A", "logs", "count()", FIREWALL_BLOCK, legend="blocked")],
+                  width=6),
+            Panel("Host warnings and errors / min by source", "bar",
+                  [Query("A", "logs", "count()", [HOST, "severity_text IN ('WARN', 'ERROR', 'FATAL')"],
+                         by=[key("service.name", "resource")], legend="{{service.name}}")],
+                  width=6, empty_ok=True),
+        ],
+    ],
+)
+
+DASHBOARDS = [service_health, ingress, logs, databases, jobs, keycloak, youtube_rss, security]
 
 if __name__ == "__main__":
     main()

@@ -35,7 +35,9 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
 
 ## Sending data
 
-- **Logs** from every container are collected automatically.
+- **Logs** from every container are collected automatically, plus the host's
+  systemd journal (service.namespace `host`, service.name = syslog identifier:
+  `sshd`, `sudo`, `kernel`, ...; tailscaled only at warning and above).
 - **Metrics**: add labels to a service on the `caddy` network (metric types
   come through via Alloy's experimental `honor_metadata`):
   ```yaml
@@ -60,7 +62,8 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
 ## Dashboards
 
 `dashboards/dashboards.py` defines the dashboards (Service Health, Ingress,
-Logs, Databases, Background Jobs, Keycloak) plus unmodified SigNoz library
+Logs, Databases, Background Jobs, Keycloak, YouTube RSS Manager, Security)
+plus unmodified SigNoz library
 dashboards in `dashboards/library/`. It runs every panel's query against live
 data, then creates or updates the dashboards by name:
 
@@ -69,9 +72,18 @@ data, then creates or updates the dashboards by name:
 ./dashboards/dashboards.py --check    # check only
 ```
 
-It needs a service-account key with the Editor role in `.api_env`
+`dashboards/alerts.py` does the same for alert rules (CrowdSec detections,
+SSH logins from outside the LAN/tailnet, unexpected or refused sudo,
+privileged docker runs), notifying the "Discord Alerts" channel:
+
+```sh
+./dashboards/alerts.py                # check + publish
+./dashboards/alerts.py --check        # check only
+```
+
+Both need a service-account key with the Editor role in `.api_env`
 (`SIGNOZ_API_KEY=...`, gitignored). Edits made in the UI are overwritten on the
-next run, so make lasting changes in the script.
+next run, so make lasting changes in the scripts.
 
 Alloy's pipeline graph and discovered targets:
 https://alloy.alpenglow.acbc.house
