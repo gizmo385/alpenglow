@@ -58,6 +58,16 @@ spec:
           value: SIGNOZ_SQLSTORE_POSTGRES_DSN=postgres://signoz:signoz@signoz-metastore-postgres-0:5432/signoz?sslmode=disable
         - op: remove
           path: /services/signoz-signoz-0/environment/0
+        # SigNoz's public URL (both default to localhost:8080). The alertmanager
+        # one is what links in alert notifications use. Added here rather than
+        # in spec.signoz.env, which Foundry sorts ahead of the DSN entry the
+        # test above expects at index 0.
+        - op: add
+          path: /services/signoz-signoz-0/environment/-
+          value: SIGNOZ_GLOBAL_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
+        - op: add
+          path: /services/signoz-signoz-0/environment/-
+          value: SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
 
         # --- SigNoz UI/API: shared Postgres DSN from .env, served via Caddy ---
         # Paths are relative to pours/deployment/ since compose.yaml includes it.

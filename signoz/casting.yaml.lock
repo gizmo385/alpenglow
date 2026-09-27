@@ -380,6 +380,12 @@ spec:
     - op: remove
       path: /services/signoz-signoz-0/environment/0
     - op: add
+      path: /services/signoz-signoz-0/environment/-
+      value: SIGNOZ_GLOBAL_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
+    - op: add
+      path: /services/signoz-signoz-0/environment/-
+      value: SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
+    - op: add
       path: /services/signoz-signoz-0/env_file
       value:
       - path: ../../.env
