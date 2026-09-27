@@ -18,6 +18,9 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Host journal for loki.source.journal (machine-id names its directory).
+      - /var/log/journal:/var/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
       # Log read positions, so restarts don't resend or skip logs.
       - alloy-data:/var/lib/alloy/data
     labels:

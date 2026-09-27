@@ -1,6 +1,7 @@
 // Grafana Alloy: the collection agent in front of SigNoz.
 //
-//   * Logs:    stdout/stderr of every container on the host.
+//   * Logs:    stdout/stderr of every container on the host, plus the host's
+//              systemd journal (sshd, sudo, kernel/UFW, cron, ...).
 //   * Metrics: scraped from containers labelled prometheus.io/scrape=true.
 //   * OTLP:    traces/metrics/logs pushed by instrumented services to
 //              signoz-alloy:4317 (gRPC) or :4318 (HTTP) on the caddy network.
@@ -51,6 +52,83 @@ loki.source.docker "containers" {
 otelcol.receiver.loki "docker_logs" {
   output {
     logs = [otelcol.processor.transform.containers.input]
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Host journal
+//
+// Lands as service.namespace "host" with service.name set to the syslog
+// identifier (sshd, sudo, kernel, CRON, ...), so it never collides with a
+// container's logs. Journal priority becomes the log severity.
+// ---------------------------------------------------------------------------
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "syslog_identifier"
+  }
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "systemd_unit"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "priority"
+  }
+}
+
+loki.source.journal "host" {
+  path          = "/var/log/journal"
+  relabel_rules = loki.relabel.journal.rules
+  forward_to    = [loki.process.journal.receiver]
+}
+
+loki.process "journal" {
+  // tailscaled logs ~17k lines a day of connection chatter at info level;
+  // keep only its warnings and errors.
+  stage.match {
+    selector = "{syslog_identifier=\"tailscaled\", priority=~\"info|notice|debug\"}"
+    action   = "drop"
+  }
+
+  forward_to = [otelcol.receiver.loki.journal.receiver]
+}
+
+otelcol.receiver.loki "journal" {
+  output {
+    logs = [otelcol.processor.transform.journal.input]
+  }
+}
+
+otelcol.processor.transform "journal" {
+  error_mode = "ignore"
+
+  log_statements {
+    context    = "log"
+    statements = [
+      `set(resource.attributes["service.namespace"], "host")`,
+      `set(resource.attributes["service.name"], attributes["syslog_identifier"]) where attributes["syslog_identifier"] != nil`,
+      `set(resource.attributes["service.name"], "journal") where attributes["syslog_identifier"] == nil`,
+      `set(attributes["systemd.unit"], attributes["systemd_unit"]) where attributes["systemd_unit"] != nil`,
+      `set(severity_text, "FATAL") where attributes["priority"] == "emerg" or attributes["priority"] == "alert" or attributes["priority"] == "crit"`,
+      `set(severity_text, "ERROR") where attributes["priority"] == "err"`,
+      `set(severity_text, "WARN") where attributes["priority"] == "warning"`,
+      `set(severity_text, "INFO") where attributes["priority"] == "notice" or attributes["priority"] == "info"`,
+      `set(severity_text, "DEBUG") where attributes["priority"] == "debug"`,
+      `set(severity_number, SEVERITY_NUMBER_FATAL) where severity_text == "FATAL"`,
+      `set(severity_number, SEVERITY_NUMBER_ERROR) where severity_text == "ERROR"`,
+      `set(severity_number, SEVERITY_NUMBER_WARN) where severity_text == "WARN"`,
+      `set(severity_number, SEVERITY_NUMBER_INFO) where severity_text == "INFO"`,
+      `set(severity_number, SEVERITY_NUMBER_DEBUG) where severity_text == "DEBUG"`,
+      `delete_matching_keys(attributes, "^(syslog_identifier|systemd_unit|priority|loki\\.attribute\\.labels)$")`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.batch.default.input]
   }
 }
 
