@@ -748,14 +748,16 @@ youtube_rss = Dashboard(
                 )),
             Panel("Data API fallbacks by outcome", "bar",
                   [Query("A", "metrics", counter_total(YT_FALLBACKS), by=["outcome"], legend="{{outcome}}")],
-                  colors={"ok": "#2BB673", "rate_limited": "#8B8FA3", "error": "#E5484D"},
+                  colors={"ok": "#2BB673", "skipped": "#8B8FA3", "rate_limited": "#8B8FA3", "error": "#E5484D"},
                   width=4, empty_ok=True,
                   description=(
-                      "Fallback attempts after an RSS failure. 'rate_limited' means skipped because the "
-                      "channel fell back within the hour; 'error' is usually a bad key or spent quota."
+                      "Fallback attempts after an RSS failure. 'skipped' means not sent, because the "
+                      "channel fell back within YOUTUBE_API_FALLBACK_INTERVAL_MINUTES (named "
+                      "'rate_limited' before 2026-09-27); 'error' covers everything Google rejected, "
+                      "including its own rate limits and spent quota."
                   )),
             Panel("Data API quota used", "number",
-                  [Query("A", "metrics", counter_total(YT_FALLBACKS), ["outcome != 'rate_limited'"])],
+                  [Query("A", "metrics", counter_total(YT_FALLBACKS), ["outcome IN ('ok', 'error')"])],
                   width=2, empty_ok=True,
                   description=(
                       "Units spent over the selected range, 1 per call, against a default 10,000/day "
