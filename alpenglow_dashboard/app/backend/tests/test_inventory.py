@@ -188,6 +188,14 @@ def test_completed_oneoff_detection():
     assert inventory._is_completed_oneoff(
         _dc("pull", service="init-pull", state="exited", exit_code=0, restart_policy="")
     )
+    # signoz migrator shape: on-failure + clean exit is terminal → one-shot
+    assert inventory._is_completed_oneoff(
+        _dc("migrator", service="migrator", state="exited", exit_code=0, restart_policy="on-failure")
+    )
+    # ...but a non-zero on-failure exit (retries exhausted) is a real failure
+    assert not inventory._is_completed_oneoff(
+        _dc("migrator", service="migrator", state="exited", exit_code=1, restart_policy="on-failure")
+    )
     # a running container is never a "completed" one-shot
     assert not inventory._is_completed_oneoff(
         _dc("app", service="app", state="running", exit_code=None, restart_policy="unless-stopped")

@@ -530,13 +530,15 @@ def _is_completed_oneoff(c: DockerContainer) -> bool:
     An init/one-shot container (compose ``restart: no``, e.g. ollama's
     ``ollama-pull`` model-download job) that exited cleanly (code 0) is a
     *success*, not an outage — it must not drag a service's aggregate status to
-    ``down``. We require BOTH signals so a crashed/never-restarted service
-    (``restart: no`` + non-zero exit) still surfaces as down.
+    ``down``. ``restart: on-failure`` counts too (e.g. SigNoz's schema migrator):
+    docker never restarts it after a clean exit, so exit 0 is equally terminal.
+    We require BOTH signals so a crashed/never-restarted service (non-zero exit)
+    still surfaces as down.
     """
     if c.state == "running":
         return False
     policy = (c.restart_policy or "").strip().lower()
-    is_oneoff = policy in ("", "no")
+    is_oneoff = policy in ("", "no", "on-failure")
     return is_oneoff and c.exit_code == 0
 
 
@@ -716,8 +718,8 @@ async def _build_summary(
 
     # container refs + aggregate status
     #
-    # A completed one-shot/init container (compose ``restart: no`` that exited
-    # 0 — e.g. ollama's model-pull job) is listed for transparency but excluded
+    # A completed one-shot/init container (compose ``restart: no``/``on-failure``
+    # that exited 0 — e.g. ollama's model-pull job) is listed for transparency but excluded
     # from the worst-of aggregate: a *successful* run-to-completion must not
     # report the whole service as down. If EVERY container is such a one-shot we
     # fall back to worst-of-all so the service isn't spuriously "up".
