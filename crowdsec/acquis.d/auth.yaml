@@ -1,0 +1,6 @@
+# sshd, sudo and PAM, written by the host's rsyslog.
+source: file
+filenames:
+  - /var/log/host/auth.log
+labels:
+  type: syslog

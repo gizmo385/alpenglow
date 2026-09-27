@@ -1,0 +1,44 @@
+# CrowdSec in watch-only mode: it reads Caddy's access log and the host's
+# auth.log, flags attacks, and reports them to SigNoz (metrics + its own logs,
+# alerting to Discord). No bouncer is installed, so nothing is ever blocked.
+# To start blocking, add the caddy-crowdsec-bouncer module to caddy/Dockerfile
+# and register it with `cscli bouncers add`.
+#
+# Signals are shared with the CrowdSec community (CAPI) in exchange for its
+# blocklist; set DISABLE_ONLINE_API=true to opt out.
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.1
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      TZ: America/Denver
+      COLLECTIONS: >-
+        crowdsecurity/caddy
+        crowdsecurity/base-http-scenarios
+        crowdsecurity/http-cve
+        crowdsecurity/sshd
+        crowdsecurity/linux
+        crowdsecurity/whitelist-good-actors
+    volumes:
+      - ./acquis.d:/etc/crowdsec/acquis.d:ro
+      - ./parsers/tailnet-whitelist.yaml:/etc/crowdsec/parsers/s02-enrich/tailnet-whitelist.yaml:ro
+      - config:/etc/crowdsec
+      - data:/var/lib/crowdsec/data
+      # Read-only view of the host's logs: caddy/access.log and auth.log.
+      - /var/log:/var/log/host:ro
+    labels:
+      # Scraped by SigNoz's Alloy agent (cs_* metrics).
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "6060"
+    networks:
+      # Only so Alloy can scrape the metrics.
+      - caddy
+
+volumes:
+  config:
+  data:
+
+networks:
+  caddy:
+    external: true

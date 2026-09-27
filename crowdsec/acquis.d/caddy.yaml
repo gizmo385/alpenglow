@@ -1,0 +1,7 @@
+# Written by the access_file logger in caddy/conf/Caddyfile. Public traffic
+# arrives via caddy-edge with PROXY protocol, so client_ip is the real client.
+source: file
+filenames:
+  - /var/log/host/caddy/access.log
+labels:
+  type: caddy

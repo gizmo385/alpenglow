@@ -1,0 +1,9 @@
+# Never flag our own Tailscale devices. Private ranges (the LAN, docker
+# networks) are already covered by crowdsecurity/whitelists.
+name: acbc/tailnet-whitelist
+description: "Whitelist the Tailscale tailnet"
+whitelist:
+  reason: "our tailnet"
+  cidr:
+    - "100.64.0.0/10"
+    - "fd7a:115c:a1e0::/48"
