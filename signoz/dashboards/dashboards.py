@@ -182,10 +182,12 @@ class Panel:
     width: int = 6
     height: int = 6
     empty_ok: bool = False  # event panels: no data just means it hasn't happened yet
+    colors: dict[str, str] = field(default_factory=dict)  # series legend label -> color
 
     def plugin(self) -> dict:
         formatting = {"unit": self.unit, "decimalPrecision": "2"}
         visualization = {"timePreference": "global_time"}
+        legend = {**LEGEND, "customColors": self.colors or None}
         if self.kind == "timeseries":
             return {
                 "kind": "signoz/TimeSeriesPanel",
@@ -200,7 +202,7 @@ class Panel:
                         "spanGaps": {"fillOnlyBelow": False, "fillLessThan": ""},
                     },
                     "axes": AXES,
-                    "legend": LEGEND,
+                    "legend": legend,
                     "thresholds": None,
                 },
             }
@@ -211,7 +213,7 @@ class Panel:
                     "visualization": {**visualization, "fillSpans": False, "stackedBarChart": True},
                     "formatting": formatting,
                     "axes": AXES,
-                    "legend": LEGEND,
+                    "legend": legend,
                     "thresholds": None,
                 },
             }
@@ -223,7 +225,7 @@ class Panel:
         if self.kind == "pie":
             return {
                 "kind": "signoz/PieChartPanel",
-                "spec": {"visualization": visualization, "formatting": formatting, "legend": LEGEND},
+                "spec": {"visualization": visualization, "formatting": formatting, "legend": legend},
             }
         if self.kind == "table":
             return {
@@ -684,33 +686,46 @@ keycloak = Dashboard(
 
 YT_ATTEMPTS = "yt_rss_feed_fetch_attempts"
 YT_POLLS = "yt_rss_feed_polls"
+YT_FALLBACKS = "yt_rss_feed_api_fallbacks"
+FALLBACK_OK = "outcome = 'ok'"
 YOUTUBE = "platform = 'youtube'"
 FAILED_POLL = "outcome != 'ok'"
 BY_CHANNEL = {"by": ["channel"], "order_by": "__result", "limit": 20}
 
+# Series colors are looked up by exact legend label, so each status class gets
+# every code in its range.
+HTTP_STATUS_COLORS = (
+    {str(code): "#2BB673" for code in range(200, 300)}
+    | {str(code): "#F5A623" for code in range(400, 500)}
+    | {str(code): "#E5484D" for code in range(500, 600)}
+    | {"network_error": "#8B8FA3"}
+)
+
 youtube_rss = Dashboard(
     name="YouTube RSS Manager",
     description=(
-        "Feed polling health (incl. YouTube's intermittent 404s, counted on every "
-        "attempt including retries), the library by channel and category, and the "
-        "downloader. Video lengths come from the downloader's probe, so length "
-        "figures cover probed videos only."
+        "Whether channel feeds are arriving (from RSS or, when RSS fails, the Data "
+        "API fallback), then RSS-level diagnostics (YouTube's intermittent 404s, "
+        "counted on every attempt including retries), the library by channel and "
+        "category, and the downloader. Video lengths come from the downloader's "
+        "probe, so length figures cover probed videos only."
     ),
     rows=[
         [
-            Panel("Poll success rate", "number", [
+            Panel("Feeds refreshed", "number", [
                 Query("A", "metrics", counter_total(YT_POLLS), ["outcome = 'ok'"], hidden=True),
                 Query("B", "metrics", counter_total(YT_POLLS), hidden=True),
-                Formula("F1", "A / B * 100"),
-            ], unit="percent", width=2, height=3,
-                description="Channel polls that ended in a usable feed, after retries."),
-            Panel("404 responses", "number",
-                  [Query("A", "metrics", counter_total(YT_ATTEMPTS), ["status = '404'"])],
-                  width=2, height=3, empty_ok=True,
-                  description="Every 404 from a feed request, including ones a retry recovered from."),
+                Query("C", "metrics", counter_total(YT_FALLBACKS), [FALLBACK_OK], hidden=True),
+                Formula("F1", "(A + C) / B * 100"),
+            ], unit="percent", width=3, height=3,
+                description=(
+                    "Channel polls that ended in a usable feed: RSS after retries, or failing that the "
+                    "Data API fallback. The fallback runs at most hourly per channel, so a long RSS "
+                    "outage tops out around a third of 20-minute sweeps."
+                )),
             Panel("New videos found", "number",
                   [Query("A", "metrics", counter_total("yt_rss_feed_new_videos"))],
-                  width=2, height=3, empty_ok=True),
+                  width=3, height=3, empty_ok=True),
             Panel("Channels followed", "number",
                   [Query("A", "metrics", gauge_now("yt_rss_channels"), ["ignored = 'false'"])],
                   width=2, height=3),
@@ -720,37 +735,82 @@ youtube_rss = Dashboard(
                   [Query("A", "metrics", gauge_now("yt_rss_archive_bytes"))], unit="bytes", width=2, height=3),
         ],
         [
-            Panel("Feed requests by status", "bar",
+            Panel("How YouTube polls ended", "bar", [
+                Query("A", "metrics", counter_total(YT_POLLS), [YOUTUBE, "outcome = 'ok'"], legend="RSS"),
+                Query("B", "metrics", counter_total(YT_POLLS), [YOUTUBE, FAILED_POLL], hidden=True),
+                Query("C", "metrics", counter_total(YT_FALLBACKS), [FALLBACK_OK], legend="Data API"),
+                Formula("F1", "B - C", "no fresh feed"),
+            ], colors={"RSS": "#2BB673", "Data API": "#4E8EF7", "no fresh feed": "#E5484D"},
+                description=(
+                    "Each channel poll by where its feed came from. 'No fresh feed' polls failed on both "
+                    "(or skipped the API because the channel used it within the hour); readers keep "
+                    "getting that channel's last cached feed."
+                )),
+            Panel("Data API fallbacks by outcome", "bar",
+                  [Query("A", "metrics", counter_total(YT_FALLBACKS), by=["outcome"], legend="{{outcome}}")],
+                  colors={"ok": "#2BB673", "rate_limited": "#8B8FA3", "error": "#E5484D"},
+                  width=4, empty_ok=True,
+                  description=(
+                      "Fallback attempts after an RSS failure. 'rate_limited' means skipped because the "
+                      "channel fell back within the hour; 'error' is usually a bad key or spent quota."
+                  )),
+            Panel("Data API quota used", "number",
+                  [Query("A", "metrics", counter_total(YT_FALLBACKS), ["outcome != 'rate_limited'"])],
+                  width=2, empty_ok=True,
+                  description=(
+                      "Units spent over the selected range, 1 per call, against a default 10,000/day "
+                      "(resets at midnight Pacific)."
+                  )),
+        ],
+        [
+            Panel("Channels with failed RSS polls", "table", [
+                Query("A", "metrics", counter_total(YT_POLLS), [FAILED_POLL], legend="failed", **BY_CHANNEL),
+                Query("B", "metrics", counter_total(YT_POLLS), ["outcome = 'ok'"], by=["channel"], legend="ok"),
+                Query("C", "metrics", counter_total(YT_FALLBACKS), [FALLBACK_OK], by=["channel"],
+                      legend="recovered via API"),
+            ], width=8, height=8, empty_ok=True,
+                description=(
+                    "RSS polls that still failed after retries, per channel, next to its successful RSS "
+                    "polls and the failures the Data API fallback covered. A channel with failures and "
+                    "neither RSS nor API successes over a long range is persistently broken."
+                )),
+            Panel("Failed RSS polls by final status", "pie",
+                  [Query("A", "metrics", counter_total(YT_POLLS), [FAILED_POLL], by=["status"],
+                         legend="{{status}}")], colors=HTTP_STATUS_COLORS, width=4, height=8, empty_ok=True,
+                  description="Before any Data API fallback; see 'How YouTube polls ended' for what readers got."),
+        ],
+        # RSS diagnostics. Failures here don't mean feeds went stale: the fallback
+        # can cover them (see the rows above).
+        [
+            Panel("RSS feed requests by status", "bar",
                   [Query("A", "metrics", counter_total(YT_ATTEMPTS), by=["status"], legend="{{status}}")],
-                  description="Every feed request, retries included, by HTTP status (or network_error)."),
-            Panel("YouTube 404 rate", "timeseries", [
+                  colors=HTTP_STATUS_COLORS, width=5,
+                  description=(
+                      "Every RSS feed request, retries included, by HTTP status (or network_error). "
+                      "Failures here may still have been covered by the Data API fallback."
+                  )),
+            Panel("YouTube RSS 404 rate", "timeseries", [
                 Query("A", "metrics", counter_total(YT_ATTEMPTS), [YOUTUBE, "status = '404'"], hidden=True),
                 Query("B", "metrics", counter_total(YT_ATTEMPTS), [YOUTUBE], hidden=True),
                 Formula("F1", "A / B * 100", "404 %"),
-            ], unit="percent", empty_ok=True,
-                description="Share of YouTube feed requests answered with 404, per minute of sweeping."),
-        ],
-        [
-            Panel("Channels with failed polls", "table", [
-                Query("A", "metrics", counter_total(YT_POLLS), [FAILED_POLL], legend="failed", **BY_CHANNEL),
-                Query("B", "metrics", counter_total(YT_POLLS), ["outcome = 'ok'"], by=["channel"], legend="ok"),
-            ], width=8, height=8, empty_ok=True,
+            ], unit="percent", width=5, empty_ok=True,
                 description=(
-                    "Polls that still failed after retries, per channel, next to its successful polls. "
-                    "A channel with failures and no successes over a long range is persistently broken."
+                    "Share of YouTube RSS requests answered with 404, per minute of sweeping. "
+                    "Doesn't include the Data API fallback."
                 )),
-            Panel("Failed polls by final status", "pie",
-                  [Query("A", "metrics", counter_total(YT_POLLS), [FAILED_POLL], by=["status"],
-                         legend="{{status}}")], width=4, height=8, empty_ok=True),
+            Panel("RSS 404 responses", "number",
+                  [Query("A", "metrics", counter_total(YT_ATTEMPTS), ["status = '404'"])],
+                  width=2, empty_ok=True,
+                  description="Every 404 from an RSS feed request, including ones a retry recovered from."),
         ],
         [
-            Panel("Requests by attempt number", "bar",
+            Panel("RSS requests by attempt number", "bar",
                   [Query("A", "metrics", counter_total(YT_ATTEMPTS), by=["attempt"], legend="attempt {{attempt}}")],
                   description="Attempt 2+ means the first request was throttled or failed and was retried."),
             Panel("Poll time p95 by platform", "timeseries",
                   [Query("A", "metrics", metric("yt_rss_feed_poll_duration.bucket", "", "p95"), by=["platform"],
                          legend="{{platform}}")], unit="s",
-                  description="Per channel, including retries and backoff."),
+                  description="Per channel RSS fetch, including retries and backoff (not the Data API fallback)."),
         ],
         [
             Panel("Categories", "table", [
