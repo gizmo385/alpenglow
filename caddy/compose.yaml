@@ -9,9 +9,9 @@ services:
     networks:
       - caddy
     labels:
-      # Scraped by SigNoz's Alloy agent (metrics are on the admin endpoint).
+      # Scraped by SigNoz's Alloy agent (the :9180 site in conf/Caddyfile).
       prometheus.io/scrape: "true"
-      prometheus.io/port: "2019"
+      prometheus.io/port: "9180"
     ports:
       - "80:80"
       - "443:443"

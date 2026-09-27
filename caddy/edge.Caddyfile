@@ -1,6 +1,8 @@
 {
     debug
-    admin 0.0.0.0:2020
+    # Localhost only: the admin API is unauthenticated and this runs on the
+    # host network, where every container and tailnet device could reach it.
+    admin localhost:2020
 
     layer4 {
         :11443 {
