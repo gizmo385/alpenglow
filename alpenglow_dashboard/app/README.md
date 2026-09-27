@@ -27,6 +27,11 @@ Open http://localhost:5173.
 - `DEV_NO_AUTH=1` synthesizes an admin identity instead of requiring
   `X-Forwarded-User` / `X-Forwarded-Groups` from oauth2-proxy. Never set it in
   production.
+- `PROXY_AUTH_SECRET` must match oauth2-proxy's
+  `OAUTH2_PROXY_BASIC_AUTH_PASSWORD`. The forwarded headers are only trusted
+  on requests carrying it as the Basic auth password, since any container on
+  the `caddy` network can reach the backend directly. Unset, every `/api`
+  request is rejected.
 - `COOKIE_SECURE=0` lets the CSRF cookie work over plain http in dev.
 
 ### Tests
