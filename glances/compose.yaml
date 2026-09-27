@@ -1,11 +1,14 @@
 services:
   monitoring:
     container_name: glances
+    # Read-only Docker API plus container stats, via /services/docker-proxy.
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-read-stats
     image: nicolargo/glances:latest
     restart: unless-stopped
     pid: host
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./glances.conf:/etc/glances/glances.conf
       - /etc/os-release:/etc/os-release:ro
     environment:
@@ -19,4 +22,6 @@ services:
 
 networks:
   caddy:
+    external: true
+  docker-proxy:
     external: true

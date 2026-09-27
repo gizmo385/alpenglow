@@ -1,0 +1,84 @@
+# Filtered access to the Docker API, so services that need Docker don't mount
+# /var/run/docker.sock (which is root on the host, read-only mount or not).
+#
+# docker-proxy: consumers extend one of the access profiles in profiles.yaml
+#   (docker-read, docker-read-stats, docker-read-logs, docker-manage), which
+#   puts them on the internal `docker-proxy` network, sets DOCKER_HOST and adds
+#   the socket-proxy.allow.* labels the proxy reads their permissions from.
+#   A container with no allow labels gets nothing. Refused requests are logged.
+#
+# docker-proxy-beszel: beszel-agent runs on the host network, so it can't be
+#   identified on a docker network; it gets its own read-only unix socket.
+#
+# Anything allowed to create containers (the dashboard's `compose up`) is still
+# root-equivalent: no proxy can tell a privileged container from a normal one.
+# See https://github.com/wollomatic/socket-proxy for the options.
+
+x-proxy: &proxy
+  image: wollomatic/socket-proxy:1.13.1
+  restart: unless-stopped
+  # nobody, in the host's docker group so it can open the socket.
+  user: "65534:988"
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges
+  mem_limit: 64M
+  healthcheck:
+    test: ["CMD", "./healthcheck"]
+    interval: 30s
+    timeout: 5s
+    retries: 2
+
+services:
+  docker-proxy:
+    <<: *proxy
+    container_name: docker-proxy
+    command:
+      - -loglevel=info
+      - -listenip=0.0.0.0
+      # Per-container allowlists come from consumers' socket-proxy.allow.* labels.
+      - -proxycontainername=docker-proxy
+      - -allowhealthcheck
+      - -watchdoginterval=300
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-proxy
+
+  docker-proxy-beszel:
+    <<: *proxy
+    container_name: docker-proxy-beszel
+    # Root (still with no capabilities) so it can create its socket in the
+    # host's /run/docker-proxy-beszel, which docker creates root-owned on boot.
+    user: "0:988"
+    command:
+      - -loglevel=info
+      - -proxysocketendpoint=/run/docker-proxy-beszel/docker.sock
+      # The docker-read-stats profile (profiles.yaml), minus what beszel
+      # doesn't use. One allowed endpoint per line, same syntax as there.
+      - -allowHEAD=(/v[0-9.]+)?/_ping
+      - -allowGET=(/v[0-9.]+)?/_ping
+      - -allowGET=(/v[0-9.]+)?/version
+      - -allowGET=(/v[0-9.]+)?/info
+      - -allowGET=(/v[0-9.]+)?/containers/json
+      - -allowGET=(/v[0-9.]+)?/containers/[^/]+/json
+      - -allowGET=(/v[0-9.]+)?/containers/[^/]+/stats
+      - -allowGET=(/v[0-9.]+)?/images/.+/json
+      - -allowhealthcheck
+      - -watchdoginterval=300
+      - -stoponwatchdog
+      - -shutdowngracetime=5
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/docker-proxy-beszel:/run/docker-proxy-beszel
+    network_mode: none
+
+networks:
+  docker-proxy:
+    name: docker-proxy
+    # No route out: only the proxy and its consumers are on it.
+    internal: true

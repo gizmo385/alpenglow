@@ -1,0 +1,63 @@
+# Docker API access profiles for services behind docker-proxy (compose.yaml).
+#
+# A service opts in by extending one profile, and declaring the network:
+#
+#   services:
+#     myservice:
+#       extends:
+#         file: ../docker-proxy/profiles.yaml
+#         service: docker-read
+#       ...
+#   networks:
+#     docker-proxy:
+#       external: true
+#
+# That sets DOCKER_HOST, joins the docker-proxy network and adds the
+# socket-proxy.allow.<method>.<name> labels the proxy reads. Each label is one
+# allowed endpoint: a Go regexp matched against the whole request path.
+# `(/v[0-9.]+)?` is the optional API version prefix (/v1.47/...). Anything not
+# listed is refused and logged by the proxy (`docker logs docker-proxy`).
+
+services:
+  # Look, don't touch: what's running and what it runs.
+  docker-read:
+    environment:
+      DOCKER_HOST: tcp://docker-proxy:2375
+    networks:
+      - docker-proxy
+    labels:
+      socket-proxy.allow.head.ping: '(/v[0-9.]+)?/_ping'
+      socket-proxy.allow.get.ping: '(/v[0-9.]+)?/_ping'
+      socket-proxy.allow.get.version: '(/v[0-9.]+)?/version'
+      socket-proxy.allow.get.info: '(/v[0-9.]+)?/info'
+      socket-proxy.allow.get.events: '(/v[0-9.]+)?/events'
+      socket-proxy.allow.get.list-containers: '(/v[0-9.]+)?/containers/json'
+      # Includes the container's environment variables, so secrets too.
+      socket-proxy.allow.get.inspect-container: '(/v[0-9.]+)?/containers/[^/]+/json'
+      socket-proxy.allow.get.list-images: '(/v[0-9.]+)?/images/json'
+      socket-proxy.allow.get.inspect-image: '(/v[0-9.]+)?/images/.+/json'
+      socket-proxy.allow.get.list-networks: '(/v[0-9.]+)?/networks'
+      socket-proxy.allow.get.inspect-network: '(/v[0-9.]+)?/networks/[^/]+'
+
+  # docker-read, plus live CPU/memory/network usage per container.
+  docker-read-stats:
+    extends: docker-read
+    labels:
+      socket-proxy.allow.get.container-stats: '(/v[0-9.]+)?/containers/[^/]+/stats'
+
+  # docker-read, plus container logs.
+  docker-read-logs:
+    extends: docker-read
+    labels:
+      socket-proxy.allow.get.container-logs: '(/v[0-9.]+)?/containers/[^/]+/logs'
+
+  # Everything, including creating containers: root-equivalent on the host.
+  # Only for the dashboard (docker compose up/pull/restart), which sits behind
+  # Keycloak's Admin group.
+  docker-manage:
+    extends: docker-read
+    labels:
+      socket-proxy.allow.get.all: '.*'
+      socket-proxy.allow.head.all: '.*'
+      socket-proxy.allow.post.all: '.*'
+      socket-proxy.allow.delete.all: '.*'

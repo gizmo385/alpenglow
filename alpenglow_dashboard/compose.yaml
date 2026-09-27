@@ -15,6 +15,12 @@ services:
   dashboard:
     build: ./app
     container_name: alpenglow_dashboard
+    # Full Docker API via /services/docker-proxy: it runs `docker compose` (up,
+    # pull, restart), which is root-equivalent on the host. Behind Keycloak's
+    # Admin group (oauth2-proxy + PROXY_AUTH_SECRET).
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-manage
     restart: unless-stopped
     environment:
       TZ: America/Denver
@@ -28,7 +34,6 @@ services:
       - path: .env
         required: true
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - /services:/services:ro
       - ./data:/data-store
       - /data/postgres_backups:/pg-backups:ro
@@ -39,4 +44,6 @@ services:
 
 networks:
   caddy:
+    external: true
+  docker-proxy:
     external: true

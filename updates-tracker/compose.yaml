@@ -1,8 +1,11 @@
 services:
   release-feeds:
+    # Read-only Docker API via /services/docker-proxy.
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-read
     image: ghcr.io/gizmo385/image-updates-tracker:main
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./overrides.yaml:/config/overrides.yaml:ro
     env_file: .env
     environment:
@@ -22,9 +25,12 @@ services:
       caddy.reverse_proxy: "@updates {{upstreams http 8585}}"
 
   discord-bot:
+    # Read-only Docker API via /services/docker-proxy.
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-read
     image: ghcr.io/gizmo385/image-updates-tracker-bot:main
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./overrides.yaml:/config/overrides.yaml:ro
     env_file: .env
     environment:
@@ -43,4 +49,6 @@ networks:
   ai:
     external: true
   otel:
+    external: true
+  docker-proxy:
     external: true

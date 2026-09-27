@@ -2,10 +2,13 @@ services:
   cup:
     image: ghcr.io/sergi0g/cup:latest
     container_name: cup
+    # Read-only Docker API via /services/docker-proxy.
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-read
     restart: unless-stopped
-    command: -c /config/cup.json serve
+    command: -s tcp://docker-proxy:2375 -c /config/cup.json serve
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./cup.json:/config/cup.json
     networks:
       - caddy
@@ -16,4 +19,6 @@ services:
 
 networks:
   caddy:
+    external: true
+  docker-proxy:
     external: true

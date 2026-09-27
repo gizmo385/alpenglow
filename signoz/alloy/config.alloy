@@ -9,10 +9,12 @@
 // Everything is converted to OTLP and sent to the SigNoz ingester. See the
 // "Container identity" section for how service.name is derived.
 //
+// Docker access goes through /services/docker-proxy (docker-read-logs profile).
+//
 // Pipeline status and discovered targets: https://alloy.alpenglow.acbc.house
 
 discovery.docker "containers" {
-  host = "unix:///var/run/docker.sock"
+  host = "tcp://docker-proxy:2375"
 }
 
 // ---------------------------------------------------------------------------
@@ -43,7 +45,7 @@ discovery.relabel "docker_logs" {
 }
 
 loki.source.docker "containers" {
-  host          = "unix:///var/run/docker.sock"
+  host          = "tcp://docker-proxy:2375"
   targets       = discovery.docker.containers.targets
   relabel_rules = discovery.relabel.docker_logs.rules
   forward_to    = [otelcol.receiver.loki.docker_logs.receiver]

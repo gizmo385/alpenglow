@@ -7,6 +7,10 @@ services:
   alloy:
     image: grafana/alloy:v1.20.0
     container_name: signoz-alloy
+    # Container list and logs via /services/docker-proxy (read-only).
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-read-logs
     restart: unless-stopped
     command:
       - run
@@ -17,7 +21,6 @@ services:
       - /etc/alloy/config.alloy
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       # Host journal for loki.source.journal (machine-id names its directory).
       - /var/log/journal:/var/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
@@ -46,7 +49,9 @@ services:
     pid: host
     volumes:
       - ./obi/config.yaml:/config/obi.yaml:ro
-      # Container names for service naming.
+      # Container names for service naming. The only consumer left on the raw
+      # socket (not /services/docker-proxy): privileged + pid: host is already
+      # full host access, so filtering its Docker API would add nothing.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - signoz-network
@@ -56,4 +61,6 @@ volumes:
 
 networks:
   otel:
+    external: true
+  docker-proxy:
     external: true

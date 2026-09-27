@@ -9,8 +9,8 @@ RUN npm run build
 # ── stage 2: python runtime ───────────────────────────────────────────────────
 FROM python:3.13-slim
 
-# docker CLI + compose plugin — the app drives the *host* daemon through the
-# mounted /var/run/docker.sock; no daemon runs in this container.
+# docker CLI + compose plugin — the app drives the *host* daemon through
+# /services/docker-proxy (DOCKER_HOST); no daemon runs in this container.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && install -m 0755 -d /etc/apt/keyrings \

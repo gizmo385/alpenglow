@@ -2,6 +2,10 @@ services:
   caddy:
     build: .
     container_name: caddy
+    # Reads container labels via /services/docker-proxy (read-only).
+    extends:
+      file: ../docker-proxy/profiles.yaml
+      service: docker-read
     env_file: .env
     restart: unless-stopped
     cap_add:
@@ -21,7 +25,6 @@ services:
       - ./conf:/etc/caddy
       - caddy_data:/data
       - caddy_config:/config
-      - /var/run/docker.sock:/var/run/docker.sock
       # Access log for CrowdSec (see the access_file logger in conf/Caddyfile).
       - /var/log/caddy:/var/log/caddy
 
@@ -40,4 +43,6 @@ volumes:
 
 networks:
   caddy:
+    external: true
+  docker-proxy:
     external: true 

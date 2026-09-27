@@ -27,11 +27,15 @@ services:
       - /dev/nvme0:/dev/nvme0
       - /dev/zfs:/dev/zfs # Required for ZFS pool monitoring
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Read-only Docker API from docker-proxy-beszel (/services/docker-proxy):
+      # this agent is on the host network, so it gets its own unix socket.
+      - /run/docker-proxy-beszel:/run/docker-proxy-beszel:ro
     cap_add:
       - SYS_RAWIO # Required for S.M.A.R.T data
       - SYS_ADMIN # Required for NVMe S.M.A.R.T data
     env_file: .agent_env
+    environment:
+      DOCKER_HOST: unix:///run/docker-proxy-beszel/docker.sock
 
 
 networks:
