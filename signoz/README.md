@@ -35,7 +35,9 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
 
 ## Sending data
 
-- **Logs** from every container are collected automatically, plus the host's
+- **Logs** from every container are collected automatically (Alloy infers
+  their severity from the line and strips ANSI colours; see `log_levels` in
+  `alloy/config.alloy`), plus the host's
   systemd journal (service.namespace `host`, service.name = syslog identifier:
   `sshd`, `sudo`, `kernel`, ...; tailscaled only at warning and above).
 - **Metrics**: add labels to a service on the `caddy` network (metric types

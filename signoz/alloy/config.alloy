@@ -53,6 +53,54 @@ loki.source.docker "containers" {
 
 otelcol.receiver.loki "docker_logs" {
   output {
+    logs = [otelcol.processor.transform.log_levels.input]
+  }
+}
+
+// Container logs arrive as bare text, so severity is inferred from the line:
+// the first match wins among a JSON "level" field, logfmt level=..., a
+// ClickHouse <Level>, an uppercase level word (INFO, WARNING:, [ERR], ...), and
+// a 5xx status in an access-log line. Anything else is INFO. ANSI colour codes
+// are stripped first; they'd hide the level words and clutter the log view.
+otelcol.processor.transform "log_levels" {
+  error_mode = "ignore"
+
+  log_statements {
+    context    = "log"
+    statements = [
+      `replace_pattern(body, "\\x1b\\[[0-9;]*[A-Za-z]", "")`,
+
+      // {"level":"info",...}
+      `set(cache["json"], ParseJSON(body)) where IsMatch(body, "^\\s*\\{")`,
+      `set(cache["level"], cache["json"]["level"]) where cache["json"] != nil and cache["json"]["level"] != nil`,
+      `set(cache["level"], cache["json"]["severity"]) where cache["level"] == nil and cache["json"] != nil and cache["json"]["severity"] != nil`,
+      // level=warn, level="info"
+      `merge_maps(cache, ExtractPatterns(body, "(?:^|\\s)level=\"?(?P<level>[A-Za-z]+)"), "upsert") where cache["level"] == nil and IsMatch(body, "(?:^|\\s)level=\"?[A-Za-z]+")`,
+      // ClickHouse: <Information>, <Warning>
+      `merge_maps(cache, ExtractPatterns(body, "<(?P<level>Trace|Debug|Information|Notice|Warning|Error|Fatal|Critical)>"), "upsert") where cache["level"] == nil and IsMatch(body, "<(Trace|Debug|Information|Notice|Warning|Error|Fatal|Critical)>")`,
+      // INFO ..., WARNING:, [ERR], (DEBUG) -- uppercase only, so "error" in a message doesn't count.
+      `merge_maps(cache, ExtractPatterns(body, "(?:^|[\\s\\[(|])(?P<level>TRACE|VERBOSE|DEBUG|INFO|NOTICE|LOG|WARN|WARNING|ERROR|FATAL|CRITICAL|PANIC|VRB|DBG|INF|WRN|ERR|FTL|CRIT)(?:[\\s\\]):]|$)"), "upsert") where cache["level"] == nil and IsMatch(body, "(?:^|[\\s\\[(|])(TRACE|VERBOSE|DEBUG|INFO|NOTICE|LOG|WARN|WARNING|ERROR|FATAL|CRITICAL|PANIC|VRB|DBG|INF|WRN|ERR|FTL|CRIT)(?:[\\s\\]):]|$)")`,
+      // Access logs: "GET /x HTTP/1.1" 502 ...; tracebacks and Go panics.
+      `set(cache["level"], "error") where cache["level"] == nil and IsMatch(body, "\"[A-Z]+ [^\"]* HTTP/[0-9.]+\" 5[0-9]{2} ")`,
+      `set(cache["level"], "error") where cache["level"] == nil and IsMatch(body, "^(Traceback \\(most recent call last\\)|panic: )")`,
+
+      `set(severity_text, "TRACE") where IsMatch(cache["level"], "(?i)^(trace|verbose|vrb)$")`,
+      `set(severity_text, "DEBUG") where IsMatch(cache["level"], "(?i)^(debug|dbg)$")`,
+      `set(severity_text, "INFO") where IsMatch(cache["level"], "(?i)^(info|information|inf|notice|log)$")`,
+      `set(severity_text, "WARN") where IsMatch(cache["level"], "(?i)^(warn|warning|wrn)$")`,
+      `set(severity_text, "ERROR") where IsMatch(cache["level"], "(?i)^(error|err)$")`,
+      `set(severity_text, "FATAL") where IsMatch(cache["level"], "(?i)^(fatal|ftl|critical|crit|panic|dpanic|emerg|alert)$")`,
+      `set(severity_text, "INFO") where severity_text == ""`,
+      `set(severity_number, SEVERITY_NUMBER_TRACE) where severity_text == "TRACE"`,
+      `set(severity_number, SEVERITY_NUMBER_DEBUG) where severity_text == "DEBUG"`,
+      `set(severity_number, SEVERITY_NUMBER_INFO) where severity_text == "INFO"`,
+      `set(severity_number, SEVERITY_NUMBER_WARN) where severity_text == "WARN"`,
+      `set(severity_number, SEVERITY_NUMBER_ERROR) where severity_text == "ERROR"`,
+      `set(severity_number, SEVERITY_NUMBER_FATAL) where severity_text == "FATAL"`,
+    ]
+  }
+
+  output {
     logs = [otelcol.processor.transform.containers.input]
   }
 }
