@@ -22,6 +22,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - /var/run/docker.sock:/var/run/docker.sock
+      # Access log for CrowdSec (see the access_file logger in conf/Caddyfile).
+      - /var/log/caddy:/var/log/caddy
 
   caddy-edge:
     build: .

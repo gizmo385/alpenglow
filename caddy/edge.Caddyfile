@@ -1,5 +1,4 @@
 {
-    debug
     # Localhost only: the admin API is unauthenticated and this runs on the
     # host network, where every container and tailnet device could reach it.
     admin localhost:2020
