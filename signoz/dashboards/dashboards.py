@@ -183,6 +183,7 @@ class Panel:
     height: int = 6
     empty_ok: bool = False  # event panels: no data just means it hasn't happened yet
     colors: dict[str, str] = field(default_factory=dict)  # series legend label -> color
+    stacked: bool = True  # bar panels: stack the series (False when one is a subset of another)
 
     def plugin(self) -> dict:
         formatting = {"unit": self.unit, "decimalPrecision": "2"}
@@ -210,7 +211,7 @@ class Panel:
             return {
                 "kind": "signoz/BarChartPanel",
                 "spec": {
-                    "visualization": {**visualization, "fillSpans": False, "stackedBarChart": True},
+                    "visualization": {**visualization, "fillSpans": False, "stackedBarChart": self.stacked},
                     "formatting": formatting,
                     "axes": AXES,
                     "legend": legend,
@@ -399,6 +400,12 @@ def main() -> None:
         publish(dashboard.to_json(), existing)
     for path in sorted(LIBRARY_DIR.glob("*.json")):
         publish(json.loads(path.read_text()), existing)
+    for name in RETIRED:
+        if name in existing:
+            status, result = api("DELETE", f"/api/v2/dashboards/{existing[name]['id']}")
+            if status not in (200, 204):
+                sys.exit(f"{name}: HTTP {status}: {json.dumps(result)[:500]}")
+            print(f"deleted: {name}")
 
 
 # ---------------------------------------------------------------------------
@@ -640,46 +647,6 @@ jobs = Dashboard(
     ],
 )
 
-KC_HTTP = "http_server_requests_seconds.count"
-
-keycloak = Dashboard(
-    name="Keycloak",
-    description="Keycloak's own metrics (HTTP, logins, JVM, DB pool) and traces.",
-    rows=[
-        [
-            Panel("HTTP requests / s by status", "timeseries",
-                  [Query("A", "metrics", metric(KC_HTTP), by=["status"], legend="{{status}}")], unit="reqps"),
-            Panel("Password checks / min by outcome", "bar",
-                  [Query("A", "metrics", metric("keycloak_credentials_password_hashing_validations_total",
-                                                "increase", "sum"), by=["outcome"], legend="{{outcome}}")],
-                  description="Every password login attempt is hashed and checked once."),
-        ],
-        [
-            Panel("Average response time by endpoint", "table", [
-                Query("A", "metrics", metric("http_server_requests_seconds.sum"), by=["uri"], hidden=True),
-                Query("B", "metrics", metric(KC_HTTP), by=["uri"], hidden=True),
-                Formula("F1", "A / B", "avg"),
-            ], column_units={"F1": "s"}),
-            Panel("JVM heap used", "timeseries",
-                  [Query("A", "metrics", metric("jvm_memory_used_bytes", "avg", "sum"), ["area = 'heap'"],
-                         legend="used"),
-                   Query("B", "metrics", metric("jvm_memory_committed_bytes", "avg", "sum"), ["area = 'heap'"],
-                         legend="committed")], unit="bytes"),
-        ],
-        [
-            Panel("DB connection pool", "timeseries",
-                  [Query("A", "metrics", metric("agroal_active_count", "avg", "sum"), legend="active"),
-                   Query("B", "metrics", metric("agroal_awaiting_count", "avg", "sum"), legend="waiting")]),
-            Panel("Slowest operations (traces)", "table",
-                  [Query("A", "traces", "p95(durationNano)", ["serviceName = 'keycloak'", "isRoot = true"],
-                         by=["name"], order_by="p95(durationNano)", limit=15, legend="p95"),
-                   Query("B", "traces", "count()", ["serviceName = 'keycloak'", "isRoot = true"], by=["name"],
-                         legend="count")],
-                  column_units={"A": "ns"}),
-        ],
-    ],
-)
-
 # --- YouTube RSS Manager -------------------------------------------------------
 # Metrics come from the app itself (youtube_subs_opml/metrics.py for events,
 # web/services/library_metrics.py for library gauges refreshed every 5 minutes).
@@ -907,35 +874,90 @@ CROWDSEC_FILE_SERVED = [*CROWDSEC_DETECTION, "body CONTAINS \"performed 'acbc/ht
 CROWDSEC_PARSED = "cs_parser_hits_ok_total"
 CADDY_ACCESS_LOG = "/var/log/host/caddy/access.log"
 LOG_FIELDS = [key("service.name", "resource"), key("body", "log")]
+# After a restart, Alloy re-reads each container's logs from the second of the
+# last line it shipped, so that second's lines land again. CrowdSec and
+# Keycloak lines carry their own timestamp, so counting distinct bodies counts
+# each event once.
+DISTINCT_EVENTS = "count_distinct(body)"
+
+CROWDSEC_POURED = "cs_bucket_poured_total"
+# Every request for a file on CrowdSec's sensitive list (the hub's
+# sensitive_data.txt) from outside the LAN and tailnet, served or not, and the
+# ones that got a 2xx. CrowdSec counts them as events poured into each scenario.
+SENSITIVE_REQUESTED = "name = 'crowdsecurity/http-sensitive-files'"
+SENSITIVE_SERVED = "name = 'acbc/http-sensitive-files-served'"
+# Keycloak's jboss-logging event listener logs failed events at WARN, with the
+# IP, client and error: type="LOGIN_ERROR", type="CODE_TO_TOKEN_ERROR", ...
+KEYCLOAK = "service.name = 'keycloak'"
+KC_EVENT_ERRORS = [KEYCLOAK, "body CONTAINS '[org.keycloak.events]'", "body CONTAINS '_ERROR\"'"]
+KC_LOGIN_ERRORS = [KEYCLOAK, "body CONTAINS 'type=\"LOGIN_ERROR\"'"]
+KC_HTTP = "http_server_requests_seconds.count"
 
 security = Dashboard(
     name="Security",
     description=(
-        "CrowdSec detections (watch-only: nothing is blocked), plus sudo, SSH and firewall "
-        "activity from the host journal. Alerts on the same data are in alerts.py."
+        "CrowdSec detections (watch-only: nothing is blocked), sensitive-file requests, "
+        "Keycloak logins, and sudo, SSH and firewall activity from the host journal. "
+        "Alerts on the same data are in alerts.py."
     ),
     rows=[
         [
-            Panel("CrowdSec detections", "number", [Query("A", "logs", "count()", CROWDSEC_DETECTION)],
+            Panel("CrowdSec detections", "number", [Query("A", "logs", DISTINCT_EVENTS, CROWDSEC_DETECTION)],
                   width=3, height=3, empty_ok=True),
-            Panel("SSH logins", "number", [Query("A", "logs", "count()", SSH_LOGIN)],
-                  width=3, height=3, empty_ok=True),
-            Panel("sudo commands", "number", [Query("A", "logs", "count()", SUDO_COMMAND)], width=3, height=3),
-            Panel("Firewall blocks", "number", [Query("A", "logs", "count()", FIREWALL_BLOCK)],
-                  width=3, height=3, description="Inbound packets UFW dropped (LAN and tailnet)."),
+            Panel("Sensitive-file requests", "number",
+                  [Query("A", "metrics", counter_total(CROWDSEC_POURED), [SENSITIVE_REQUESTED])],
+                  width=3, height=3, empty_ok=True,
+                  description="Requests from outside the LAN and tailnet for files on CrowdSec's sensitive list."),
+            Panel("Sensitive files served", "number",
+                  [Query("A", "metrics", counter_total(CROWDSEC_POURED), [SENSITIVE_SERVED])],
+                  width=3, height=3, empty_ok=True,
+                  description="Of those, the ones that got a 2xx. Anything above 0 alerts (critical)."),
+            Panel("Failed SSO logins", "number", [Query("A", "logs", DISTINCT_EVENTS, KC_LOGIN_ERRORS)],
+                  width=3, height=3, empty_ok=True, description="Keycloak LOGIN_ERROR events."),
         ],
         [
             Panel("Recent CrowdSec detections", "list",
                   [Query("A", "logs", None, CROWDSEC_DETECTION, order_by="timestamp", limit=100)],
                   fields=LOG_FIELDS, width=7, height=7, empty_ok=True,
                   description="Each line names the IP and the scenario it triggered."),
+            Panel("Sensitive-file requests / min", "bar", [
+                Query("A", "metrics", counter_total(CROWDSEC_POURED), [SENSITIVE_REQUESTED], legend="requested"),
+                Query("B", "metrics", counter_total(CROWDSEC_POURED), [SENSITIVE_SERVED], legend="served (2xx)"),
+            ], width=5, height=7, empty_ok=True, stacked=False,
+                  colors={"requested": "#F5A623", "served (2xx)": "#E5484D"},
+                  description=(
+                      "Every request for a file on CrowdSec's sensitive list (.env, .git/, backups...) "
+                      "from outside the LAN and tailnet, including single probes too small to become a "
+                      "detection. Scanners who send enough of them show up in Recent CrowdSec detections."
+                  )),
+        ],
+        [
+            Panel("Keycloak error events", "list",
+                  [Query("A", "logs", None, KC_EVENT_ERRORS, order_by="timestamp", limit=100)],
+                  fields=LOG_FIELDS, width=7, height=7, empty_ok=True,
+                  description="Failed logins, token exchanges, etc., with the IP, client and error."),
+            Panel("Keycloak password checks / min by outcome", "bar",
+                  [Query("A", "metrics", metric("keycloak_credentials_password_hashing_validations_total",
+                                                "increase", "sum"), by=["outcome"], legend="{{outcome}}")],
+                  width=5, height=7,
+                  description="Every password login attempt is hashed and checked once (passkeys aren't)."),
+        ],
+        [
+            Panel("Keycloak HTTP requests / s by status", "timeseries",
+                  [Query("A", "metrics", metric(KC_HTTP), by=["status"], legend="{{status}}")], unit="reqps"),
             Panel("Log lines CrowdSec parsed / min by source", "bar",
                   [Query("A", "metrics", counter_total(CROWDSEC_PARSED), by=["source"], legend="{{source}}")],
-                  width=5, height=7,
                   description=(
                       "If Caddy's access log drops to zero, CrowdSec is blind to web attacks "
                       "(alerts.py alerts after an hour)."
                   )),
+        ],
+        [
+            Panel("SSH logins", "number", [Query("A", "logs", "count()", SSH_LOGIN)],
+                  width=4, height=3, empty_ok=True),
+            Panel("sudo commands", "number", [Query("A", "logs", "count()", SUDO_COMMAND)], width=4, height=3),
+            Panel("Firewall blocks", "number", [Query("A", "logs", "count()", FIREWALL_BLOCK)],
+                  width=4, height=3, description="Inbound packets UFW dropped (LAN and tailnet)."),
         ],
         [
             Panel("Recent sudo commands", "list",
@@ -960,10 +982,36 @@ security = Dashboard(
                          by=[key("service.name", "resource")], legend="{{service.name}}")],
                   width=6, empty_ok=True),
         ],
+        # Keycloak runtime, from its own metrics and traces.
+        [
+            Panel("Keycloak average response time by endpoint", "table", [
+                Query("A", "metrics", metric("http_server_requests_seconds.sum"), by=["uri"], hidden=True),
+                Query("B", "metrics", metric(KC_HTTP), by=["uri"], hidden=True),
+                Formula("F1", "A / B", "avg"),
+            ], column_units={"F1": "s"}),
+            Panel("Keycloak JVM heap used", "timeseries",
+                  [Query("A", "metrics", metric("jvm_memory_used_bytes", "avg", "sum"), ["area = 'heap'"],
+                         legend="used"),
+                   Query("B", "metrics", metric("jvm_memory_committed_bytes", "avg", "sum"), ["area = 'heap'"],
+                         legend="committed")], unit="bytes"),
+        ],
+        [
+            Panel("Keycloak DB connection pool", "timeseries",
+                  [Query("A", "metrics", metric("agroal_active_count", "avg", "sum"), legend="active"),
+                   Query("B", "metrics", metric("agroal_awaiting_count", "avg", "sum"), legend="waiting")]),
+            Panel("Keycloak slowest operations (traces)", "table",
+                  [Query("A", "traces", "p95(durationNano)", ["serviceName = 'keycloak'", "isRoot = true"],
+                         by=["name"], order_by="p95(durationNano)", limit=15, legend="p95"),
+                   Query("B", "traces", "count()", ["serviceName = 'keycloak'", "isRoot = true"], by=["name"],
+                         legend="count")],
+                  column_units={"A": "ns"}),
+        ],
     ],
 )
 
-DASHBOARDS = [service_health, ingress, logs, databases, jobs, keycloak, youtube_rss, security]
+DASHBOARDS = [service_health, ingress, logs, databases, jobs, youtube_rss, security]
+# Old dashboard names to delete. Keycloak's panels moved into Security.
+RETIRED = ["Keycloak"]
 
 if __name__ == "__main__":
     main()
