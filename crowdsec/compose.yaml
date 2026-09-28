@@ -23,6 +23,7 @@ services:
     volumes:
       - ./acquis.d:/etc/crowdsec/acquis.d:ro
       - ./parsers/tailnet-whitelist.yaml:/etc/crowdsec/parsers/s02-enrich/tailnet-whitelist.yaml:ro
+      - ./scenarios/http-sensitive-files-served.yaml:/etc/crowdsec/scenarios/http-sensitive-files-served.yaml:ro
       - config:/etc/crowdsec
       - data:/var/lib/crowdsec/data
       # Read-only view of the host's logs: caddy/access.log and auth.log.

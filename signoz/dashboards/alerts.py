@@ -10,7 +10,7 @@ doesn't exist. Uses the same key as dashboards.py (../.api_env).
     ./alerts.py --check    # only check the queries
 
 Rules edited in the UI are overwritten on the next run; rules created in the
-UI with other names are left alone.
+UI with other names are left alone. Rules named in RETIRED are deleted.
 """
 
 from __future__ import annotations
@@ -24,7 +24,8 @@ from dataclasses import dataclass
 from dashboards import (
     CADDY_ACCESS_LOG,
     CHECK_WINDOW_MINUTES,
-    CROWDSEC_DETECTION,
+    CROWDSEC_BRUTE_FORCE,
+    CROWDSEC_FILE_SERVED,
     CROWDSEC_PARSED,
     PRIVILEGED_DOCKER,
     SSH_LOGIN,
@@ -160,6 +161,12 @@ def main() -> None:
     existing = existing_rules()
     for rule in RULES:
         publish(rule, existing)
+    for name in RETIRED:
+        if name in existing:
+            status, result = api("DELETE", f"/api/v1/rules/{existing[name]}")
+            if status not in (200, 204):
+                sys.exit(f"{name}: HTTP {status}: {json.dumps(result)[:500]}")
+            print(f"deleted: {name}")
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +175,16 @@ def main() -> None:
 
 RULES = [
     Rule(
-        "CrowdSec flagged an attack",
-        Query("A", "logs", "count()", CROWDSEC_DETECTION),
-        "CrowdSec detected an attack pattern (watch-only: nothing was blocked). "
+        "Sensitive file served to an outside address",
+        Query("A", "logs", "count()", CROWDSEC_FILE_SERVED),
+        "Something outside the LAN and tailnet requested a sensitive file (.env, .git/, a "
+        "backup...) and got a 2xx back. Check the Caddy access log for what was served.",
+        severity="critical",
+    ),
+    Rule(
+        "CrowdSec saw a brute-force attempt",
+        Query("A", "logs", "count()", CROWDSEC_BRUTE_FORCE),
+        "CrowdSec detected repeated failed logins (watch-only: nothing was blocked). "
         "See the Security dashboard for the IP and scenario.",
     ),
     Rule(
@@ -210,6 +224,10 @@ RULES = [
         severity="info",
     ),
 ]
+
+# Old rule names to delete. Scans and probes that get nothing back are on the
+# Security dashboard only; they're routine on a public address.
+RETIRED = ["CrowdSec flagged an attack"]
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,29 @@
+# A request for a sensitive file (the same list crowdsecurity/http-sensitive-files
+# watches: .env, .git/, backups, dumps...) that got a 2xx back, so something may
+# actually have been served. The hub scenario fires on any probe, served or not;
+# this one fires on the first probe that got something back, and SigNoz alerts
+# on it (signoz/dashboards/alerts.py). LAN and tailnet sources are dropped
+# earlier by the whitelist parsers.
+type: trigger
+name: acbc/http-sensitive-files-served
+description: "A sensitive file was requested over HTTP and the response was a 2xx"
+filter: |
+  evt.Meta.log_type in ["http_access-log", "http_error-log"]
+  && evt.Meta.http_status startsWith "2"
+  && any(File("sensitive_data.txt"), { evt.Parsed.request endsWith # })
+groupby: evt.Meta.source_ip
+blackhole: 5m
+data:
+  - source_url: https://hub-data.crowdsec.net/web/sensitive_data.txt
+    dest_file: sensitive_data.txt
+    type: string
+labels:
+  service: http
+  behavior: "http:scan"
+  label: "Sensitive file served over HTTP"
+  classification:
+    - attack.T1595.003
+  spoofable: 0
+  confidence: 3
+  # Watch-only: the hub scenario already records a ban decision for scanners.
+  remediation: false

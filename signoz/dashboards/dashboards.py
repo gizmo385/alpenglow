@@ -899,6 +899,11 @@ PRIVILEGED_DOCKER = [*SUDO, DOCKER_VIA_SUDO, PRIVILEGED_FLAGS]
 # CrowdSec logs "<scope> <value> performed '<scenario>' (N events over T) at <time>"
 # once per detection.
 CROWDSEC_DETECTION = ["service.name = 'crowdsec'", "body CONTAINS ' performed '"]
+# Hub brute-force scenarios end in -bf or _bf (ssh-bf, ssh-slow-bf_user-enum,
+# http-generic-401-bf, http-bf-wordpress_bf, ...).
+CROWDSEC_BRUTE_FORCE = [*CROWDSEC_DETECTION, "body REGEXP \"performed '[^']+[-_]bf(_[a-z-]+)?'\""]
+# Our own scenario (crowdsec/scenarios/): a sensitive-file probe that got a 2xx.
+CROWDSEC_FILE_SERVED = [*CROWDSEC_DETECTION, "body CONTAINS \"performed 'acbc/http-sensitive-files-served'\""]
 CROWDSEC_PARSED = "cs_parser_hits_ok_total"
 CADDY_ACCESS_LOG = "/var/log/host/caddy/access.log"
 LOG_FIELDS = [key("service.name", "resource"), key("body", "log")]
