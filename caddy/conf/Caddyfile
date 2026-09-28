@@ -22,6 +22,11 @@
 	# Localhost only: the admin API is unauthenticated and this container holds
 	# the docker socket. docker-proxy pushes config to localhost:2019 itself.
 	admin localhost:2019
+	# Labels become flat `reverse_proxy @host` lines in the wildcard blocks
+	# below, and Caddy normally sorts `respond` ahead of `reverse_proxy`. This
+	# makes the `respond 404` fallbacks run only when no service matched;
+	# without it they answer every request.
+	order respond after reverse_proxy
 	servers {
 		trusted_proxies static private_ranges
 	}
@@ -49,27 +54,34 @@ http://:9180 {
 	metrics
 }
 
-# Turn on access logging for every site. caddy-docker-proxy merges these with
-# the label-generated blocks of the same address, so the list has to match the
-# addresses used in container labels (see Caddyfile.autosave in the container).
+# Turn on access logging for every site, and answer 404 for hosts and paths no
+# service claims (otherwise Caddy sends an empty 200 and logs status 0).
+# caddy-docker-proxy merges these with the label-generated blocks of the same
+# address, so the list has to match the addresses used in container labels
+# (see Caddyfile.autosave in the container).
 *.acbc.house {
 	log
+	respond 404
 }
 
 *.acbc.house:10443 {
 	log
+	respond 404
 }
 
 *.alpenglow.acbc.house {
 	log
+	respond 404
 }
 
 *.alpenglow.acbc.house:10443 {
 	log
+	respond 404
 }
 
 *.internal.acbc.house {
 	log
+	respond 404
 }
 
 acbc.house {
