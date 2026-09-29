@@ -15,155 +15,155 @@ spec:
           ingester.yaml: |
             connectors:
               signozmeter:
-                metrics_flush_interval: 1h
                 dimensions:
-                  - name: service.name
-                  - name: deployment.environment
-                  - name: host.name
+                - name: service.name
+                - name: deployment.environment
+                - name: host.name
+                metrics_flush_interval: 1h
+            exporters:
+              clickhouselogsexporter:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
+                sending_queue:
+                  enabled: false
+                timeout: 45s
+                use_new_schema: true
+              clickhousetraces:
+                datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
+                low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
+                sending_queue:
+                  enabled: false
+                timeout: 45s
+                use_new_schema: true
+              metadataexporter:
+                cache:
+                  provider: in_memory
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
+                enabled: true
+                timeout: 45s
+              signozclickhousemeter:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_meter
+                sending_queue:
+                  enabled: false
+                timeout: 45s
+              signozclickhousemetrics:
+                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
+                sending_queue:
+                  enabled: false
+                timeout: 45s
+            extensions:
+              pprof:
+                endpoint: 0.0.0.0:1777
+              signoz_health_check:
+                endpoint: 0.0.0.0:13133
+            processors:
+              batch:
+                send_batch_max_size: 55000
+                send_batch_size: 50000
+                timeout: 30s
+              batch/meter:
+                send_batch_max_size: 25000
+                send_batch_size: 20000
+                timeout: 5s
+              signozllmpricing:
+                attrs:
+                  cache_read: gen_ai.usage.cache_read.input_tokens
+                  cache_write: gen_ai.usage.cache_creation.input_tokens
+                  in: gen_ai.usage.input_tokens
+                  model: gen_ai.request.model
+                  out: gen_ai.usage.output_tokens
+                default_pricing:
+                  rules: []
+                output_attrs:
+                  cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
+                  cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
+                  in: signoz.gen_ai.usage.input_tokens.cost
+                  out: signoz.gen_ai.usage.output_tokens.cost
+                  total: signoz.gen_ai.usage.tokens.cost
+              signozspanmapper:
+                groups: []
+              signozspanmetrics/delta:
+                aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+                dimensions:
+                - default: default
+                  name: service.namespace
+                - default: default
+                  name: deployment.environment
+                - name: signoz.collector.id
+                - name: service.version
+                dimensions_cache_size: 100000
+                enable_exp_histogram: true
+                latency_histogram_buckets:
+                - 100us
+                - 1ms
+                - 2ms
+                - 6ms
+                - 10ms
+                - 50ms
+                - 100ms
+                - 250ms
+                - 500ms
+                - 1000ms
+                - 1400ms
+                - 2000ms
+                - 5s
+                - 10s
+                - 20s
+                - 40s
+                - 60s
+                metrics_exporter: signozclickhousemetrics
+                metrics_flush_interval: 60s
             receivers:
               otlp:
                 protocols:
                   grpc:
-                    endpoint: "0.0.0.0:4317"
+                    endpoint: 0.0.0.0:4317
                   http:
-                    endpoint: "0.0.0.0:4318"
-            processors:
-              batch:
-                send_batch_size: 50000
-                send_batch_max_size: 55000
-                timeout: 5s
-              batch/meter:
-                send_batch_size: 20000
-                send_batch_max_size: 25000
-                timeout: 5s
-              signozspanmetrics/delta:
-                metrics_exporter: signozclickhousemetrics
-                metrics_flush_interval: 60s
-                latency_histogram_buckets:
-                  - 100us
-                  - 1ms
-                  - 2ms
-                  - 6ms
-                  - 10ms
-                  - 50ms
-                  - 100ms
-                  - 250ms
-                  - 500ms
-                  - 1000ms
-                  - 1400ms
-                  - 2000ms
-                  - 5s
-                  - 10s
-                  - 20s
-                  - 40s
-                  - 60s
-                dimensions_cache_size: 100000
-                aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
-                enable_exp_histogram: true
-                dimensions:
-                  - name: service.namespace
-                    default: default
-                  - name: deployment.environment
-                    default: default
-                  - name: signoz.collector.id
-                  - name: service.version
-              signozspanmapper:
-                groups: []
-              signozllmpricing:
-                attrs:
-                  model: gen_ai.request.model
-                  in: gen_ai.usage.input_tokens
-                  out: gen_ai.usage.output_tokens
-                  cache_read: gen_ai.usage.cache_read.input_tokens
-                  cache_write: gen_ai.usage.cache_creation.input_tokens
-                default_pricing:
-                  rules: []
-                output_attrs:
-                  in: signoz.gen_ai.usage.input_tokens.cost
-                  out: signoz.gen_ai.usage.output_tokens.cost
-                  cache_read: signoz.gen_ai.usage.cache_read.input_tokens.cost
-                  cache_write: signoz.gen_ai.usage.cache_write.input_tokens.cost
-                  total: signoz.gen_ai.usage.tokens.cost
-            exporters:
-              clickhousetraces:
-                datasource: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_traces
-                low_cardinal_exception_grouping: ${env:LOW_CARDINAL_EXCEPTION_GROUPING}
-                use_new_schema: true
-                timeout: 45s
-                sending_queue:
-                  enabled: false
-              signozclickhousemetrics:
-                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metrics
-                timeout: 45s
-                sending_queue:
-                  enabled: false
-              clickhouselogsexporter:
-                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_logs
-                use_new_schema: true
-                timeout: 45s
-                sending_queue:
-                  enabled: false
-              signozclickhousemeter:
-                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_meter
-                timeout: 45s
-                sending_queue:
-                  enabled: false
-              metadataexporter:
-                enabled: true
-                dsn: tcp://signoz-telemetrystore-clickhouse-0-0:9000/signoz_metadata
-                timeout: 45s
-                cache:
-                  provider: in_memory
-            extensions:
-              signoz_health_check:
-                endpoint: "0.0.0.0:13133"
-              pprof:
-                endpoint: "0.0.0.0:1777"
+                    endpoint: 0.0.0.0:4318
             service:
+              extensions:
+              - signoz_health_check
+              - pprof
+              pipelines:
+                logs:
+                  exporters:
+                  - clickhouselogsexporter
+                  - signozmeter
+                  - metadataexporter
+                  processors:
+                  - batch
+                  receivers:
+                  - otlp
+                metrics:
+                  exporters:
+                  - signozclickhousemetrics
+                  - signozmeter
+                  - metadataexporter
+                  processors:
+                  - batch
+                  receivers:
+                  - otlp
+                metrics/meter:
+                  exporters:
+                  - signozclickhousemeter
+                  processors:
+                  - batch/meter
+                  receivers:
+                  - signozmeter
+                traces:
+                  exporters:
+                  - clickhousetraces
+                  - signozmeter
+                  - metadataexporter
+                  processors:
+                  - signozspanmetrics/delta
+                  - signozspanmapper
+                  - signozllmpricing
+                  - batch
+                  receivers:
+                  - otlp
               telemetry:
                 logs:
                   encoding: json
-              extensions:
-                - signoz_health_check
-                - pprof
-              pipelines:
-                traces:
-                  receivers:
-                    - otlp
-                  processors:
-                    - signozspanmetrics/delta
-                    - signozspanmapper
-                    - signozllmpricing
-                    - batch
-                  exporters:
-                    - clickhousetraces
-                    - signozmeter
-                    - metadataexporter
-                metrics:
-                  receivers:
-                    - otlp
-                  processors:
-                    - batch
-                  exporters:
-                    - signozclickhousemetrics
-                    - signozmeter
-                    - metadataexporter
-                logs:
-                  receivers:
-                    - otlp
-                  processors:
-                    - batch
-                  exporters:
-                    - clickhouselogsexporter
-                    - signozmeter
-                    - metadataexporter
-                metrics/meter:
-                  receivers:
-                    - signozmeter
-                  processors:
-                    - batch/meter
-                  exporters:
-                    - signozclickhousemeter
           opamp.yaml: |
             server_endpoint: ws://signoz-signoz-0:4320/v1/opamp
       enabled: true
@@ -515,8 +515,6 @@ spec:
       config:
         data:
           config-0-0.yaml: |
-            asynchronous_metric_log:
-              ttl: event_date + INTERVAL 1 DAY DELETE
             dictionaries_config: '*_dictionary.xml'
             display_name: cluster
             distributed_ddl:
@@ -526,8 +524,6 @@ spec:
             format_schema_path: /var/lib/clickhouse/format_schemas/
             http_port: 8123
             interserver_http_port: 9009
-            latency_log:
-              ttl: event_date + INTERVAL 1 DAY DELETE
             listen_host: 0.0.0.0
             logger:
               console: 1
@@ -539,29 +535,19 @@ spec:
             macros:
               replica: "00"
               shard: "00"
-            metric_log:
-              flush_interval_milliseconds: 30000
-              ttl: event_date + INTERVAL 1 DAY DELETE
             part_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             path: /var/lib/clickhouse/
-            processors_profile_log:
-              flush_interval_milliseconds: 30000
-              ttl: event_date + INTERVAL 1 DAY DELETE
             profiles:
               default:
                 allow_simdjson: 1
                 load_balancing: random
                 log_queries: 1
+                query_profiler_cpu_time_period_ns: 0
+                query_profiler_real_time_period_ns: 0
             query_log:
               flush_interval_milliseconds: 30000
               partition_by: toYYYYMM(event_date)
-              ttl: event_date + INTERVAL 1 DAY DELETE
-            query_metric_log:
-              ttl: event_date + INTERVAL 1 DAY DELETE
-            query_thread_log:
-              ttl: event_date + INTERVAL 1 DAY DELETE
-            query_views_log:
               ttl: event_date + INTERVAL 1 DAY DELETE
             quotas:
               default:
@@ -578,16 +564,8 @@ spec:
                 - replica:
                   - host: signoz-telemetrystore-clickhouse-0-0
                     port: 9000
-            session_log:
-              ttl: event_date + INTERVAL 1 DAY DELETE
             tcp_port: 9000
-            text_log:
-              flush_interval_milliseconds: 30000
-              ttl: event_date + INTERVAL 1 DAY DELETE
             tmp_path: /var/lib/clickhouse/tmp/
-            trace_log:
-              flush_interval_milliseconds: 30000
-              ttl: event_date + INTERVAL 1 DAY DELETE
             user_defined_executable_functions_config: '*functions.yaml'
             user_directories:
               users_xml:
@@ -609,8 +587,6 @@ spec:
               node:
               - host: signoz-telemetrykeeper-clickhousekeeper-0
                 port: 9181
-            zookeeper_log:
-              ttl: event_date + INTERVAL 1 DAY DELETE
           functions.yaml: |
             functions:
               argument:

@@ -22,6 +22,11 @@ discovery:
     - container_name: "youtube_rss_manager-*"
     - container_name: "servo"
     - container_name: "updates-tracker-*"
+    # The Docker socket proxies. Their traffic is Alloy's log tailers checking
+    # every container every 5s (hardcoded in loki.source.docker) and Beszel's
+    # stats polling: ~45% of all spans, and 84% of HTTP server spans, drowning
+    # out the apps on Service Health. Blocked requests are still in their logs.
+    - container_name: "docker-proxy*"
 
 # Traces only: SigNoz derives request rate/latency/error metrics from them.
 otel_traces_export:

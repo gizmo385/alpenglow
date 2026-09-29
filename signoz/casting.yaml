@@ -24,6 +24,15 @@ spec:
   ingester:
     spec:
       image: signoz/signoz-otel-collector:v0.144.12
+      config:
+        data:
+          # Foundry flushes every 5s, which at our volume meant a new part in
+          # each of ~15 tables every 5s and ClickHouse busy merging them. 30s
+          # batches cut inserts ~6x; data shows up at most 30s later.
+          ingester.yaml: |
+            processors:
+              batch:
+                timeout: 30s
 
   telemetrystore:
     spec:
@@ -36,6 +45,23 @@ spec:
             profiles:
               default:
                 allow_simdjson: 1
+                # The sampling query profiler, which fed trace_log.
+                query_profiler_real_time_period_ns: 0
+                query_profiler_cpu_time_period_ns: 0
+            # ClickHouse's own system logs cost CPU to write and merge. Keep
+            # query_log, part_log and error_log (enough to see what ClickHouse
+            # is busy with); null drops the rest from the generated config.
+            asynchronous_metric_log: null
+            latency_log: null
+            metric_log: null
+            processors_profile_log: null
+            query_metric_log: null
+            query_thread_log: null
+            query_views_log: null
+            session_log: null
+            text_log: null
+            trace_log: null
+            zookeeper_log: null
 
   # The metadata store (dashboards, alerts, users) uses the shared Postgres
   # instead of a bundled one. `enabled: false` doesn't drop the bundled

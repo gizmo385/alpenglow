@@ -35,6 +35,18 @@ sudo docker compose up -d
 
 Check the SigNoz release notes for upgrade steps before bumping versions.
 
+## CPU tuning
+
+The stack's CPU is mostly ClickHouse inserting, merging and logging, so
+casting.yaml trims that (2026-09-28):
+
+- The ingester batches for 30s rather than Foundry's 5s: ~6x fewer inserts
+  and parts to merge, at the cost of data showing up to 30s late.
+- ClickHouse's own system logs are off except `query_log`, `part_log` and
+  `error_log`, and the sampling query profiler is disabled. `query_log` and
+  `part_log` are what to look at to see what ClickHouse is busy with.
+- OBI skips the Docker socket proxies (see `obi/config.yaml`).
+
 ## Sending data
 
 - **Logs** from every container are collected automatically (Alloy infers
