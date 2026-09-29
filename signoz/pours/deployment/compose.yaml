@@ -39,8 +39,8 @@ services:
     - SIGNOZ_STATSREPORTER_ENABLED=false
     - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://signoz-telemetrystore-clickhouse-0-0:9000
     - SIGNOZ_TELEMETRYSTORE_PROVIDER=clickhouse
-    - SIGNOZ_GLOBAL_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
-    - SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
+    - SIGNOZ_GLOBAL_EXTERNAL__URL=https://monitoring.acbc.house
+    - SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://monitoring.acbc.house
     healthcheck:
       interval: 30s
       retries: 3
@@ -54,9 +54,12 @@ services:
       timeout: 10s
     image: signoz/signoz:v0.143.0
     labels:
-      caddy: '*.alpenglow.acbc.house'
-      caddy.@signoz.host: signoz.alpenglow.acbc.house
-      caddy.reverse_proxy: '@signoz {{upstreams http 8080}}'
+      caddy_0: '*.acbc.house'
+      caddy_0.@signoz.host: monitoring.acbc.house
+      caddy_0.reverse_proxy: '@signoz {{upstreams http 8080}}'
+      caddy_1: '*.alpenglow.acbc.house'
+      caddy_1.@signoz_old.host: signoz.alpenglow.acbc.house
+      caddy_1.redir: '@signoz_old https://monitoring.acbc.house{uri} permanent'
     networks:
     - signoz-network
     - caddy

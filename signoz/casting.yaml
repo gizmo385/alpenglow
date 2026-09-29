@@ -90,10 +90,10 @@ spec:
         # test above expects at index 0.
         - op: add
           path: /services/signoz-signoz-0/environment/-
-          value: SIGNOZ_GLOBAL_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
+          value: SIGNOZ_GLOBAL_EXTERNAL__URL=https://monitoring.acbc.house
         - op: add
           path: /services/signoz-signoz-0/environment/-
-          value: SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://signoz.alpenglow.acbc.house
+          value: SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://monitoring.acbc.house
 
         # --- SigNoz UI/API: shared Postgres DSN from .env, served via Caddy ---
         # Paths are relative to pours/deployment/ since compose.yaml includes it.
@@ -110,9 +110,13 @@ spec:
         - op: add
           path: /services/signoz-signoz-0/labels
           value:
-            caddy: "*.alpenglow.acbc.house"
-            caddy.@signoz.host: "signoz.alpenglow.acbc.house"
-            caddy.reverse_proxy: "@signoz {{upstreams http 8080}}"
+            caddy_0: "*.acbc.house"
+            caddy_0.@signoz.host: "monitoring.acbc.house"
+            caddy_0.reverse_proxy: "@signoz {{upstreams http 8080}}"
+            # Old name, kept so bookmarks and older alert links still work.
+            caddy_1: "*.alpenglow.acbc.house"
+            caddy_1.@signoz_old.host: "signoz.alpenglow.acbc.house"
+            caddy_1.redir: "@signoz_old https://monitoring.acbc.house{uri} permanent"
 
         # --- Ingester: only Alloy talks to it, over signoz-network ---
         - op: remove

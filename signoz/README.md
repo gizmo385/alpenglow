@@ -1,7 +1,7 @@
 # SigNoz
 
 Self-hosted observability (logs, metrics, traces) at
-https://signoz.alpenglow.acbc.house (Tailnet only, SigNoz's own login -- OIDC
+https://monitoring.acbc.house (Tailnet only, SigNoz's own login -- OIDC
 is an Enterprise feature).
 
 ## Layout

@@ -26,7 +26,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-BASE_URL = "https://signoz.alpenglow.acbc.house"
+BASE_URL = "https://monitoring.acbc.house"
 KEY_FILE = Path(__file__).resolve().parent.parent / ".api_env"
 # Unmodified dashboards from https://github.com/SigNoz/dashboards, published
 # as-is alongside the ones defined here.
