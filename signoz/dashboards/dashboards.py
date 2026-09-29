@@ -952,10 +952,21 @@ youtube_rss = Dashboard(
         [
             Panel("RSS requests by attempt number", "bar",
                   [Query("A", "metrics", counter_total(YT_ATTEMPTS), by=["attempt"], legend="attempt {{attempt}}")],
+                  width=5,
                   description="Attempt 2+ means the first request was throttled or failed and was retried."),
+            Panel("YouTube RSS retries turned off / on", "bar",
+                  [Query("A", "metrics", counter_total("yt_rss_feed_retry_breaker"), by=["state"],
+                         legend="{{state}}")],
+                  colors={"tripped": "#E5484D", "reset": "#2BB673"}, width=3, empty_ok=True,
+                  description=(
+                      "'tripped': 5 YouTube channels in a row failed their first RSS request, so retries "
+                      "were turned off and each channel gets one request before the Data API fallback. "
+                      "'reset': 5 in a row worked again, so retries are back on. Marks when an outage "
+                      "started and ended."
+                  )),
             Panel("Poll time p95 by platform", "timeseries",
                   [Query("A", "metrics", metric("yt_rss_feed_poll_duration.bucket", "", "p95"), by=["platform"],
-                         legend="{{platform}}")], unit="s",
+                         legend="{{platform}}")], unit="s", width=4,
                   description="Per channel RSS fetch, including retries and backoff (not the Data API fallback)."),
         ],
         [
