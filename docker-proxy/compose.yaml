@@ -7,8 +7,12 @@
 #   the socket-proxy.allow.* labels the proxy reads their permissions from.
 #   A container with no allow labels gets nothing. Refused requests are logged.
 #
-# docker-proxy-beszel: beszel-agent runs on the host network, so it can't be
+# beszel-socket-proxy: beszel-agent runs on the host network, so it can't be
 #   identified on a docker network; it gets its own read-only unix socket.
+#
+# No other container's name may contain "docker-proxy": -proxycontainername
+# finds the proxy with Docker's substring name filter, and if it matches the
+# wrong container first it sees no networks and refuses every request.
 #
 # Anything allowed to create containers (the dashboard's `compose up`) is still
 # root-equivalent: no proxy can tell a privileged container from a normal one.
@@ -49,15 +53,15 @@ services:
     networks:
       - docker-proxy
 
-  docker-proxy-beszel:
+  beszel-socket-proxy:
     <<: *proxy
-    container_name: docker-proxy-beszel
+    container_name: beszel-socket-proxy
     # Root (still with no capabilities) so it can create its socket in the
-    # host's /run/docker-proxy-beszel, which docker creates root-owned on boot.
+    # host's /run/beszel-socket-proxy, which docker creates root-owned on boot.
     user: "0:988"
     command:
       - -loglevel=info
-      - -proxysocketendpoint=/run/docker-proxy-beszel/docker.sock
+      - -proxysocketendpoint=/run/beszel-socket-proxy/docker.sock
       # The docker-read-stats profile (profiles.yaml), minus what beszel
       # doesn't use. One allowed endpoint per line, same syntax as there.
       - -allowHEAD=(/v[0-9.]+)?/_ping
@@ -74,7 +78,7 @@ services:
       - -shutdowngracetime=5
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /run/docker-proxy-beszel:/run/docker-proxy-beszel
+      - /run/beszel-socket-proxy:/run/beszel-socket-proxy
     network_mode: none
 
 networks:

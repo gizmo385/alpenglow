@@ -10,7 +10,7 @@ to make.
 
 | Path | What |
 |---|---|
-| `compose.yaml` | The two proxies: `docker-proxy` (for most services) and `docker-proxy-beszel` (a unix socket for beszel-agent). |
+| `compose.yaml` | The two proxies: `docker-proxy` (for most services) and `beszel-socket-proxy` (a unix socket for beszel-agent). |
 | `profiles.yaml` | Named access profiles that services extend. **Edit this** to change what services may do. |
 
 ## Giving a service Docker access
@@ -80,7 +80,7 @@ they start.
 
 - **beszel-agent** runs on the host network, so the proxy can't identify it on
   a Docker network. It gets its own read-only unix socket from
-  `docker-proxy-beszel`, and its rules are the `-allowGET=...` flags in
+  `beszel-socket-proxy`, and its rules are the `-allowGET=...` flags in
   `compose.yaml`.
 - **signoz-obi** keeps the raw socket. It runs privileged with `pid: host`,
   which is already full host access, so filtering its Docker API adds nothing.
@@ -91,6 +91,10 @@ they start.
   `docker-manage` is root-equivalent. No proxy can tell those apart.
 - Read access isn't harmless either: inspecting a container returns its
   environment variables, secrets included.
+- No other container's name may contain `docker-proxy`. The proxy finds
+  itself with Docker's substring name filter (`-proxycontainername`); if it
+  matches another container first, it sees no networks and refuses every
+  request. That took down Caddy after a reboot on 2026-09-29.
 - The proxy has no authentication; its network is the boundary. Never publish
   its port or put it on a shared network like `caddy`.
 - **Restarting the proxy briefly takes every site down.** When caddy-docker-proxy
