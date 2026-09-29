@@ -1,5 +1,8 @@
-PIHOLE_HOSTNAME=
-PIHOLE_PORT=
+# pihole-exporter (compose.yaml). PIHOLE_PASSWORD is Pi-hole's *app password*
+# (Settings > Web interface / API), shared with Home Assistant's Pi-hole
+# integration: generating a new one replaces it there too. Keep
+# webserver.api.app_sudo off so it can't change settings.
+PIHOLE_HOSTNAME=pihole
+PIHOLE_PORT=80
 PIHOLE_PASSWORD=
-INTERVAL=
-PORT=
+PORT=9617

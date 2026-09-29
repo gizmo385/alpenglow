@@ -42,7 +42,9 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
   `alloy/config.alloy`), plus the host's
   systemd journal (service.namespace `host`, service.name = syslog identifier:
   `sshd`, `sudo`, `kernel`, ...; tailscaled only at warning and above).
-- **Metrics**: add labels to a service on the `caddy` network (metric types
+- **Metrics**: add labels to a service on the `caddy` or `otel` network, not
+  both, or it's scraped twice (`otel` for exporters that don't otherwise need
+  `caddy`; metric types
   come through via Alloy's experimental `honor_metadata`):
   ```yaml
   labels:

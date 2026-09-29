@@ -23,6 +23,27 @@ services:
     networks:
       - caddy
       - pihole
+  # Pi-hole stats for SigNoz (https://github.com/eko/pihole-exporter). Only
+  # reads /api/stats/* and /api/dns/blocking, logging in with the app password
+  # (.exporter-env) and reusing one session until it expires.
+  pihole-exporter:
+    container_name: pihole-exporter
+    image: ekofr/pihole-exporter:v1.2.0@sha256:242c53ef3c24b88fcbe8184390b456d05604bd50de5732ca3fd3eb24395585b3
+    restart: unless-stopped
+    env_file:
+      - path: .exporter-env
+        required: true
+    user: 65534:65534
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on: [pihole]
+    labels:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9617"
+    networks:
+      - pihole  # to reach Pi-hole
+      - otel    # scraped by SigNoz's Alloy
   dnscrypt-proxy:
     container_name: dnscrypt-proxy
     image: ghcr.io/klutchell/dnscrypt-proxy:main
@@ -42,6 +63,8 @@ services:
 
 networks:
   caddy:
+    external: true
+  otel:
     external: true
   pihole:
     driver: bridge

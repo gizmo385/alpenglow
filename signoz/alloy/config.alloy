@@ -190,7 +190,9 @@ otelcol.processor.transform "journal" {
 //     prometheus.io/port: "9000"
 //     prometheus.io/path: "/metrics"   # optional, defaults to /metrics
 //
-// The container must be on the caddy network, which Alloy shares.
+// The container must be on the caddy or otel network, both of which Alloy
+// shares. Exporters that have no other reason to be on caddy should use otel.
+// Not both: a target is discovered once per network, so it'd be scraped twice.
 // ---------------------------------------------------------------------------
 
 discovery.relabel "scrape_targets" {
@@ -203,7 +205,7 @@ discovery.relabel "scrape_targets" {
   }
   rule {
     source_labels = ["__meta_docker_network_name"]
-    regex         = "caddy"
+    regex         = "caddy|otel"
     action        = "keep"
   }
   rule {
