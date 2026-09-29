@@ -289,28 +289,53 @@ def variable(name: str, signal: str, multiple: bool = True) -> dict:
 
 
 @dataclass
+class Section:
+    """A titled, collapsible group of rows."""
+
+    title: str
+    rows: list[list[Panel]]
+    open: bool = True
+
+
+@dataclass
 class Dashboard:
     name: str
     description: str
-    rows: list[list[Panel]]
+    rows: list[list[Panel]] = field(default_factory=list)  # untitled, above any sections
     variables: list[dict] = field(default_factory=list)
+    sections: list[Section] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        titles = [p.title for p in self.panels()]
+        # Panel ids derive from the title, so titles must be unique.
+        if duplicates := {t for t in titles if titles.count(t) > 1}:
+            raise ValueError(f"{self.name}: duplicate panel titles {sorted(duplicates)}")
 
     def panels(self) -> list[Panel]:
-        return [p for row in self.rows for p in row]
+        return [p for section in self._grids() for row in section.rows for p in row]
+
+    def _grids(self) -> list[Section]:
+        return ([Section("", self.rows)] if self.rows else []) + self.sections
 
     def to_json(self) -> dict:
-        panels, items, y = {}, [], 0
-        for row in self.rows:
-            x = 0
-            for panel in row:
-                panel_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{self.name}/{panel.title}"))
-                panels[panel_id] = panel.to_json()
-                items.append({
-                    "x": x, "y": y, "width": panel.width, "height": panel.height,
-                    "content": {"$ref": f"#/spec/panels/{panel_id}"},
-                })
-                x += panel.width
-            y += max(p.height for p in row)
+        panels, layouts = {}, []
+        for section in self._grids():
+            items, y = [], 0
+            for row in section.rows:
+                x = 0
+                for panel in row:
+                    panel_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{self.name}/{panel.title}"))
+                    panels[panel_id] = panel.to_json()
+                    items.append({
+                        "x": x, "y": y, "width": panel.width, "height": panel.height,
+                        "content": {"$ref": f"#/spec/panels/{panel_id}"},
+                    })
+                    x += panel.width
+                y += max(p.height for p in row)
+            grid = {"items": items}
+            if section.title:
+                grid["display"] = {"title": section.title, "collapse": {"open": section.open}}
+            layouts.append({"kind": "Grid", "spec": grid})
         return {
             "schemaVersion": "v6",
             "image": "",
@@ -321,7 +346,7 @@ class Dashboard:
                 "display": {"name": self.name, "description": self.description},
                 "variables": self.variables,
                 "panels": panels,
-                "layouts": [{"kind": "Grid", "spec": {"items": items}}],
+                "layouts": layouts,
                 "duration": "6h",
                 "refreshInterval": "",
                 "links": [],
@@ -420,7 +445,7 @@ service_health = Dashboard(
     description=(
         "HTTP request rate, errors and latency for every traced service (OBI "
         "eBPF traces plus the apps' own OpenTelemetry instrumentation). "
-        "Database servers are on the Databases dashboard."
+        "Database servers are on the Infrastructure dashboard."
     ),
     variables=[variable("service.name", "traces")],
     rows=[
@@ -479,131 +504,283 @@ service_health = Dashboard(
     ],
 )
 
-HOST = "host IN $host"
+# --- Infrastructure -------------------------------------------------------------
+# Host: hostmetrics from signoz-host-metrics (system.*) plus node-exporter's ZFS
+# and temperature metrics (node_*). DNS: pihole-exporter. Ingress: Caddy's
+# per-host metrics. Databases: Alloy's Postgres/Redis exporters plus OBI spans.
+
+CPU = "system.cpu.time"
+MEMORY = "system.memory.usage"
+ARC = "node_zfs_arc_size"
+TEMP = "node_hwmon_temp_celsius"
+FS = "system.filesystem.usage"
+# The pools' root datasets; every dataset in a pool reports the pool's free space.
+POOL_ROOTS = "mountpoint IN ('/', '/dpool')"
+# Values are totals over Pi-hole's rolling 24 hours, not counters.
+PIHOLE_UPSTREAMS = "destination NOT IN ('cache', 'blocklist')"
 REQUESTS = "caddy_http_request_duration_seconds.count"
 LATENCY = "caddy_http_request_duration_seconds.bucket"
-
-ingress = Dashboard(
-    name="Ingress (Caddy)",
-    description="Traffic through Caddy per site: request rate, 4xx/5xx and latency (Caddy's per-host metrics).",
-    variables=[variable("host", "metrics")],
-    rows=[
-        [
-            Panel("Requests / s", "number", [Query("A", "metrics", metric(REQUESTS), [HOST])],
-                  unit="reqps", width=4, height=3),
-            Panel("5xx / s", "number", [Query("A", "metrics", metric(REQUESTS), ["code LIKE '5%'", HOST])],
-                  unit="reqps", width=4, height=3, empty_ok=True),
-            Panel("p95 latency", "number", [Query("A", "metrics", metric(LATENCY, "", "p95"), [HOST])],
-                  unit="s", width=4, height=3),
-        ],
-        [
-            Panel("Requests / s by site", "timeseries",
-                  [Query("A", "metrics", metric(REQUESTS), [HOST], by=["host"], legend="{{host}}")],
-                  unit="reqps"),
-            Panel("p95 latency by site", "timeseries",
-                  [Query("A", "metrics", metric(LATENCY, "", "p95"), [HOST], by=["host"], legend="{{host}}")],
-                  unit="s"),
-        ],
-        [
-            Panel("5xx / s by site", "timeseries",
-                  [Query("A", "metrics", metric(REQUESTS), ["code LIKE '5%'", HOST], by=["host"],
-                         legend="{{host}}")], unit="reqps", empty_ok=True),
-            Panel("4xx / s by site", "timeseries",
-                  [Query("A", "metrics", metric(REQUESTS), ["code LIKE '4%'", HOST], by=["host"],
-                         legend="{{host}}")], unit="reqps"),
-        ],
-        [
-            Panel("Responses by status code", "bar",
-                  [Query("A", "metrics", metric(REQUESTS), [HOST], by=["code"], legend="{{code}}")],
-                  unit="reqps"),
-            Panel("Upstream health", "table",
-                  [Query("A", "metrics", metric("caddy_reverse_proxy_upstreams_healthy", "min", "min"),
-                         by=["upstream"], legend="healthy")],
-                  description="1 = healthy, 0 = Caddy considers the upstream down."),
-        ],
-    ],
-)
-
-NAMESPACE = "service.namespace IN $service.namespace"
-ERRORISH = (
-    "body CONTAINS 'error' OR body CONTAINS 'exception' OR body CONTAINS 'traceback' "
-    "OR body CONTAINS 'fatal' OR body CONTAINS 'panic'"
-)
-
-logs = Dashboard(
-    name="Logs",
-    description=(
-        "Log volume per container and lines mentioning error/exception/traceback/fatal/panic "
-        "(a text match: container logs carry no severity until SigNoz log pipelines parse it)."
-    ),
-    variables=[variable("service.namespace", "logs")],
-    rows=[
-        [
-            Panel("Log lines / min by service", "bar",
-                  [Query("A", "logs", "count()", [NAMESPACE], by=[key("service.name", "resource")],
-                         legend="{{service.name}}")]),
-            Panel("Error-looking lines / min by service", "bar",
-                  [Query("A", "logs", "count()", [ERRORISH, NAMESPACE], by=[key("service.name", "resource")],
-                         legend="{{service.name}}")]),
-        ],
-        [
-            Panel("Error-looking lines by service", "table", [
-                Query("A", "logs", "count()", [ERRORISH, NAMESPACE], by=[key("service.name", "resource")],
-                      order_by="count()", limit=25, legend="error-looking"),
-                Query("B", "logs", "count()", [NAMESPACE], by=[key("service.name", "resource")],
-                      legend="all lines"),
-            ], width=4, height=9),
-            Panel("Recent error-looking lines", "list",
-                  [Query("A", "logs", None, [ERRORISH, NAMESPACE], order_by="timestamp", limit=100)],
-                  fields=[key("service.name", "resource"), key("body", "log")], width=8, height=9),
-        ],
-    ],
-)
-
 DB_CLIENT = "spanKind = 'Client' AND dbOperation EXISTS"
+PG_SERVER = ["serviceName = 'postgres'", "spanKind = 'Server'"]
+ERROR_LOGS = "severity_text IN ('ERROR', 'FATAL')"
 
-databases = Dashboard(
-    name="Databases",
-    description=(
-        "Postgres and Redis as seen by OBI from the server side, plus database calls made by each "
-        "app (OBI client spans and the apps' own SQLAlchemy instrumentation)."
-    ),
-    rows=[
-        [
-            Panel("Postgres queries / s by operation", "timeseries",
-                  [Query("A", "traces", "rate()", ["serviceName = 'postgres'", "spanKind = 'Server'"],
-                         by=["dbOperation"], legend="{{dbOperation}}")], unit="reqps"),
-            Panel("Postgres p95 query time by operation", "timeseries",
-                  [Query("A", "traces", "p95(durationNano)", ["serviceName = 'postgres'", "spanKind = 'Server'"],
-                         by=["dbOperation"], legend="{{dbOperation}}")], unit="ns"),
-        ],
-        [
-            Panel("DB calls / s by calling service", "timeseries",
-                  [Query("A", "traces", "rate()", [DB_CLIENT], by=["serviceName"], legend="{{serviceName}}")],
-                  unit="reqps"),
-            Panel("p95 DB call time by calling service", "timeseries",
-                  [Query("A", "traces", "p95(durationNano)", [DB_CLIENT], by=["serviceName"],
-                         legend="{{serviceName}}")], unit="ns"),
-        ],
-        [
-            Panel("Redis commands / s by command", "timeseries",
-                  [Query("A", "traces", "rate()", ["serviceName = 'redis'", "spanKind = 'Server'"],
-                         by=["dbOperation"], legend="{{dbOperation}}")], unit="reqps"),
-            Panel("Busiest tables (Postgres)", "table",
-                  [Query("A", "traces", "count()", ["serviceName = 'postgres'", "spanKind = 'Server'"],
-                         by=["name"], order_by="count()", limit=15, legend="queries"),
-                   Query("B", "traces", "p95(durationNano)", ["serviceName = 'postgres'", "spanKind = 'Server'"],
-                         by=["name"], legend="p95")],
-                  column_units={"B": "ns"}),
-        ],
-        [
-            Panel("Slowest DB calls", "list",
-                  [Query("A", "traces", None, [DB_CLIENT], order_by="durationNano", limit=50)],
-                  fields=[key("serviceName"), key("name"), key("durationNano", data_type="number"),
-                          key("db.statement", "attribute")],
-                  width=12, height=8),
-        ],
+
+def gauge_max(name: str) -> dict:
+    """Latest value of a gauge, the highest across series."""
+    return metric(name, "latest", "max", "last")
+
+
+host_section = Section("Host", [
+    [
+        Panel("CPU busy", "number", [
+            Query("A", "metrics", metric(CPU), ["state != 'idle'"], hidden=True),
+            Query("B", "metrics", metric(CPU), hidden=True),
+            Formula("F1", "A / B * 100"),
+        ], unit="percent", width=2, height=3),
+        Panel("Memory used (excl. ZFS ARC)", "number", [
+            Query("A", "metrics", gauge_now(MEMORY), ["state = 'used'"], hidden=True),
+            Query("B", "metrics", gauge_now(ARC), hidden=True),
+            Query("C", "metrics", gauge_now("system.memory.limit"), hidden=True),
+            Formula("F1", "(A - B) / C * 100"),
+        ], unit="percent", width=2, height=3,
+            description="Linux counts the ZFS ARC as used, but ZFS gives it back under memory pressure."),
+        Panel("Load (15m)", "number", [Query("A", "metrics", gauge_now("system.cpu.load_average.15m"))],
+              width=2, height=3, description="8 logical CPUs."),
+        Panel("CPU temperature", "number",
+              [Query("A", "metrics", gauge_max(TEMP), ["chip = 'platform_coretemp_0'"])],
+              unit="celsius", width=2, height=3),
+        Panel("NVMe pool free", "number",
+              [Query("A", "metrics", gauge_now(FS), ["state = 'free'", "mountpoint = '/'"])],
+              unit="bytes", width=2, height=3),
+        Panel("HDD pool free", "number",
+              [Query("A", "metrics", gauge_now(FS), ["state = 'free'", "mountpoint = '/dpool'"])],
+              unit="bytes", width=2, height=3),
     ],
+    [
+        Panel("CPU cores busy by state", "timeseries",
+              [Query("A", "metrics", metric(CPU), ["state != 'idle'"], by=["state"], legend="{{state}}")],
+              description="CPU seconds per second, so 1 = one core fully busy."),
+        Panel("Memory", "timeseries", [
+            Query("A", "metrics", metric(MEMORY, "avg", "sum"), ["state IN ('used', 'cached', 'free')"],
+                  by=["state"], legend="{{state}}"),
+            Query("B", "metrics", metric(ARC, "avg", "sum"), legend="ZFS ARC (part of used)"),
+        ], unit="bytes"),
+    ],
+    [
+        Panel("Disk busy by device", "timeseries", [
+            Query("A", "metrics", metric("system.disk.io_time"), by=["device"], hidden=True),
+            Formula("F1", "A * 100", "{{device}}"),
+        ], unit="percent",
+            description="Share of time each disk had I/O in flight. sda-sdc are the HDD pool (dpool); "
+                        "flat at 0 means idle, and they may have spun down."),
+        Panel("Disk throughput by device", "timeseries",
+              [Query("A", "metrics", metric("system.disk.io"), by=["device", "direction"],
+                     legend="{{device}} {{direction}}")], unit="Bps"),
+    ],
+    [
+        Panel("Network by interface", "timeseries",
+              [Query("A", "metrics", metric("system.network.io"), by=["device", "direction"],
+                     legend="{{device}} {{direction}}")], unit="Bps"),
+        Panel("Temperatures", "timeseries",
+              [Query("A", "metrics", metric(TEMP, "max", "max"), by=["chip"], legend="{{chip}}")],
+              unit="celsius", description="Hottest sensor per chip (coretemp = CPU package and cores)."),
+    ],
+    [
+        Panel("Largest datasets", "table",
+              [Query("A", "metrics", gauge_now(FS), ["state = 'used'"], by=["device"], order_by="__result",
+                     limit=15, legend="used")],
+              column_units={"A": "bytes"}, height=7),
+        Panel("Load average", "timeseries", [
+            Query("A", "metrics", metric("system.cpu.load_average.1m", "avg", "sum"), legend="1m"),
+            Query("B", "metrics", metric("system.cpu.load_average.5m", "avg", "sum"), legend="5m"),
+            Query("C", "metrics", metric("system.cpu.load_average.15m", "avg", "sum"), legend="15m"),
+        ], height=7),
+    ],
+])
+
+dns_section = Section("DNS (Pi-hole)", [
+    [
+        Panel("Queries (24h)", "number", [Query("A", "metrics", gauge_now("pihole_dns_queries_today"))],
+              width=2, height=3),
+        Panel("Blocked (24h)", "number", [Query("A", "metrics", gauge_max("pihole_ads_percentage_today"))],
+              unit="percent", width=2, height=3),
+        Panel("Answered from cache (24h)", "number", [
+            Query("A", "metrics", gauge_now("pihole_queries_cached"), hidden=True),
+            Query("B", "metrics", gauge_now("pihole_dns_queries_today"), hidden=True),
+            Formula("F1", "A / B * 100"),
+        ], unit="percent", width=2, height=3),
+        Panel("Active clients", "number", [Query("A", "metrics", gauge_now("pihole_unique_clients"))],
+              width=2, height=3),
+        Panel("Domains on blocklists", "number",
+              [Query("A", "metrics", gauge_now("pihole_domains_being_blocked"))], width=2, height=3),
+        Panel("Blocking enabled", "number", [Query("A", "metrics", gauge_max("pihole_status"))],
+              width=2, height=3, description="1 = on, 0 = blocking is disabled."),
+    ],
+    [
+        Panel("Upstream response time", "timeseries",
+              [Query("A", "metrics", metric("pihole_forward_destinations_responsetime", "avg", "max"),
+                     [PIHOLE_UPSTREAMS], by=["destination"], legend="{{destination}}")],
+              unit="s",
+              description="10.0.4.20 / fd52:...::20 = dnscrypt-proxy, 100.100.100.100 = Tailscale "
+                          "MagicDNS, 192.168.68.1 = the router."),
+        Panel("Where queries were answered (24h)", "pie",
+              [Query("A", "metrics", gauge_now("pihole_forward_destinations"), by=["destination"],
+                     legend="{{destination}}")]),
+    ],
+    [
+        Panel("Reply types (24h)", "pie",
+              [Query("A", "metrics", gauge_now("pihole_reply"), ["type NOT IN ('none', 'unknown')"],
+                     by=["type"], legend="{{type}}")], width=4),
+        Panel("Query types (24h)", "pie",
+              [Query("A", "metrics", gauge_now("pihole_querytypes"), by=["type"], legend="{{type}}")], width=4),
+        Panel("Top clients (24h)", "table",
+              [Query("A", "metrics", gauge_now("pihole_top_sources"), by=["source", "source_name"],
+                     order_by="__result", limit=10, legend="queries")], width=4),
+    ],
+])
+
+ingress_section = Section("Ingress (Caddy)", [
+    [
+        Panel("Caddy requests / s", "number", [Query("A", "metrics", metric(REQUESTS))],
+              unit="reqps", width=4, height=3),
+        Panel("Caddy 5xx / s", "number", [Query("A", "metrics", metric(REQUESTS), ["code LIKE '5%'"])],
+              unit="reqps", width=4, height=3, empty_ok=True),
+        Panel("Caddy p95 latency", "number", [Query("A", "metrics", metric(LATENCY, "", "p95"))],
+              unit="s", width=4, height=3),
+    ],
+    [
+        Panel("Requests / s by site", "timeseries",
+              [Query("A", "metrics", metric(REQUESTS), by=["host"], legend="{{host}}")], unit="reqps"),
+        Panel("p95 latency by site", "timeseries",
+              [Query("A", "metrics", metric(LATENCY, "", "p95"), by=["host"], legend="{{host}}")], unit="s"),
+    ],
+    [
+        Panel("5xx / s by site", "timeseries",
+              [Query("A", "metrics", metric(REQUESTS), ["code LIKE '5%'"], by=["host"], legend="{{host}}")],
+              unit="reqps", empty_ok=True),
+        Panel("4xx / s by site", "timeseries",
+              [Query("A", "metrics", metric(REQUESTS), ["code LIKE '4%'"], by=["host"], legend="{{host}}")],
+              unit="reqps"),
+    ],
+    [
+        Panel("Responses by status code", "bar",
+              [Query("A", "metrics", metric(REQUESTS), by=["code"], legend="{{code}}")], unit="reqps"),
+        Panel("Upstream health", "table",
+              [Query("A", "metrics", metric("caddy_reverse_proxy_upstreams_healthy", "min", "min"),
+                     by=["upstream"], legend="healthy")],
+              description="1 = healthy, 0 = Caddy considers the upstream down."),
+    ],
+])
+
+databases_section = Section("Databases", [
+    [
+        Panel("Postgres connections", "number", [Query("A", "metrics", gauge_now("pg_stat_activity_count"))],
+              width=2, height=3),
+        Panel("Postgres cache hit rate", "number", [
+            Query("A", "metrics", metric("pg_stat_database_blks_hit"), hidden=True),
+            Query("B", "metrics", metric("pg_stat_database_blks_read"), hidden=True),
+            Formula("F1", "A / (A + B) * 100"),
+        ], unit="percent", width=2, height=3,
+            description="Block reads served from shared buffers rather than disk (or the OS/ZFS cache)."),
+        Panel("Postgres size", "number", [Query("A", "metrics", gauge_now("pg_database_size_bytes"))],
+              unit="bytes", width=2, height=3),
+        Panel("Redis memory", "number", [Query("A", "metrics", gauge_now("redis_memory_used_bytes"))],
+              unit="bytes", width=2, height=3),
+        Panel("Redis commands / s", "number", [Query("A", "metrics", metric("redis_commands_processed_total"))],
+              unit="reqps", width=2, height=3),
+        Panel("Redis hit rate", "number", [
+            Query("A", "metrics", metric("redis_keyspace_hits_total"), hidden=True),
+            Query("B", "metrics", metric("redis_keyspace_misses_total"), hidden=True),
+            Formula("F1", "A / (A + B) * 100"),
+        ], unit="percent", width=2, height=3,
+            description="Lookups that found their key. Job queues poll for keys that often don't exist "
+                        "yet, so a low rate isn't necessarily a problem."),
+    ],
+    [
+        Panel("Postgres connections by database", "timeseries",
+              [Query("A", "metrics", metric("pg_stat_activity_count", "avg", "sum"), ["datname != ''"],
+                     by=["datname"], legend="{{datname}}")]),
+        Panel("Postgres transactions / s by database", "timeseries",
+              [Query("A", "metrics", metric("pg_stat_database_xact_commit"), ["datname != ''"],
+                     by=["datname"], legend="{{datname}}")], unit="reqps"),
+    ],
+    [
+        Panel("Database sizes", "table",
+              [Query("A", "metrics", gauge_now("pg_database_size_bytes"),
+                     ["datname NOT IN ('template0', 'template1')"], by=["datname"], order_by="__result",
+                     legend="size")],
+              column_units={"A": "bytes"}, width=4),
+        Panel("Redis memory used", "timeseries",
+              [Query("A", "metrics", metric("redis_memory_used_bytes", "avg", "sum"), legend="used")],
+              unit="bytes", width=4),
+        Panel("Redis keys by database", "timeseries",
+              [Query("A", "metrics", metric("redis_db_keys", "avg", "sum"), by=["db"], legend="{{db}}")],
+              width=4),
+    ],
+    [
+        Panel("Postgres queries / s by operation", "timeseries",
+              [Query("A", "traces", "rate()", PG_SERVER, by=["dbOperation"], legend="{{dbOperation}}")],
+              unit="reqps"),
+        Panel("Postgres p95 query time by operation", "timeseries",
+              [Query("A", "traces", "p95(durationNano)", PG_SERVER, by=["dbOperation"],
+                     legend="{{dbOperation}}")], unit="ns"),
+    ],
+    [
+        Panel("DB calls / s by calling service", "timeseries",
+              [Query("A", "traces", "rate()", [DB_CLIENT], by=["serviceName"], legend="{{serviceName}}")],
+              unit="reqps"),
+        Panel("p95 DB call time by calling service", "timeseries",
+              [Query("A", "traces", "p95(durationNano)", [DB_CLIENT], by=["serviceName"],
+                     legend="{{serviceName}}")], unit="ns"),
+    ],
+    [
+        Panel("Redis commands / s by command", "timeseries",
+              [Query("A", "traces", "rate()", ["serviceName = 'redis'", "spanKind = 'Server'"],
+                     by=["dbOperation"], legend="{{dbOperation}}")], unit="reqps"),
+        Panel("Busiest tables (Postgres)", "table",
+              [Query("A", "traces", "count()", PG_SERVER, by=["name"], order_by="count()", limit=15,
+                     legend="queries"),
+               Query("B", "traces", "p95(durationNano)", PG_SERVER, by=["name"], legend="p95")],
+              column_units={"B": "ns"}),
+    ],
+    [
+        Panel("Slowest DB calls", "list",
+              [Query("A", "traces", None, [DB_CLIENT], order_by="durationNano", limit=50)],
+              fields=[key("serviceName"), key("name"), key("durationNano", data_type="number"),
+                      key("db.statement", "attribute")],
+              width=12, height=8),
+    ],
+])
+
+logs_section = Section("Logs", [
+    [
+        Panel("Log lines / min by service", "bar",
+              [Query("A", "logs", "count()", by=[key("service.name", "resource")], legend="{{service.name}}")]),
+        Panel("Errors / min by service", "bar",
+              [Query("A", "logs", "count()", [ERROR_LOGS], by=[key("service.name", "resource")],
+                     legend="{{service.name}}")]),
+    ],
+    [
+        Panel("Errors by service", "table", [
+            Query("A", "logs", "count()", [ERROR_LOGS], by=[key("service.name", "resource")],
+                  order_by="count()", limit=25, legend="errors"),
+            Query("B", "logs", "count()", by=[key("service.name", "resource")], legend="all lines"),
+        ], width=4, height=9),
+        Panel("Recent errors", "list",
+              [Query("A", "logs", None, [ERROR_LOGS], order_by="timestamp", limit=100)],
+              fields=[key("service.name", "resource"), key("severity_text", "log"), key("body", "log")],
+              width=8, height=9),
+    ],
+])
+
+infrastructure = Dashboard(
+    name="Infrastructure",
+    description=(
+        "The host (CPU, memory, disks, network, ZFS, temperatures), DNS (Pi-hole), ingress (Caddy), "
+        "the shared Postgres and Redis, and logs from every container and the host journal. Error "
+        "logs use the severity Alloy infers from each line."
+    ),
+    sections=[host_section, dns_section, ingress_section, databases_section, logs_section],
 )
 
 # Root spans the apps' own instrumentation creates around background work (see
@@ -1009,9 +1186,11 @@ security = Dashboard(
     ],
 )
 
-DASHBOARDS = [service_health, ingress, logs, databases, jobs, youtube_rss, security]
-# Old dashboard names to delete. Keycloak's panels moved into Security.
-RETIRED = ["Keycloak"]
+DASHBOARDS = [infrastructure, service_health, jobs, youtube_rss, security]
+# Old dashboard names to delete. Keycloak's panels moved into Security; Ingress,
+# Logs and Databases into Infrastructure. HTTP API Monitoring was a library
+# dashboard that added little over Service Health.
+RETIRED = ["Keycloak", "Ingress (Caddy)", "Logs", "Databases", "HTTP API Monitoring"]
 
 if __name__ == "__main__":
     main()

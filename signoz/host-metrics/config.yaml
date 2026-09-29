@@ -11,7 +11,11 @@ receivers:
     scrapers:
       cpu: {}
       load: {}
-      memory: {}
+      memory:
+        metrics:
+          # Total RAM, for used % (the states don't sum to it exactly).
+          system.memory.limit:
+            enabled: true
       paging: {}
       system: {}
       disk:

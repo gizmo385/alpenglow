@@ -77,10 +77,12 @@ Check the SigNoz release notes for upgrade steps before bumping versions.
 
 ## Dashboards
 
-`dashboards/dashboards.py` defines the dashboards (Service Health, Ingress,
-Logs, Databases, Background Jobs, Keycloak, YouTube RSS Manager, Security)
-plus unmodified SigNoz library
-dashboards in `dashboards/library/`. It runs every panel's query against live
+`dashboards/dashboards.py` defines the dashboards (Infrastructure, Service
+Health, Background Jobs, YouTube RSS Manager, Security), plus any unmodified
+SigNoz library dashboards dropped into `dashboards/library/` (none right now).
+Infrastructure is split into collapsible sections: Host, DNS (Pi-hole),
+Ingress (Caddy), Databases and Logs. Dashboards named in `RETIRED` are deleted
+on the next run. It runs every panel's query against live
 data, then creates or updates the dashboards by name:
 
 ```sh
