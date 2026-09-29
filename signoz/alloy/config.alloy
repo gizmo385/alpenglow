@@ -258,8 +258,9 @@ otelcol.receiver.prometheus "default" {
 // Host and shared-database metrics
 //
 //   host       node-exporter (compose.yaml) on the host network, reached via
-//              the docker0 bridge: CPU, memory, disks, filesystems, network,
-//              ZFS, temperatures.
+//              the docker0 bridge: ZFS and temperatures only. CPU, memory,
+//              disks, filesystems and network come from host-metrics, which
+//              pushes OTLP to the receiver below.
 //   postgres   Alloy's built-in postgres_exporter, as the read-only
 //              alloy_monitor role (pg_monitor; DSN in .alloy_env).
 //   redis      Alloy's built-in redis_exporter (no auth).

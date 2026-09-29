@@ -1,0 +1,53 @@
+# OpenTelemetry Collector on the host network: the hostmetrics receiver that
+# SigNoz's Infrastructure > Hosts page is built on (system.* metrics tagged
+# with host.name). Runs on the host network so network counters are the
+# host's, and reads the host filesystem at /hostfs. Ships OTLP to Alloy on the
+# docker0 address.
+
+receivers:
+  host_metrics:
+    root_path: /hostfs
+    collection_interval: 30s
+    scrapers:
+      cpu: {}
+      load: {}
+      memory: {}
+      paging: {}
+      system: {}
+      disk:
+        # Partitions and zvols duplicate their parent disks.
+        exclude:
+          devices: ["^(loop|zd|sd[a-z]+[0-9]+|nvme[0-9]+n[0-9]+p[0-9]+).*"]
+          match_type: regexp
+      filesystem:
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, efivarfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, pstore, rpc_pipefs, securityfs, squashfs, sysfs, tracefs, tmpfs]
+          match_type: strict
+        exclude_mount_points:
+          mount_points: ["^/(dev|proc|sys|run|snap|var/lib/docker/.+)(/|$)"]
+          match_type: regexp
+      network:
+        # Per-container veth pairs and bridges; container traffic is Beszel's job.
+        exclude:
+          interfaces: ["^(lo|veth.*|br-.*|docker0)$"]
+          match_type: regexp
+
+processors:
+  resource_detection:
+    detectors: [system]
+    system:
+      hostname_sources: [os]
+  batch: {}
+
+exporters:
+  otlp_grpc:
+    endpoint: 10.0.0.1:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    metrics:
+      receivers: [host_metrics]
+      processors: [resource_detection, batch]
+      exporters: [otlp_grpc]
