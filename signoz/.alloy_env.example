@@ -1,0 +1,3 @@
+# Read-only stats role for Alloy's Postgres exporter:
+#   CREATE ROLE alloy_monitor LOGIN CONNECTION LIMIT 3 PASSWORD '...'; GRANT pg_monitor TO alloy_monitor;
+POSTGRES_EXPORTER_DSN=postgres://alloy_monitor:<password>@postgres:5432/postgres?sslmode=disable

@@ -255,6 +255,72 @@ otelcol.receiver.prometheus "default" {
 }
 
 // ---------------------------------------------------------------------------
+// Host and shared-database metrics
+//
+//   host       node-exporter (compose.yaml) on the host network, reached via
+//              the docker0 bridge: CPU, memory, disks, filesystems, network,
+//              ZFS, temperatures.
+//   postgres   Alloy's built-in postgres_exporter, as the read-only
+//              alloy_monitor role (pg_monitor; DSN in .alloy_env).
+//   redis      Alloy's built-in redis_exporter (no auth).
+//
+// Each gets the same service.name/namespace as the container's logs and OBI
+// traces (the compose_* labels feed the "containers" transform below).
+// ---------------------------------------------------------------------------
+
+prometheus.exporter.postgres "shared" {
+  data_source_names = [sys.env("POSTGRES_EXPORTER_DSN")]
+}
+
+prometheus.exporter.redis "shared" {
+  redis_addr = "redis:6379"
+}
+
+discovery.relabel "exporters" {
+  targets = array.concat(
+    [{"__address__" = "host.docker.internal:9100", "job" = "host", "instance" = "alpenglow"}],
+    prometheus.exporter.postgres.shared.targets,
+    prometheus.exporter.redis.shared.targets,
+  )
+
+  rule {
+    source_labels = ["job"]
+    regex         = ".*postgres.*"
+    replacement   = "postgres"
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["job"]
+    regex         = ".*redis.*"
+    replacement   = "redis"
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["compose_project"]
+    regex         = "(.+)"
+    target_label  = "compose_service"
+  }
+  rule {
+    source_labels = ["compose_project"]
+    regex         = "(.+)"
+    target_label  = "job"
+  }
+  rule {
+    source_labels = ["compose_project"]
+    regex         = "(.+)"
+    replacement   = "$1-$1-1"
+    target_label  = "instance"
+  }
+}
+
+prometheus.scrape "exporters" {
+  targets         = discovery.relabel.exporters.output
+  scrape_interval = "30s"
+  honor_metadata  = true
+  forward_to      = [otelcol.receiver.prometheus.default.receiver]
+}
+
+// ---------------------------------------------------------------------------
 // Container identity for logs, scraped metrics and OBI traces
 //
 //   service.name       container name minus compose's replica suffix, except
