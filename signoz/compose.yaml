@@ -61,9 +61,15 @@ services:
       # Log read positions, so restarts don't resend or skip logs.
       - alloy-data:/var/lib/alloy/data
     labels:
-      caddy: "*.alpenglow.acbc.house"
-      caddy.@alloy.host: "alloy.alpenglow.acbc.house"
-      caddy.reverse_proxy: "@alloy {{upstreams http 12345}}"
+      caddy_0: "*.alpenglow.acbc.house"
+      caddy_0.@alloy.host: "alloy.alpenglow.acbc.house"
+      caddy_0.reverse_proxy: "@alloy {{upstreams http 12345}}"
+      # OTLP/HTTP for machines outside Docker (Claude Code on personal
+      # machines, via the dotfiles). Tailnet/LAN only like every :443 site;
+      # the public edge only reaches the :10443 blocks. No auth.
+      caddy_1: "*.acbc.house"
+      caddy_1.@otlp.host: "otlp.acbc.house"
+      caddy_1.reverse_proxy: "@otlp {{upstreams http 4318}}"
     networks:
       - signoz-network
       - caddy

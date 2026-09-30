@@ -91,12 +91,20 @@ casting.yaml trims that (2026-09-28):
   list in `obi/config.yaml` (OBI's own detection misses SDK-instrumented
   apps). The dashboard, youtube_rss_manager, updates-tracker and servo are
   instrumented this way.
+- **OTLP from other machines**: `https://otlp.acbc.house` is Caddy in front of
+  Alloy's OTLP/HTTP port (labels on the `alloy` service). It only answers on
+  the tailnet/LAN, like every :443 site, and has no auth. Claude Code on the
+  personal machines sends to it (`gizmo.ai.telemetry` in ~/workspace/dotfiles;
+  service.name `claude-code`, `host.name` = the machine), shown on the
+  "Claude Code Metrics" library dashboard. That telemetry includes prompt and
+  response text and tool commands/paths, but not tool output.
 
 ## Dashboards
 
 `dashboards/dashboards.py` defines the dashboards (Infrastructure, Service
 Health, Background Jobs, YouTube RSS Manager, Security), plus any unmodified
-SigNoz library dashboards dropped into `dashboards/library/` (none right now).
+SigNoz library dashboards dropped into `dashboards/library/` (Claude Code
+Metrics, from SigNoz/dashboards@4cc626eec5 `claude-code/`).
 Infrastructure is split into collapsible sections: Host, DNS (Pi-hole),
 Ingress (Caddy), Databases and Logs. Dashboards named in `RETIRED` are deleted
 on the next run. It runs every panel's query against live
