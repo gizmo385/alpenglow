@@ -386,6 +386,18 @@ spec:
       path: /services/signoz-signoz-0/environment/-
       value: SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://monitoring.acbc.house
     - op: add
+      path: /services/signoz-signoz-0/environment/-
+      value: SIGNOZ_USER_ROOT_ENABLED=true
+    - op: add
+      path: /services/signoz-signoz-0/environment/-
+      value: SIGNOZ_IDENTN_IMPERSONATION_ENABLED=true
+    - op: add
+      path: /services/signoz-signoz-0/environment/-
+      value: SIGNOZ_IDENTN_TOKENIZER_ENABLED=false
+    - op: add
+      path: /services/signoz-signoz-0/environment/-
+      value: SIGNOZ_IDENTN_APIKEY_ENABLED=false
+    - op: add
       path: /services/signoz-signoz-0/env_file
       value:
       - path: ../../.env
@@ -396,17 +408,7 @@ spec:
       path: /services/signoz-signoz-0/networks
       value:
       - signoz-network
-      - caddy
       - postgres
-    - op: add
-      path: /services/signoz-signoz-0/labels
-      value:
-        caddy_0: '*.acbc.house'
-        caddy_0.@signoz.host: monitoring.acbc.house
-        caddy_0.reverse_proxy: '@signoz {{upstreams http 8080}}'
-        caddy_1: '*.alpenglow.acbc.house'
-        caddy_1.@signoz_old.host: signoz.alpenglow.acbc.house
-        caddy_1.redir: '@signoz_old https://monitoring.acbc.house{uri} permanent'
     - op: remove
       path: /services/ingester/ports
     - op: add

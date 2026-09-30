@@ -9,7 +9,10 @@ silently point at a field or metric that doesn't exist.
     ./dashboards.py            # check every query, then create/update
     ./dashboards.py --check    # only check the queries
 
-Needs a service-account key with the Editor role in ../.api_env
+SigNoz sits behind a Keycloak login and has no API keys (impersonation, see
+../casting.yaml), so run this from a container on signoz-network, pointed
+straight at SigNoz (see ../README.md). With SigNoz's own login back on, it
+runs from anywhere with a service-account key (Editor role) in ../.api_env
 (SIGNOZ_API_KEY=...). Dashboards edited in the UI are overwritten on the next
 run, so make lasting changes here.
 """
@@ -18,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -26,7 +30,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-BASE_URL = "https://monitoring.acbc.house"
+BASE_URL = os.environ.get("SIGNOZ_URL", "https://monitoring.acbc.house")
 KEY_FILE = Path(__file__).resolve().parent.parent / ".api_env"
 # Unmodified dashboards from https://github.com/SigNoz/dashboards, published
 # as-is alongside the ones defined here.
@@ -40,7 +44,11 @@ NO_DATA = "no data in the last hour"
 # ---------------------------------------------------------------------------
 
 
-def _api_key() -> str:
+def _api_key() -> str | None:
+    """The key from ../.api_env, or None when there's no key file (run
+    in-network against impersonation, where SigNoz ignores keys anyway)."""
+    if not KEY_FILE.exists():
+        return None
     for line in KEY_FILE.read_text().splitlines():
         name, _, value = line.partition("=")
         if name.strip() == "SIGNOZ_API_KEY":
@@ -49,11 +57,14 @@ def _api_key() -> str:
 
 
 def api(method: str, path: str, body: object = None) -> tuple[int, dict]:
+    headers = {"Content-Type": "application/json"}
+    if key := _api_key():
+        headers["SIGNOZ-API-KEY"] = key
     request = urllib.request.Request(
         BASE_URL + path,
         method=method,
         data=None if body is None else json.dumps(body).encode(),
-        headers={"SIGNOZ-API-KEY": _api_key(), "Content-Type": "application/json"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=60) as response:

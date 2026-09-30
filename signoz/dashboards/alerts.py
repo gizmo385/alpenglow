@@ -4,7 +4,7 @@
 Builds the rules defined at the bottom of this file and creates or updates
 them, matched by name, through the SigNoz API. Every query is first run
 against live data, so a rule can't silently point at a field or metric that
-doesn't exist. Uses the same key as dashboards.py (../.api_env).
+doesn't exist. Runs the same way as dashboards.py (see its docstring).
 
     ./alerts.py            # check every query, then create/update
     ./alerts.py --check    # only check the queries

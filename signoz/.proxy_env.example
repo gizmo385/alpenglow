@@ -1,0 +1,31 @@
+# oauth2-proxy in front of SigNoz (compose.yaml). Copy to .proxy_env and fill
+# in the secrets. Keycloak client `signoz`: confidential, standard flow only,
+# redirect https://monitoring.acbc.house/oauth2/callback, and a Group
+# Membership mapper `groups` (full path on) on its dedicated scope.
+
+OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+OAUTH2_PROXY_REVERSE_PROXY=true
+
+OAUTH2_PROXY_PROVIDER=keycloak-oidc
+OAUTH2_PROXY_OIDC_ISSUER_URL=https://sso.acbc.house/realms/acbc.house
+OAUTH2_PROXY_CLIENT_ID=signoz
+OAUTH2_PROXY_CLIENT_SECRET=
+# Generate: python3 -c 'import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())'
+OAUTH2_PROXY_COOKIE_SECRET=
+OAUTH2_PROXY_COOKIE_SECURE=true
+OAUTH2_PROXY_COOKIE_NAME=_oauth2_proxy_signoz
+
+OAUTH2_PROXY_REDIRECT_URL=https://monitoring.acbc.house/oauth2/callback
+OAUTH2_PROXY_EMAIL_DOMAINS=*
+# Everyone let through is SigNoz's root user, so admins only.
+OAUTH2_PROXY_ALLOWED_GROUPS=/Admin
+# The realm has no "groups" client scope; the claim comes from the client's
+# dedicated mapper, and asking for scope "groups" gets invalid_scope.
+OAUTH2_PROXY_SCOPE=openid email profile
+OAUTH2_PROXY_OIDC_GROUPS_CLAIM=groups
+
+OAUTH2_PROXY_UPSTREAMS=http://signoz-signoz-0:8080
+# Long SigNoz queries outlast oauth2-proxy's 30s default.
+OAUTH2_PROXY_UPSTREAM_TIMEOUT=120s
+# Go straight to Keycloak instead of the interstitial sign-in page.
+OAUTH2_PROXY_SKIP_PROVIDER_BUTTON=true

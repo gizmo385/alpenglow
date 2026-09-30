@@ -95,7 +95,28 @@ spec:
           path: /services/signoz-signoz-0/environment/-
           value: SIGNOZ_ALERTMANAGER_SIGNOZ_EXTERNAL__URL=https://monitoring.acbc.house
 
-        # --- SigNoz UI/API: shared Postgres DSN from .env, served via Caddy ---
+        # --- No SigNoz login: Keycloak via oauth2-proxy instead ---
+        # Every request is SigNoz's root user (impersonation). The root user's
+        # email, password and org ID come from .env; they must be the existing
+        # admin's email and password and the existing org's ID, or SigNoz
+        # overwrites them or creates a second, empty org. SigNoz refuses
+        # impersonation alongside its own login or API keys, so both are off.
+        # To go back to SigNoz's own login, drop these four entries (the proxy
+        # can stay in front); users, dashboards and API keys are untouched.
+        - op: add
+          path: /services/signoz-signoz-0/environment/-
+          value: SIGNOZ_USER_ROOT_ENABLED=true
+        - op: add
+          path: /services/signoz-signoz-0/environment/-
+          value: SIGNOZ_IDENTN_IMPERSONATION_ENABLED=true
+        - op: add
+          path: /services/signoz-signoz-0/environment/-
+          value: SIGNOZ_IDENTN_TOKENIZER_ENABLED=false
+        - op: add
+          path: /services/signoz-signoz-0/environment/-
+          value: SIGNOZ_IDENTN_APIKEY_ENABLED=false
+
+        # --- SigNoz UI/API: shared Postgres DSN and root user from .env ---
         # Paths are relative to pours/deployment/ since compose.yaml includes it.
         - op: add
           path: /services/signoz-signoz-0/env_file
@@ -104,24 +125,18 @@ spec:
               required: true
         - op: remove
           path: /services/signoz-signoz-0/ports
+        # Not on caddy: with no login, anything that can reach :8080 is root.
+        # The only way in is oauth2-proxy (compose.yaml), which carries the
+        # Caddy labels; only the SigNoz stack, Alloy and OBI share signoz-network.
         - op: replace
           path: /services/signoz-signoz-0/networks
-          value: [signoz-network, caddy, postgres]
-        - op: add
-          path: /services/signoz-signoz-0/labels
-          value:
-            caddy_0: "*.acbc.house"
-            caddy_0.@signoz.host: "monitoring.acbc.house"
-            caddy_0.reverse_proxy: "@signoz {{upstreams http 8080}}"
-            # Old name, kept so bookmarks and older alert links still work.
-            caddy_1: "*.alpenglow.acbc.house"
-            caddy_1.@signoz_old.host: "signoz.alpenglow.acbc.house"
-            caddy_1.redir: "@signoz_old https://monitoring.acbc.house{uri} permanent"
+          value: [signoz-network, postgres]
 
         # --- Ingester: only Alloy talks to it, over signoz-network ---
         - op: remove
           path: /services/ingester/ports
 
+        # For Alloy and oauth2-proxy in compose.yaml.
         - op: add
           path: /networks/caddy
           value: { external: true }

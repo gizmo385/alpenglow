@@ -1,8 +1,13 @@
 # SigNoz
 
 Self-hosted observability (logs, metrics, traces) at
-https://monitoring.acbc.house (Tailnet only, SigNoz's own login -- OIDC
-is an Enterprise feature).
+https://monitoring.acbc.house (Tailnet only). Login is Keycloak, Admin group
+only, through `signoz-oauth2-proxy` (`.proxy_env`). SigNoz itself runs with
+no login: every request it receives is its root user ("impersonation", set in
+casting.yaml; OIDC proper is an Enterprise feature). So SigNoz is kept off the
+`caddy` network, and the proxy is the only way in from outside
+`signoz-network`. To return to SigNoz's own login, see the impersonation
+entries in casting.yaml.
 
 ## Layout
 
@@ -95,25 +100,32 @@ SigNoz library dashboards dropped into `dashboards/library/` (none right now).
 Infrastructure is split into collapsible sections: Host, DNS (Pi-hole),
 Ingress (Caddy), Databases and Logs. Dashboards named in `RETIRED` are deleted
 on the next run. It runs every panel's query against live
-data, then creates or updates the dashboards by name:
-
-```sh
-./dashboards/dashboards.py            # check + publish
-./dashboards/dashboards.py --check    # check only
-```
+data, then creates or updates the dashboards by name.
 
 `dashboards/alerts.py` does the same for alert rules (CrowdSec detections,
 SSH logins from outside the LAN/tailnet, unexpected or refused sudo,
-privileged docker runs), notifying the "Discord Alerts" channel:
+privileged docker runs), notifying the "Discord Alerts" channel.
+
+The Keycloak login blocks scripts at monitoring.acbc.house, so run them from a
+throwaway container on `signoz-network`, straight at SigNoz (stdlib only, no
+key needed):
 
 ```sh
-./dashboards/alerts.py                # check + publish
-./dashboards/alerts.py --check        # check only
+alias signoz-script='sudo docker run --rm --network signoz-network \
+  -e SIGNOZ_URL=http://signoz-signoz-0:8080 \
+  -v /services/signoz/dashboards:/dashboards:ro -w /dashboards \
+  python:3.13-alpine python'
+
+signoz-script dashboards.py            # check + publish
+signoz-script dashboards.py --check    # check only
+signoz-script alerts.py                # check + publish
+signoz-script alerts.py --check        # check only
 ```
 
-Both need a service-account key with the Editor role in `.api_env`
-(`SIGNOZ_API_KEY=...`, gitignored). Edits made in the UI are overwritten on the
-next run, so make lasting changes in the scripts.
+If SigNoz's own login is turned back on, they run from the host again
+(`./dashboards/dashboards.py`) with a service-account key with the Editor role
+in `.api_env` (`SIGNOZ_API_KEY=...`, gitignored). Edits made in the UI are
+overwritten on the next run, so make lasting changes in the scripts.
 
 Alloy's pipeline graph and discovered targets:
 https://alloy.alpenglow.acbc.house
