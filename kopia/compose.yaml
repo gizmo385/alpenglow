@@ -7,11 +7,14 @@ services:
     command:
       - server
       - start
-      - --disable-csrf-token-checks
       - --insecure
       - --address=0.0.0.0:51515
       - --server-username=alpenglower
-      - --server-password=$KOPIA_PASSWORD
+    environment:
+      # The UI password, read from the environment rather than a flag so it
+      # stays out of the process list. Still the repository password until it's
+      # rotated; then delete this line to use KOPIA_SERVER_PASSWORD from .env.
+      KOPIA_SERVER_PASSWORD: ${KOPIA_PASSWORD}
     volumes:
       # Mount local folders needed by kopia
       - ./config/dir:/app/config
