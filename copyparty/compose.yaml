@@ -6,11 +6,17 @@ services:
     env_file: .proxy_env
     networks:
       - caddy
+      # Session store (OAUTH2_PROXY_REDIS_CONNECTION_URL).
       - redis
+      - backend
     labels:
-      caddy: "*.alpenglow.acbc.house"
-      caddy.@files.host: "files.alpenglow.acbc.house"
-      caddy.reverse_proxy: "@files {{upstreams 4180}}"
+      caddy_0: "*.acbc.house"
+      caddy_0.@files.host: "files.acbc.house"
+      caddy_0.reverse_proxy: "@files {{upstreams 4180}}"
+      # Old name, kept so bookmarks and shared links still work.
+      caddy_1: "*.alpenglow.acbc.house"
+      caddy_1.@files_old.host: "files.alpenglow.acbc.house"
+      caddy_1.redir: "@files_old https://files.acbc.house{uri} permanent"
     depends_on:
       - copyparty
 
@@ -34,11 +40,19 @@ services:
       -c /copyparty.conf
       --http-only
     networks:
-      - caddy
-      - redis
+      # Only oauth2-proxy can reach it. copyparty takes the username from the
+      # proxy's headers, so anything else that could connect could claim to be
+      # anyone (see xff-src in copyparty.conf).
+      - backend
 
 networks:
   redis:
     external: true
   caddy:
     external: true
+  backend:
+    # No route out, and a fixed subnet so copyparty.conf can trust exactly it.
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.0.16.0/24
