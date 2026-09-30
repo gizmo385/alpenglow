@@ -7,18 +7,18 @@ services:
       service: docker-read-stats
     image: nicolargo/glances:latest
     restart: unless-stopped
-    pid: host
     volumes:
       - ./glances.conf:/etc/glances/glances.conf
       - /etc/os-release:/etc/os-release:ro
     environment:
-      - "GLANCES_OPT=-w"
+      # REST API only, for the dashboard's host stats (load, cpu, mem, memswap,
+      # fs). The API has no auth, and host process command lines can carry
+      # secrets (it once served Kopia's password), so no `pid: host`: it only
+      # sees its own process. --disable-process still leaves the endpoint up.
+      - "GLANCES_OPT=-w --disable-webui --disable-process"
     networks:
+      # Only so the dashboard can reach the API at glances:61208; no Caddy route.
       - caddy
-    labels:
-      caddy: "*.alpenglow.acbc.house"
-      caddy.@glances.host: "glances.alpenglow.acbc.house"
-      caddy.reverse_proxy: "@glances {{upstreams 61208}}"
 
 networks:
   caddy:
