@@ -1161,7 +1161,7 @@ security = Dashboard(
         [
             Panel("Recent sudo commands", "list",
                   [Query("A", "logs", None, SUDO_COMMAND, order_by="timestamp", limit=200)],
-                  fields=LOG_FIELDS, width=12, height=8,
+                  fields=LOG_FIELDS, width=12, height=8, empty_ok=True,
                   description="Every sudo invocation with its full command line (sudo docker is root)."),
         ],
         [
