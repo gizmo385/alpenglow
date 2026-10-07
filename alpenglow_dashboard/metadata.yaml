@@ -8,9 +8,15 @@
 #                      service name matches the dir, else first)
 #   keycloak_client:   Keycloak clientId override for B5 SSO matching (used when
 #                      the realm clientId differs from the service dir name)
+#   name:              display name in docs/diagram when title-casing the dir
+#                      name gets it wrong
+#   sso:               true when the app itself logs in through Keycloak (OIDC
+#                      configured in its UI or .env). docs/diagram reads this;
+#                      oauth2-proxy sidecars are detected from compose.yaml.
 
 services:
   alpenglow_dashboard:
+    name: Dashboard
     category: Infrastructure
     icon: ph-mountains
     description: This dashboard — at-a-glance health, updates and actions for every Alpenglow service.
@@ -49,12 +55,32 @@ services:
     icon: ph-coffee
     description: Lightweight checker for newer tags of running container images.
 
+  crowdsec:
+    name: CrowdSec
+    category: Monitoring
+    icon: ph-shield-warning
+    description: Watch-only intrusion detection over Caddy's access log and the host auth.log; reports to SigNoz.
+
+  dawarich:
+    category: Productivity
+    icon: ph-map-trifold
+    description: Location history timeline.
+
+  signoz:
+    name: SigNoz
+    category: Monitoring
+    icon: ph-chart-bar
+    description: Logs, metrics and traces for every service, behind Keycloak via oauth2-proxy.
+
   ddclient:
+    name: ddclient
     category: Infrastructure
     icon: ph-globe-hemisphere-west
     description: Keeps the dynamic DNS record pointed at the current WAN IP.
 
   freshrss:
+    name: FreshRSS
+    sso: true
     category: Productivity
     icon: ph-rss
     description: RSS aggregator serving feeds to the household readers.
@@ -65,6 +91,7 @@ services:
     description: Real-time system overview across CPU, disk, network and sensors.
 
   home_assistant:
+    sso: true
     category: Home
     icon: ph-house-line
     description: Home automation hub. Vendored hass-oidc-auth plugin provides Keycloak login.
@@ -72,12 +99,14 @@ services:
     keycloak_client: homeassistant
 
   immich:
+    sso: true
     category: Media
     icon: ph-images
     description: Self-hosted photo & video backup. OIDC login wired to Keycloak; ML jobs run on the shared GPU.
     primary_container: immich_server
 
   immichframe:
+    name: ImmichFrame
     category: Media
     icon: ph-monitor
     description: Digital photo-frame client pulling from Immich. Local network only.
@@ -98,6 +127,7 @@ services:
     description: File-level encrypted backups with a nightly verification pass.
 
   linkwarden:
+    sso: true
     category: Productivity
     icon: ph-bookmark-simple
     description: Bookmark & link archive. Uses Keycloak for authentication.
@@ -108,6 +138,7 @@ services:
     description: MQTT broker bridging Zigbee/Z-Wave devices to Home Assistant. No web UI.
 
   motioneye:
+    name: motionEye
     category: Home
     icon: ph-video-camera
     description: NVR frontend for the property cameras.
@@ -118,6 +149,7 @@ services:
     description: Music library and streaming bridge for Home Assistant.
 
   nextcloud:
+    sso: true
     category: Productivity
     icon: ph-cloud
     description: Files, calendar and contacts. Keycloak SSO via the user_oidc app.
@@ -128,6 +160,7 @@ services:
     description: Local LLM runtime on the GPU. Powers the updates-tracker digest summaries.
 
   pihole:
+    name: Pi-hole
     category: Infrastructure
     icon: ph-funnel
     description: Network-wide DNS and ad-blocking, with dnscrypt-proxy upstream. Split-horizon DNS for acbc.house.
@@ -144,16 +177,19 @@ services:
     description: Cache and job queue shared across services.
 
   servo_bot:
+    name: Servo
     category: Productivity
     icon: ph-robot
     description: Discord bot (gizmo385/servo). No web ingress — talks outbound to Discord.
 
   tandoor:
+    sso: true
     category: Productivity
     icon: ph-cooking-pot
     description: Recipe manager and meal planner. Keycloak SSO enabled.
 
   trek:
+    name: TREK
     category: Productivity
     icon: ph-airplane-takeoff
     description: Trip and travel planner — replaced the intended AdventureLog deployment.
@@ -176,6 +212,8 @@ services:
     description: Uptime monitoring; receives webhook pings from backup and cron scripts.
 
   youtube_rss_manager:
+    name: YouTube RSS
+    sso: true
     category: Productivity
     icon: ph-youtube-logo
     description: Turns YouTube subscriptions into clean RSS feeds for FreshRSS.

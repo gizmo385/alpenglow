@@ -3,7 +3,12 @@
 A self-hosted home services infrastructure managed as a monorepo. Each service
 lives in its own directory and is orchestrated with Docker Compose.
 
-![Server diagram](./docs/home_server.png)
+[![Server diagram](./docs/home_server.svg)](https://gizmo385.github.io/alpenglow/)
+
+Click the diagram for an [interactive version](https://gizmo385.github.io/alpenglow/)
+that filters by shared service and traces each service's connections. Both are
+generated from the compose files and `alpenglow_dashboard/metadata.yaml` by
+`uv run docs/diagram/generate.py`; re-run it after adding or changing a service.
 
 ## Repository Structure
 

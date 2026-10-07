@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alpenglow Service Map</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0e0d11; --panel: #131116; --ink: #e9e6ee; --muted: #9a94a3; --line: #34303b;
+}
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+main { max-width: 1640px; margin: 0 auto; padding-block: 22px 40px; padding-inline: 16px; display: grid; gap: 14px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; cursor: pointer;
+  font: 500 13px/1 inherit; font-family: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
+.chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.chip .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip:hover { border-color: var(--c); }
+.chip[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, var(--panel)); }
+.chip:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.status { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+.status b { color: var(--ink); font-weight: 600; }
+.frame { overflow-x: auto; border-radius: 12px; }
+.frame svg { display: block; width: 100%; min-width: 1000px; height: auto; }
+
+.el { transition: opacity .15s ease; }
+svg.dim .el { opacity: .12; }
+svg.dim .el.on { opacity: 1; }
+.svc, .backend { cursor: pointer; outline: none; }
+.svc:focus-visible > rect, .backend:focus-visible > rect { stroke-width: 3; }
+@media (prefers-reduced-motion: reduce) { .el { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <h1>Alpenglow Service Map</h1>
+    <div class="chips" role="group" aria-label="Highlight">
+{{CHIPS}}
+    </div>
+  </div>
+  <div class="status" id="status" aria-live="polite">Hover or tap a service to trace its connections.</div>
+  <div class="frame">
+{{SVG}}
+  </div>
+</main>
+
+<script>
+(() => {
+  const svg = document.querySelector('.frame svg');
+  const els = [...svg.querySelectorAll('.el')];
+  const chips = [...document.querySelectorAll('.chip')];
+  const status = document.getElementById('status');
+  const names = Object.fromEntries(chips.map(c => [c.dataset.f, c.dataset.name]));
+  const hint = status.textContent;
+  let pinned = null;   // { kind: 'filter' | 'svc', value }
+
+  const services = [...svg.querySelectorAll('.svc')];
+  chips.forEach(c => {
+    const n = services.filter(s => s.classList.contains('t-' + c.dataset.f)).length;
+    c.querySelector('.n').textContent = c.dataset.f === 'backup' ? '' : n;
+  });
+
+  function show(sel) {
+    if (!sel) {
+      svg.classList.remove('dim');
+      els.forEach(e => e.classList.remove('on'));
+      status.textContent = hint;
+      return;
+    }
+    let match;
+    if (sel.kind === 'filter') {
+      match = e => e.classList.contains('t-' + sel.value);
+      const n = services.filter(match).length;
+      status.innerHTML = `<b>${names[sel.value]}</b> · ${n} service${n === 1 ? '' : 's'}`;
+    } else {
+      const node = svg.querySelector(`[data-svc="${CSS.escape(sel.value)}"][data-label]`);
+      const deps = (node?.dataset.deps || '').split(' ').filter(Boolean);
+      match = e => e.dataset.svc ? e.dataset.svc === sel.value
+        : (e.dataset.users || '').split(' ').includes(sel.value)
+          || ((e.classList.contains('lane') || e.classList.contains('backend')) && deps.some(d => e.classList.contains('t-' + d)));
+      const label = node?.dataset.label || sel.value;
+      status.innerHTML = `<b>${label}</b> · ${deps.length ? deps.map(d => names[d] || d).join(', ') : 'no shared services'}`;
+    }
+    svg.classList.add('dim');
+    els.forEach(e => e.classList.toggle('on', match(e)));
+  }
+
+  function setPinned(sel) {
+    const same = pinned && sel && pinned.kind === sel.kind && pinned.value === sel.value;
+    pinned = same ? null : sel;
+    chips.forEach(c => c.setAttribute('aria-pressed', String(pinned?.kind === 'filter' && pinned.value === c.dataset.f)));
+    show(pinned);
+  }
+
+  chips.forEach(c => c.addEventListener('click', () => setPinned({ kind: 'filter', value: c.dataset.f })));
+
+  const targets = [
+    ...services.map(s => [s, { kind: 'svc', value: s.dataset.svc }]),
+    ...[...svg.querySelectorAll('.backend')].map(b => [b, { kind: 'filter', value: b.dataset.deps }]),
+  ];
+  targets.forEach(([node, sel]) => {
+    node.setAttribute('tabindex', '0');
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', sel.kind === 'svc' ? `Trace ${node.dataset.label}` : `Highlight ${names[sel.value]}`);
+    node.addEventListener('mouseenter', () => show(sel));
+    node.addEventListener('mouseleave', () => show(pinned));
+    node.addEventListener('focus', () => show(sel));
+    node.addEventListener('blur', () => show(pinned));
+    node.addEventListener('click', () => setPinned(sel));
+    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPinned(sel); } });
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') setPinned(null); });
+})();
+</script>
+</body>
+</html>
