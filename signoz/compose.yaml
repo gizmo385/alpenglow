@@ -29,7 +29,7 @@ services:
       caddy_1.redir: "@signoz_old https://monitoring.acbc.house{uri} permanent"
 
   alloy:
-    image: grafana/alloy:v1.20.0
+    image: grafana/alloy:v1.20.1
     container_name: signoz-alloy
     # Container list and logs via /services/docker-proxy (read-only).
     extends:
