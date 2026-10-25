@@ -24,10 +24,13 @@ overrides:
   immich-app/machine-learning: immich-app/immich
   # OCI label points to Red Hat build repo, not the actual source
   quay.io/keycloak/keycloak: keycloak/keycloak
-  pihole/pihole: pi-hole/pi-hole
+  # Image versions (e.g. 2026.10.0) follow the Docker repo, not Pi-hole core (v6.x)
+  pihole/pihole: pi-hole/docker-pi-hole
   jellyfin/jellyfin: jellyfin/jellyfin
   # No OCI source label on the image; GitHub repo name is uppercase
   mauriceboe/trek: liketrek/TREK
+  # Locally built image; its OCI label points at caddy-docker, which has no releases
+  caddy-caddy: caddyserver/caddy
 
 names:
   home-assistant/core: Home Assistant
@@ -40,9 +43,21 @@ names:
   valkey/valkey: Valkey
   kopia/kopia: Kopia
   fmtr/amniotic: Amniotic
-  pihole/pihole: Pi-hole
+  pi-hole/docker-pi-hole: Pi-hole
   jellyfin/jellyfin: Jellyfin
-  mauriceboe/TREK: Trek
+  liketrek/TREK: Trek
+  caddyserver/caddy: Caddy
+  open-telemetry/opentelemetry-collector-releases: OpenTelemetry Collector
+
+# Hide releases whose tags contain these words, on top of GitHub's prerelease
+# flag. 'global' is unset, so the built-in list (alpha, beta, rc, nightly, ...)
+# applies to every repo.
+exclude_releases:
+  repos:
+    # Also publishes cmd/builder/... and cmd/opampsupervisor/... releases
+    open-telemetry/opentelemetry-collector-releases: [cmd]
+    # Publishes sdk/vX.Y.Z alongside the app's twenty/vX.Y.Z
+    twentyhq/twenty: [sdk]
 
 ignore:
   # We're on a fork of these
