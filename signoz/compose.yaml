@@ -84,7 +84,7 @@ services:
   # host-metrics/config.yaml). On the host network so network counters are
   # the host's rather than a container's.
   host-metrics:
-    image: otel/opentelemetry-collector-contrib:0.161.0
+    image: otel/opentelemetry-collector-contrib:0.163.2
     container_name: signoz-host-metrics
     restart: unless-stopped
     network_mode: host
@@ -116,7 +116,7 @@ services:
   # OpenTelemetry eBPF Instrumentation: traces for every listening container
   # without app changes (see obi/config.yaml).
   obi:
-    image: otel/ebpf-instrument:v0.13.0
+    image: otel/ebpf-instrument:v0.15.2
     container_name: signoz-obi
     restart: unless-stopped
     command:
