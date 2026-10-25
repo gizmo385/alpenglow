@@ -19,7 +19,7 @@
 # See https://github.com/wollomatic/socket-proxy for the options.
 
 x-proxy: &proxy
-  image: wollomatic/socket-proxy:1.13.1
+  image: wollomatic/socket-proxy:1.13.2
   restart: unless-stopped
   # nobody, in the host's docker group so it can open the socket.
   user: "65534:988"
