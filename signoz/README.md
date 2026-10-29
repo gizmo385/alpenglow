@@ -96,15 +96,16 @@ casting.yaml trims that (2026-09-28):
   the tailnet/LAN, like every :443 site, and has no auth. Claude Code on the
   personal machines sends to it (`gizmo.ai.telemetry` in ~/workspace/dotfiles;
   service.name `claude-code`, `host.name` = the machine), shown on the
-  "Claude Code Metrics" library dashboard. That telemetry includes prompt and
+  "Claude Code Metrics" dashboard. That telemetry includes prompt and
   response text and tool commands/paths, but not tool output.
 
 ## Dashboards
 
 `dashboards/dashboards.py` defines the dashboards (Infrastructure, Service
-Health, Background Jobs, YouTube RSS Manager, Security), plus any unmodified
-SigNoz library dashboards dropped into `dashboards/library/` (Claude Code
-Metrics, from SigNoz/dashboards@4cc626eec5 `claude-code/`).
+Health, Background Jobs, YouTube RSS Manager, Security, Claude Code Metrics),
+plus any unmodified SigNoz library dashboards dropped into
+`dashboards/library/` (none at the moment; Claude Code Metrics started as
+SigNoz/dashboards@4cc626eec5 `claude-code/`).
 Infrastructure is split into collapsible sections: Host, DNS (Pi-hole),
 Ingress (Caddy), Databases and Logs. Dashboards named in `RETIRED` are deleted
 on the next run. It runs every panel's query against live

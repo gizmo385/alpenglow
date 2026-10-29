@@ -118,12 +118,14 @@ class Query:
     limit: int | None = None
     legend: str = ""
     hidden: bool = False
+    functions: list[str] = field(default_factory=list)  # e.g. fillZero, cumulativeSum, applied in order
+    step: int = 60  # seconds; SigNoz raises it for long ranges
 
     def spec(self, drop_variables: bool = False) -> dict:
         clauses = [c for c in self.where if not (drop_variables and "$" in c)]
         spec = {
             "name": self.name,
-            "stepInterval": 60,
+            "stepInterval": self.step,
             "signal": self.signal,
             "source": "",
             "disabled": self.hidden,
@@ -131,7 +133,7 @@ class Query:
             "groupBy": [k if isinstance(k, dict) else key(k) for k in self.by],
             "order": [],
             "having": {"expression": ""},
-            "functions": [],
+            "functions": [{"name": f} for f in self.functions],
             "legend": self.legend,
         }
         if self.agg is not None:
@@ -195,6 +197,10 @@ class Panel:
     empty_ok: bool = False  # event panels: no data just means it hasn't happened yet
     colors: dict[str, str] = field(default_factory=dict)  # series legend label -> color
     stacked: bool = True  # bar panels: stack the series (False when one is a subset of another)
+    # Timeseries panels: leave gaps longer than a step empty instead of drawing
+    # a line across them, with points so lone values still show. For values
+    # that aren't zero when nothing happens (ratios); counts use fillZero.
+    break_gaps: bool = False
 
     def plugin(self) -> dict:
         formatting = {"unit": self.unit, "decimalPrecision": "2"}
@@ -208,10 +214,12 @@ class Panel:
                     "formatting": formatting,
                     "chartAppearance": {
                         "lineInterpolation": "spline",
-                        "showPoints": False,
+                        "showPoints": self.break_gaps,
                         "lineStyle": "solid",
                         "fillMode": "none",
-                        "spanGaps": {"fillOnlyBelow": False, "fillLessThan": ""},
+                        # SigNoz joins gaps no longer than max(threshold, step).
+                        "spanGaps": {"fillOnlyBelow": True, "fillLessThan": "1m"} if self.break_gaps
+                        else {"fillOnlyBelow": False, "fillLessThan": ""},
                     },
                     "axes": AXES,
                     "legend": legend,
@@ -1208,7 +1216,175 @@ security = Dashboard(
     ],
 )
 
-DASHBOARDS = [infrastructure, service_health, jobs, youtube_rss, security]
+# --- Claude Code ---------------------------------------------------------------
+# Claude Code's own OpenTelemetry metrics (delta counters) and events (logs),
+# sent from the personal machines through otlp.acbc.house. Based on SigNoz's
+# library dashboard (SigNoz/dashboards@4cc626eec5 claude-code/). The counters
+# only report while Claude Code is in use, so per-step series use fillZero:
+# otherwise idle hours are missing buckets that the line is drawn straight
+# across.
+
+CC_TOKENS = "claude_code.token.usage"
+CC_COST = "claude_code.cost.usage"  # what the same usage would cost on the API, in USD
+CC_ACTIVE = "claude_code.active_time.total"
+CC_TOOL_RESULT = "body = 'claude_code.tool_result'"
+# Monthly price of each subscription, US web prices (claude.com/pricing, 2026-10).
+CC_PLANS = {"Pro": 20, "Max 5x": 100, "Max 20x": 200}
+SECONDS_PER_MONTH = 365.25 / 12 * 86400
+CC_PLAN_COLORS = {"Pro": "#4E8EF7", "Max 5x": "#F5A623", "Max 20x": "#2BB673"}
+CC_WINDOW_COLORS = {"1m": "#22c55e", "5m": "#3b82f6", "15m": "#f97316"}
+
+
+def cc_sum(name: str) -> dict:
+    """Total of a Claude Code delta counter: per step in charts, over the range in numbers."""
+    return metric(name, "sum", "sum", "sum")
+
+
+def cc_count(title: str, name: str, description: str) -> Panel:
+    return Panel(title, "number", [Query("A", "metrics", cc_sum(name))], description=description,
+                 width=2, height=2)
+
+
+def cc_plan_leverage(plan: str) -> Panel:
+    price = CC_PLANS[plan]
+    return Panel(f"Leverage: {plan} (${price})", "number", [
+        # Average API-equivalent spend per second over the range, idle time included.
+        Query("A", "metrics", metric(CC_COST, "rate", "sum", "avg"), functions=["fillZero"], hidden=True),
+        Formula("F1", f"A / ({price} / {SECONDS_PER_MONTH:.0f})"),
+    ], width=3, height=3,
+        description=(f"API-equivalent cost over the selected range / the {plan} plan's ${price} a month "
+                     "prorated to the same range. Above 1, the plan costs less than the API would have."))
+
+
+def cc_cli_user_ratio(step: int, label: str) -> list[Query | Formula]:
+    return [
+        Query(f"A{label}", "metrics", cc_sum(CC_ACTIVE), ["type = 'cli'"], step=step, hidden=True),
+        Query(f"B{label}", "metrics", cc_sum(CC_ACTIVE), ["type = 'user'"], step=step, hidden=True),
+        Formula(f"F{label}", f"A{label} / B{label}", f"{label}m"),
+    ]
+
+
+claude_code = Dashboard(
+    name="Claude Code Metrics",
+    description=(
+        "Claude Code usage, tokens, API-equivalent cost and how it compares with the Pro and Max "
+        "subscriptions, from the personal machines' OpenTelemetry."
+    ),
+    sections=[
+        Section("Overview", [
+            [
+                cc_count("Sessions", "claude_code.session.count", "Number of Claude Code sessions"),
+                cc_count("Active Time", CC_ACTIVE, "Total active time in Claude Code (seconds)"),
+                cc_count("Lines Changed", "claude_code.lines_of_code.count", "Lines of code modified"),
+                cc_count("Tool Calls", "claude_code.code_edit_tool.decision",
+                         "Accept/reject decisions for code edits"),
+                cc_count("Commits", "claude_code.commit.count", "Git commits created"),
+                cc_count("PRs", "claude_code.pull_request.count", "Pull requests created"),
+            ],
+            [
+                Panel("Token Usage Over Time", "timeseries",
+                      [Query("A", "metrics", cc_sum(CC_TOKENS), functions=["fillZero"], legend="Tokens")],
+                      description="Tokens per step, all types (input, output, cache read and creation).",
+                      height=5),
+                Panel("Cost Over Time (USD)", "timeseries",
+                      [Query("A", "metrics", cc_sum(CC_COST), functions=["fillZero"], legend="Cost (USD)")],
+                      description="API-equivalent cost per step.", height=5),
+            ],
+            [
+                Panel("Cumulative Tokens", "timeseries",
+                      [Query("A", "metrics", cc_sum(CC_TOKENS), functions=["fillZero", "cumulativeSum"],
+                             legend="Tokens")],
+                      description="Running total since the start of the selected range.", height=5),
+                Panel("Cumulative Cost (USD)", "timeseries",
+                      [Query("A", "metrics", cc_sum(CC_COST), functions=["fillZero", "cumulativeSum"],
+                             legend="Cost (USD)")],
+                      description="Running API-equivalent total since the start of the selected range.",
+                      height=5),
+            ],
+        ]),
+        Section("Token Breakdown", [
+            [
+                Panel("Tokens by Model", "bar",
+                      [Query("A", "metrics", cc_sum(CC_TOKENS), by=[key("model", "attribute")],
+                             legend="{{model}}")],
+                      description="Token consumption by model", stacked=False, height=4),
+                Panel("Tokens by Type", "bar",
+                      [Query("A", "metrics", cc_sum(CC_TOKENS), by=[key("type", "attribute")],
+                             legend="{{type}}")],
+                      description="Input, output, cache read, cache creation", stacked=False, height=4),
+            ],
+        ]),
+        Section("Cost & Productivity", [
+            [
+                Panel("Cost by Model", "bar",
+                      [Query("A", "metrics", cc_sum(CC_COST), by=[key("model", "attribute")],
+                             legend="{{model}}")],
+                      description="Cost breakdown by model", stacked=False, height=4),
+                Panel("CLI vs User Time", "timeseries",
+                      [Query("A", "metrics", cc_sum(CC_ACTIVE), by=[key("type", "attribute")],
+                             functions=["fillZero"], legend="{{type}}")],
+                      description="Time spent by Claude (CLI) vs waiting for user input", height=4),
+            ],
+            [
+                Panel("Cache Efficiency %", "timeseries", [
+                    Query("A", "metrics", cc_sum(CC_TOKENS), ["type = 'cacheRead'"], hidden=True),
+                    Query("B", "metrics", cc_sum(CC_TOKENS), ["type = 'input'"], hidden=True),
+                    Formula("F1", "(A / (A + B)) * 100", "Cache Efficiency %"),
+                ], description="Percentage of tokens served from cache", break_gaps=True, height=7),
+                Panel("Usage Leverage", "number", [
+                    Query("A", "metrics", cc_sum(CC_ACTIVE), ["type = 'cli'"], hidden=True),
+                    Query("B", "metrics", cc_sum(CC_ACTIVE), ["type = 'user'"], hidden=True),
+                    Formula("F1", "A / B", "Usage Leverage"),
+                ], description="CLI:User time ratio (e.g. 350 = Claude worked 350x more)", width=2, height=4),
+                Panel("Leverage Over Time", "timeseries",
+                      [*cc_cli_user_ratio(60, "1"), *cc_cli_user_ratio(300, "5"), *cc_cli_user_ratio(900, "15")],
+                      description="Rolling CLI:User ratio at 1m, 5m, and 15m windows",
+                      colors=CC_WINDOW_COLORS, break_gaps=True, width=4, height=6),
+            ],
+        ]),
+        Section("Cost Analysis (vs Claude plans)", [
+            [
+                Panel("API Cost (Total)", "number", [Query("A", "metrics", cc_sum(CC_COST))],
+                      description="Total hypothetical API cost for selected window", width=3, height=3),
+                *[cc_plan_leverage(plan) for plan in CC_PLANS],
+            ],
+            [
+                Panel("Cost Leverage Over Time by Plan", "timeseries", [
+                    Query("A", "metrics", metric(CC_COST, "rate", "sum"), functions=["fillZero"], step=900,
+                          hidden=True),
+                    *[Formula(f"F{i}", f"A / ({price} / {SECONDS_PER_MONTH:.0f})", plan)
+                      for i, (plan, price) in enumerate(CC_PLANS.items(), 1)],
+                ], colors=CC_PLAN_COLORS, width=12,
+                    description=(
+                        "API-equivalent spend in each 15 minutes (or each step, on long ranges) / each "
+                        "plan's price prorated to the same time. 0 while idle."
+                    )),
+            ],
+        ]),
+        Section("Log Insights (from Events)", [
+            [
+                Panel("Tool Usage Frequency", "bar",
+                      [Query("A", "logs", "count()", [CC_TOOL_RESULT], by=[key("tool_name", "attribute")],
+                             legend="{{tool_name}}")],
+                      description="Which tools are used most often", stacked=False, height=5),
+                Panel("Tool Success", "pie",
+                      [Query("A", "logs", "count()", [CC_TOOL_RESULT], by=[key("success", "attribute")],
+                             legend="{{success}}")],
+                      description="Success vs failure rate", width=3, height=5),
+                Panel("Recent API Calls", "list",
+                      [Query("A", "logs", None, ["body = 'claude_code.api_request'"], order_by="timestamp",
+                             limit=10)],
+                      fields=[key("model", "attribute"), key("cost_usd", "attribute")],
+                      description="Recent API calls with cost", width=3, height=5),
+            ],
+        ]),
+    ],
+)
+# Claude Code only reports while it's in use, so a quiet hour isn't a broken query.
+for panel in claude_code.panels():
+    panel.empty_ok = True
+
+DASHBOARDS = [infrastructure, service_health, jobs, youtube_rss, security, claude_code]
 # Old dashboard names to delete. Keycloak's panels moved into Security; Ingress,
 # Logs and Databases into Infrastructure. HTTP API Monitoring was a library
 # dashboard that added little over Service Health.
