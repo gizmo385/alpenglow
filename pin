@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Run the pin tool (tools/pin) against this repo's versions.yaml.
+#   ./pin check | sync | set NAME TAG | plugin NAME MODULE VERSION | digests | adopt NAME | list
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec uv run --quiet --project "$ROOT/tools/pin" pin --root "$ROOT" "$@"
