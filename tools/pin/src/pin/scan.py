@@ -3,8 +3,10 @@
 Three kinds of usage are found, each with its file and line so ``sync`` can
 rewrite exactly that line and ``check`` can point at it:
 
-* ``compose``: an ``image:`` line in a compose file (or another YAML file the
-  lock lists under ``extra_files``, such as SigNoz's ``casting.yaml``).
+* ``compose``: an ``image:`` line in a compose file.
+* ``extra``: an ``image:`` line in another YAML file the lock lists under
+  ``extra_files``, such as SigNoz's ``casting.yaml``. These get the tag only,
+  since the tool that reads them may not accept a digest.
 * ``dockerfile``: a ``FROM`` line in a Dockerfile.
 * ``plugin``: an ``xcaddy build --with module[@version]`` flag in a Dockerfile.
 
@@ -38,7 +40,7 @@ PLUGIN_RE = re.compile(r"--with\s+(?P<mod>[^\s@\\]+)(?:@(?P<ver>[^\s\\]+))?")
 class Usage:
     path: Path  # relative to the repo root
     line: int  # 1-based
-    kind: str  # compose | dockerfile | plugin
+    kind: str  # compose | extra | dockerfile | plugin
     ref: ImageRef | None = None
     module: str | None = None  # plugin only
     version: str | None = None  # plugin only
@@ -52,8 +54,10 @@ def _excluded(rel: str, excludes: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch("/" + rel, pat) for pat in excludes)
 
 
-def find_files(root: Path, excludes: list[str], extra: list[str]) -> tuple[list[Path], list[Path]]:
-    """``(compose_like_files, dockerfiles)``, relative to ``root``, sorted."""
+def find_files(
+    root: Path, excludes: list[str], extra: list[str]
+) -> tuple[list[Path], list[Path], list[Path]]:
+    """``(compose_files, extra_files, dockerfiles)``, relative to ``root``, sorted."""
     compose: set[Path] = set()
     docker: set[Path] = set()
     for path in root.rglob("*"):
@@ -66,18 +70,16 @@ def find_files(root: Path, excludes: list[str], extra: list[str]) -> tuple[list[
             compose.add(rel)
         elif any(fnmatch.fnmatch(path.name, g) for g in DOCKERFILE_GLOBS):
             docker.add(rel)
-    for e in extra:
-        if (root / e).is_file():
-            compose.add(Path(e))
-    return sorted(compose), sorted(docker)
+    extras = {Path(e) for e in extra if (root / e).is_file()}
+    return sorted(compose - extras), sorted(extras), sorted(docker)
 
 
-def scan_compose(root: Path, rel: Path) -> list[Usage]:
+def scan_compose(root: Path, rel: Path, kind: str = "compose") -> list[Usage]:
     out = []
     for i, line in enumerate((root / rel).read_text().splitlines(), start=1):
         m = IMAGE_LINE_RE.match(line)
         if m:
-            out.append(Usage(rel, i, "compose", parse_ref(m.group("ref"))))
+            out.append(Usage(rel, i, kind, parse_ref(m.group("ref"))))
     return out
 
 
@@ -107,10 +109,12 @@ def scan_dockerfile(root: Path, rel: Path) -> list[Usage]:
 
 
 def scan(root: Path, excludes: list[str], extra: list[str]) -> list[Usage]:
-    compose, docker = find_files(root, excludes, extra)
+    compose, extras, docker = find_files(root, excludes, extra)
     usages: list[Usage] = []
     for rel in compose:
         usages.extend(scan_compose(root, rel))
+    for rel in extras:
+        usages.extend(scan_compose(root, rel, kind="extra"))
     for rel in docker:
         usages.extend(scan_dockerfile(root, rel))
     return usages

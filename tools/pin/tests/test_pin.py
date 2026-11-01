@@ -31,7 +31,11 @@ def repo(tmp_path: Path) -> Path:
         # top comment survives
         exclude:
           - "**/tests/fixtures/**"
+        extra_files:
+          - signoz/casting.yaml
         images:
+          signoz/signoz:
+            tag: v0.143.0
           vabene1111/recipes:
             tag: 2.7.1
             digest: {D1}
@@ -79,6 +83,12 @@ def repo(tmp_path: Path) -> Path:
         FROM caddy:2.11.7
 
         COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+    """)
+    write(tmp_path, "signoz/casting.yaml", """
+        spec:
+          signoz:
+            spec:
+              image: signoz/signoz:v0.143.0
     """)
     write(tmp_path, "x/tests/fixtures/compose.yaml", """
         services:
@@ -233,6 +243,15 @@ def test_set_moves_group_and_resolves_digests(repo):
     assert f"ghcr.io/immich-app/immich-machine-learning:v2.3.0@{D3}" in text
     saved = (repo / "versions.yaml").read_text()
     assert "# top comment survives" in saved and "# inline comment survives" in saved
+
+
+def test_extra_files_get_tag_only(repo):
+    lk = lock(repo)
+    set_tag(lk, "signoz/signoz", "v0.144.0", resolver=lambda n, t: pytest.fail("no lookup expected"))
+    lk.save()
+    apply(repo, plan(lock(repo)))
+    assert "image: signoz/signoz:v0.144.0\n" in (repo / "signoz/casting.yaml").read_text()
+    assert not any("signoz/signoz has no digest" in w for w in check(lock(repo)).warnings)
 
 
 def test_set_dockerfile_only_image_skips_digest(repo):

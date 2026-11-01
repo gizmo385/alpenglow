@@ -37,8 +37,9 @@ def set_tag(
     """Pin ``name`` (and the rest of its group) to ``tag``; return the names changed.
 
     The digest is resolved from the registry, which also proves the tag exists.
-    Images used only in Dockerfiles get no digest: their FROM lines keep a
-    variant suffix (``-builder``), whose digest differs from the plain tag's.
+    Only images used in compose files get a digest: Dockerfile FROM lines keep
+    a variant suffix (``-builder``) whose digest differs from the plain tag's,
+    and extra files (casting.yaml) are read by tools that may not accept one.
     """
     if tag in FLOATING_TAGS:
         raise LockError(f"{tag!r} is a moving channel; pin a release tag")

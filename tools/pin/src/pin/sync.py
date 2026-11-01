@@ -42,6 +42,8 @@ def desired(usage: Usage, entries: dict[str, Entry]) -> str | None:
         # Keep the variant: caddy:2.11.7-builder follows caddy's tag as 2.11.8-builder.
         _, suffix = split_variant(usage.ref.tag or "")
         return format_ref(usage.ref.name, e.tag + suffix)
+    if usage.kind == "extra":
+        return format_ref(usage.ref.name, e.tag)
     return format_ref(usage.ref.name, e.tag, e.digest)
 
 
@@ -64,7 +66,7 @@ def plan(lock: Lock) -> list[Change]:
 
 def _rewrite_line(line: str, change: Change) -> str:
     kind = change.usage.kind
-    if kind == "compose":
+    if kind in ("compose", "extra"):
         m = IMAGE_LINE_RE.match(line)
         assert m, line
         return m.group("prefix") + m.group("q") + change.new + m.group("q") + m.group("rest")
