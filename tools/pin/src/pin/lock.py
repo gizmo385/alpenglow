@@ -135,12 +135,21 @@ class Lock:
             images[name] = CommentedMap()
         return images[name]
 
+    # New keys go in this order, so a digest lands right after its tag instead of
+    # at the end of the entry, where ruamel would put it after any comment that
+    # trails the entry (such as the next section's heading).
+    KEY_ORDER = ("tag", "digest", "group", "policy", "reason")
+
     def set_field(self, name: str, key: str, value: Any) -> None:
         raw = self.raw(name)
         if value is None:
             raw.pop(key, None)
-        else:
+        elif key in raw or key not in self.KEY_ORDER:
             raw[key] = value
+        else:
+            before = self.KEY_ORDER[: self.KEY_ORDER.index(key)]
+            pos = max((i + 1 for i, k in enumerate(raw) if k in before), default=0)
+            raw.insert(pos, key, value)
 
     def save(self) -> None:
         with self.path.open("w") as fh:

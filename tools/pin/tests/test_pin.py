@@ -320,3 +320,29 @@ def test_fill_digests_keeps_going_after_a_failure(repo):
     assert filled == ["ghcr.io/immich-app/immich-machine-learning"]
     assert failures == ["ghcr.io/immich-app/immich-server:v2.2.0: 429"]
     assert lk.entries()["ghcr.io/immich-app/immich-machine-learning"].digest == D3
+
+
+def test_new_digest_goes_after_tag_not_after_trailing_comment(repo):
+    write(repo, "versions.yaml", """
+        images:
+          vabene1111/recipes:
+            tag: 2.7.1
+            policy: manual
+
+          # ── Next section ──
+          fmtr/amniotic:
+            tag: v1.10.1
+    """)
+    lk = lock(repo)
+    lk.set_field("vabene1111/recipes", "digest", D1)
+    lk.save()
+    assert (repo / "versions.yaml").read_text() == f"""images:
+  vabene1111/recipes:
+    tag: 2.7.1
+    digest: {D1}
+    policy: manual
+
+  # ── Next section ──
+  fmtr/amniotic:
+    tag: v1.10.1
+"""
