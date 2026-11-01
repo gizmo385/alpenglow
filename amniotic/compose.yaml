@@ -2,7 +2,7 @@ services:
   amniotic:
     container_name: amniotic
     hostname: amniotic
-    image: fmtr/amniotic:v1.10.1 
+    image: fmtr/amniotic:v1.10.2 
     restart: unless-stopped
 
     # Expose container port to host

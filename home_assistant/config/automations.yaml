@@ -75,3 +75,34 @@
       - camera.porch
     data: {}
   mode: single
+- id: '1792248767033'
+  alias: Immich Frame to Kitchen Display
+  description: Casts the page via CATT and re-casts when the display drops back to
+    idle
+  triggers:
+  - trigger: time_pattern
+    minutes: /9
+  - trigger: homeassistant
+    event: start
+  conditions:
+  - condition: template
+    value_template: "{% set p = 'media_player.kitchen_display' %} {{ states(p) in
+      ['off', 'idle', 'unavailable']\n   and (state_attr(p, 'app_id') | string) in
+      ['None', '', '84912283'] }}\n"
+  actions:
+  - action: media_player.volume_mute
+    target:
+      entity_id: media_player.kitchen_display
+    data:
+      is_volume_muted: true
+  - action: catt_service.cast_site
+    data:
+      device_id: media_player.kitchen_display
+      url: https://immichframe.internal.acbc.house?authsecret=gHRVMlDXuYucPslVDAl0oornoSyOo8ei
+  - delay: 00:00:10
+  - action: media_player.volume_mute
+    target:
+      entity_id: media_player.kitchen_display
+    data:
+      is_volume_muted: false
+  mode: single
