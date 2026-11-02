@@ -5,11 +5,11 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from upgrades_board import cards as c
-from upgrades_board import verdicts as v
-from upgrades_board.config import Settings
-from upgrades_board.main import create_app
-from upgrades_board.vikunja import Card, Vikunja
+from alpenglow_dashboard import upgrades
+from alpenglow_dashboard.integrations import updates as updates_mod
+from alpenglow_dashboard.upgrades import cards as c
+from alpenglow_dashboard.upgrades import verdicts as v
+from alpenglow_dashboard.upgrades.vikunja import Card
 
 
 def svc(name="Tandoor", owner="TandoorRecipes", repo="recipes", current="2.7.2", latest="2.8.0",
@@ -102,7 +102,7 @@ def test_annotations_sorted_and_linked():
     assert data["link_label"] == "Open card"
 
 
-# ── API against fake Vikunja and tracker ────────────────────────────────────
+# ── routes, against a fake Vikunja and tracker ──────────────────────────────
 
 
 class FakeServer:
@@ -112,6 +112,7 @@ class FakeServer:
         self.comments = {7: [{"comment": "<p><b>Verdict:</b> Easy. Patch release.</p>"}]}
         self.calls = []
         self.services = [svc()]
+        self.down = False
 
     def __call__(self, req: httpx.Request) -> httpx.Response:
         self.calls.append((req.method, req.url.path))
@@ -121,6 +122,8 @@ class FakeServer:
                 {"name": s.name, "owner": s.owner, "repo": s.repo, "image": s.image, "current_version": s.current_version,
                  "latest_version": s.latest_version, "has_updates": s.has_updates, "html_url": s.html_url,
                  "releases": [{}] * s.releases} for s in self.services]})
+        if self.down:
+            return httpx.Response(401)
         assert req.headers["authorization"] == "Bearer tok"
         if path == "/v1/projects/2/tasks" and req.method == "GET":
             return httpx.Response(200, json=list(self.tasks.values()), headers={"x-pagination-total-pages": "1"})
@@ -137,41 +140,54 @@ class FakeServer:
         return httpx.Response(404)
 
 
-def make_client(server):
-    settings = Settings("http://tracker", "http://vikunja/v1", "tok", 2, "https://board.example", None, 60)
-    http = httpx.AsyncClient(transport=httpx.MockTransport(server))
-    return TestClient(create_app(settings, http, run_loop=False))
-
-
-def test_annotations_endpoint():
+@pytest.fixture()
+def board(monkeypatch):
     server = FakeServer()
-    with make_client(server) as client:
-        data = client.get("/annotations").json()
-        assert data["items"] == [{"repo": "TandoorRecipes/recipes", "title": "old", "group": "Easy",
-                                  "note": "Patch release.", "url": "https://board.example/tasks/7", "card_id": 7}]
-        client.get("/annotations")
-        assert server.calls.count(("GET", "/v1/projects/2/tasks")) == 1  # cached
+    for k, val in {"MOCK_DATA": "0", "VIKUNJA_API_URL": "http://vikunja/v1", "VIKUNJA_API_TOKEN": "tok",
+                   "VIKUNJA_PROJECT_ID": "2", "VIKUNJA_PUBLIC_URL": "https://board.example",
+                   "VERSIONS_PATH": "/nonexistent/versions.yaml", "UPDATES_TRACKER_URL": "http://tracker"}.items():
+        monkeypatch.setenv(k, val)
+    transport = httpx.MockTransport(server)
+    real_init = httpx.AsyncClient.__init__
+
+    def init(self, *args, **kwargs):
+        kwargs["transport"] = transport
+        real_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", init)
+    upgrades._ANNOTATIONS_CACHE.invalidate()
+    updates_mod._CACHE.invalidate()
+    yield server
+    upgrades._ANNOTATIONS_CACHE.invalidate()
+    updates_mod._CACHE.invalidate()
 
 
-def test_sync_endpoint_retargets_and_comments():
-    server = FakeServer()
-    with make_client(server) as client:
-        assert client.post("/sync").json() == {"filed": 0, "retargeted": 1, "closed": 0}
-    assert server.tasks[7]["title"] == "Tandoor 2.7.2 → 2.8.0"
-    assert "@claude 2.8.0" in server.comments[7][-1]["comment"]
+def test_annotations_route_is_outside_auth_and_cached(board, client, monkeypatch):
+    monkeypatch.setenv("DEV_NO_AUTH", "0")  # the bot can't pass oauth2-proxy
+    data = client.get("/internal/upgrades/annotations").json()
+    assert data["items"] == [{"repo": "TandoorRecipes/recipes", "title": "old", "group": "Easy",
+                              "note": "Patch release.", "url": "https://board.example/tasks/7", "card_id": 7}]
+    client.get("/internal/upgrades/annotations")
+    assert board.calls.count(("GET", "/v1/projects/2/tasks")) == 1
+    assert client.post("/api/upgrades/sync").status_code == 401  # but sync is behind auth
 
 
-def test_annotations_endpoint_reports_board_errors():
-    def down(req):
-        return httpx.Response(401)
-    with make_client(down) as client:
-        assert client.get("/annotations").status_code == 502
+def test_sync_route_retargets_and_comments(board, client):
+    token = client.get("/api/csrf").json()["token"]
+    resp = client.post("/api/upgrades/sync", headers={"X-CSRF-Token": token})
+    assert resp.json() == {"filed": 0, "retargeted": 1, "closed": 0}
+    assert board.tasks[7]["title"] == "Tandoor 2.7.2 → 2.8.0"
+    assert "@claude 2.8.0" in board.comments[7][-1]["comment"]
 
 
-def test_settings_from_env():
-    s = Settings.from_env({"TRACKER_URL": "http://t/", "VIKUNJA_API_URL": "http://v/api/v1/", "VIKUNJA_API_TOKEN": "x",
-                           "VIKUNJA_PROJECT_ID": "2", "VERSIONS_PATH": "/config/versions.yaml"})
-    assert (s.tracker_url, s.vikunja_url, s.project_id, str(s.versions_path), s.public_url) == \
-        ("http://t", "http://v/api/v1", 2, "/config/versions.yaml", None)
-    with pytest.raises(SystemExit, match="VIKUNJA_API_TOKEN"):
-        Settings.from_env({"TRACKER_URL": "x", "VIKUNJA_API_URL": "y", "VIKUNJA_PROJECT_ID": "2"})
+def test_board_errors_mean_no_verdicts(board, client):
+    board.down = True
+    assert client.get("/internal/upgrades/annotations").json()["items"] == []
+
+
+def test_off_without_token(monkeypatch, client):
+    monkeypatch.delenv("VIKUNJA_API_TOKEN", raising=False)
+    monkeypatch.setenv("MOCK_DATA", "0")
+    assert upgrades.Settings.from_env() is None
+    upgrades._ANNOTATIONS_CACHE.invalidate()
+    assert client.get("/internal/upgrades/annotations").json()["items"] == []

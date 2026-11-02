@@ -23,9 +23,10 @@ Connection failure / 404 → empty list + ``trackerUnavailable=True``.
 ``latestVersion``/``releasedAt``/``changelogUrl`` per dir (inventory calls it on
 every request — caching is required).
 
-Each entry also carries Claude's verdict when ``upgrades-board`` has a card for
-it, matched by the tracker's ``owner/repo`` against ``GET /annotations``. The
-board being down only drops the verdicts; the updates list still renders.
+Each entry also carries Claude's verdict when the Upgrades board has a card for
+it (see ``alpenglow_dashboard.upgrades``), matched by the tracker's
+``owner/repo``. Vikunja being down only drops the verdicts; the list still
+renders.
 """
 
 from __future__ import annotations
@@ -46,18 +47,11 @@ log = logging.getLogger("alpenglow.updates")
 # per inventory request) read through it.
 _CACHE = AsyncTTLCache(ttl=30.0)
 
-# Verdicts from upgrades-board; they change when Claude finishes, not per poll.
-_ANNOTATIONS_CACHE = AsyncTTLCache(ttl=60.0)
-
 _ICON_DEFAULT = "ph-cube"
 
 
 def _base_url() -> str:
     return env_url("UPDATES_TRACKER_URL", "http://updates-tracker-release-feeds-1:8585")
-
-
-def _board_url() -> str:
-    return env_url("UPGRADES_BOARD_URL", "http://upgrades-board:8080")
 
 
 # ── image-ref normalisation ───────────────────────────────────────────────────
@@ -114,47 +108,24 @@ async def _tracker_cached() -> Optional[dict]:
     return payload
 
 
-# ── verdicts (upgrades-board) ─────────────────────────────────────────────────
+# ── verdicts (Upgrades board) ─────────────────────────────────────────────────
 
 
-async def _fetch_annotations() -> dict[str, dict]:
-    """``{"owner/repo" (lowercased): annotation}`` from upgrades-board, or ``{}``.
+async def _annotations_cached() -> dict:
+    from .. import upgrades  # avoids an import cycle
 
-    Each annotation gets the colour of its group added as ``color``.
-    """
-    try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            resp = await client.get(f"{_board_url()}/annotations")
-        if resp.status_code != 200:
-            return {}
-        data = resp.json()
-    except (httpx.HTTPError, ValueError):
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    colors = {str(g.get("name")): g.get("color") for g in data.get("groups") or [] if isinstance(g, dict)}
-    out: dict[str, dict] = {}
-    for item in data.get("items") or []:
-        if isinstance(item, dict) and item.get("repo"):
-            out[str(item["repo"]).lower()] = {**item, "color": colors.get(str(item.get("group")))}
-    return out
+    return await upgrades.annotations_by_repo()
 
 
-async def _annotations_cached() -> dict[str, dict]:
-    return await _ANNOTATIONS_CACHE.get(_fetch_annotations)
+def _verdict_fields(entry: dict, annotations: dict) -> dict[str, Optional[str]]:
+    from ..upgrades.verdicts import GROUPS
 
-
-def _verdict_fields(entry: dict, annotations: dict[str, dict]) -> dict[str, Optional[str]]:
     ann = annotations.get(f"{entry.get('owner')}/{entry.get('repo')}".lower())
     if not ann:
         return {}
-
-    def opt(key: str) -> Optional[str]:
-        value = ann.get(key)
-        return str(value) if value else None
-
-    return {"verdict": opt("group"), "verdictNote": opt("note"),
-            "verdictColor": opt("color"), "cardUrl": opt("url")}
+    color = next((g["color"] for g in GROUPS if g["name"] == ann.group), None)
+    return {"verdict": ann.group, "verdictNote": ann.note or None,
+            "verdictColor": color, "cardUrl": ann.url}
 
 
 # ── matching ──────────────────────────────────────────────────────────────────
@@ -275,7 +246,7 @@ def _meta_for(sid: str) -> tuple[str, str]:
     return name, icon
 
 
-def _build_updates(payload: dict, annotations: Optional[dict[str, dict]] = None) -> models.Updates:
+def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.Updates:
     matched, unmatched = _match_entries(payload)
     if unmatched:
         log.info("updates: %d tracker entries unmatched to a service dir: %s",

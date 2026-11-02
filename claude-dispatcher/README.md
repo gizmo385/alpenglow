@@ -126,7 +126,7 @@ comments in that file for each setting.
 - Telemetry to SigNoz (needs a filtering relay in front of Alloy).
 - Polling as a fallback for missed webhooks (Vikunja sends each one once).
 - The rest of the upgrade flow: approving from Discord and an applier.
-  Cards are filed and their verdicts served by [`../upgrades-board`](../upgrades-board).
+  Cards are filed and their verdicts shown by the dashboard (`alpenglow_dashboard/app/backend/alpenglow_dashboard/upgrades`).
 
 ## Development
 

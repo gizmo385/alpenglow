@@ -9,7 +9,7 @@ services:
       - ./overrides.yaml:/config/overrides.yaml:ro
     env_file: .env
     environment:
-      # Upgrades cards are filed by ../upgrades-board from this service's
+      # Upgrades cards are filed by the dashboard from this service's
       # /api/updates; the tracker itself doesn't talk to Vikunja.
       # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
       # for this container's logs so SigNoz can correlate them.
@@ -37,8 +37,8 @@ services:
     env_file: .env
     environment:
       # The digest leads with the open Upgrades cards and Claude's verdicts,
-      # served by ../upgrades-board.
-      ANNOTATIONS_URL: http://upgrades-board:8080/annotations
+      # served by the dashboard (over the board network).
+      ANNOTATIONS_URL: http://alpenglow_dashboard:8080/internal/upgrades/annotations
       OTEL_SERVICE_NAME: updates-tracker-discord-bot
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=updates-tracker
       OTEL_TRACES_EXPORTER: otlp

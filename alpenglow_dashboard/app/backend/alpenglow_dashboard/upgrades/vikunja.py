@@ -1,4 +1,4 @@
-"""The Vikunja API calls this service makes."""
+"""The Vikunja API calls the Upgrades board makes."""
 
 from __future__ import annotations
 
