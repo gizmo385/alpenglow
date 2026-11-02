@@ -1,0 +1,24 @@
+name: claude-dispatcher
+
+on:
+  push:
+    branches: [main]
+    paths: ["claude-dispatcher/**", ".github/workflows/claude-dispatcher.yaml"]
+  pull_request:
+    paths: ["claude-dispatcher/**", ".github/workflows/claude-dispatcher.yaml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Dispatcher tests
+        working-directory: claude-dispatcher/app
+        run: uv run pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Egress proxy allowlist
+        working-directory: claude-dispatcher/job
+        run: node --test

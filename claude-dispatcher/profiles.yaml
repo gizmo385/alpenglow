@@ -1,0 +1,33 @@
+# Job profiles for the Claude dispatcher.
+#
+# A card's Vikunja project decides its profile; a card can never choose or
+# widen it. Every change here is a change to what Claude may do, so it goes
+# through review like any other code.
+#
+# Every profile can reach api.anthropic.com. `egress` adds hosts (a name also
+# allows its subdomains). `allowed_tools` is passed to `claude --allowedTools`;
+# anything not listed is refused in headless mode.
+
+defaults:
+  image: claude-job:local
+  max_turns: 30
+  timeout_minutes: 15
+  memory: 2g
+  cpus: 1
+  # runtime: runsc   # gVisor, once installed on the job daemon
+
+profiles:
+  # Smoke test for the board integration: answers a card with web research,
+  # no repo, no tools that touch anything.
+  test:
+    description: Answers the card's question. No repository, read-only tools.
+    allowed_tools: [WebSearch, WebFetch, Read, Grep, Glob]
+    egress:
+      - github.com
+      - githubusercontent.com
+    allowed_users: [chris]
+    max_turns: 15
+
+projects:
+  # Vikunja project id: profile. Find the id in the project's URL.
+  # 1: test

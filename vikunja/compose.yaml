@@ -15,6 +15,10 @@ services:
       VIKUNJA_DATABASE_USER: vikunja
       VIKUNJA_DATABASE_DATABASE: vikunja
       VIKUNJA_AUTH_OPENID_ENABLED: "true"
+      # Webhooks go to the Claude dispatcher on the private `board` network.
+      # Vikunja blocks private addresses by default (SSRF protection); only
+      # Keycloak users can create webhooks, and registration is off.
+      VIKUNJA_OUTGOINGREQUESTS_ALLOWNONROUTABLEIPS: "true"
     volumes:
       # Defines the Keycloak provider; its URL and secret come from .env.
       - ./config.yml:/etc/vikunja/config.yml:ro
@@ -23,6 +27,7 @@ services:
     networks:
       - caddy
       - postgres
+      - board
     labels:
       caddy: "*.acbc.house"
       caddy.@board.host: "board.acbc.house"
@@ -33,3 +38,6 @@ networks:
     external: true
   postgres:
     external: true
+  # Vikunja and the Claude dispatcher only.
+  board:
+    name: board
