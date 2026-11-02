@@ -5,7 +5,7 @@
 #   - A service directory with compose.yaml, .env, .env.example, .gitignore
 #   - An optional dedicated system user (nologin, /nonexistent home) for running the container
 #   - An optional dedicated PostgreSQL database and role
-#   - An entry in versions.yaml for the image (see tools/pin), so `./pin check` passes
+#   - An entry in versions.yaml for the image (see tools/pin), so its version is managed from the start
 #
 # Usage:
 #   ./create_service.sh <service_name> [options]
@@ -185,14 +185,13 @@ mkdir -p "$SERVICE_DIR"
 
 # --- Record the image in versions.yaml ---
 # A release tag is pinned with its digest; latest or no tag gets a float entry.
-# Without an entry, CI's `./pin check` fails on the new compose.yaml.
 if [[ -n "$IMAGE" ]]; then
     echo ""
     if command -v uv >/dev/null 2>&1; then
         "${SCRIPT_DIR}/pin" add "$IMAGE" || echo "Warning: couldn't add ${IMAGE} to versions.yaml; run ./pin add ${IMAGE}"
     else
         echo "Warning: uv isn't installed, so ${IMAGE} wasn't added to versions.yaml."
-        echo "Run ./pin add ${IMAGE} before committing, or CI's pin check fails."
+        echo "Run ./pin add ${IMAGE} to manage its version."
     fi
 fi
 
