@@ -36,7 +36,7 @@ run on alpenglow yet.
 ```sh
 sudo apt-get install -y uidmap docker-ce-rootless-extras systemd-container
 sudo useradd --create-home --shell /usr/sbin/nologin claude-jobs
-sudo usermod --add-subuids 300000-365535 --add-subgids 300000-365535 claude-jobs
+grep claude-jobs /etc/subuid /etc/subgid   # useradd assigns one range each; don't add another
 sudo loginctl enable-linger claude-jobs
 sudo machinectl shell claude-jobs@ /bin/bash -c 'dockerd-rootless-setuptool.sh install && systemctl --user enable --now docker'
 ls -l /run/user/$(id -u claude-jobs)/docker.sock   # should exist
