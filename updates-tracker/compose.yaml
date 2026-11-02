@@ -7,8 +7,15 @@ services:
     image: ghcr.io/gizmo385/image-updates-tracker:main
     volumes:
       - ./overrides.yaml:/config/overrides.yaml:ro
+      # Only images listed here get Upgrades cards (see claude-dispatcher).
+      - ../versions.yaml:/config/versions.yaml:ro
     env_file: .env
     environment:
+      # Files a card in Vikunja's Upgrades project for each pending upgrade of
+      # an image in versions.yaml. VIKUNJA_API_TOKEN is in .env.
+      VIKUNJA_API_URL: http://vikunja:3456/api/v1
+      VIKUNJA_PROJECT_ID: "2"
+      VERSIONS_PATH: /config/versions.yaml
       # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
       # for this container's logs so SigNoz can correlate them.
       OTEL_SERVICE_NAME: updates-tracker-release-feeds
@@ -19,6 +26,7 @@ services:
     networks:
       - caddy
       - ai
+      - board
     labels:
       caddy: "*.alpenglow.acbc.house"
       caddy.@updates.host: "updates.alpenglow.acbc.house"
@@ -45,6 +53,8 @@ services:
 
 networks:
   caddy:
+    external: true
+  board:
     external: true
   ai:
     external: true
