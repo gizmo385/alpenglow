@@ -42,6 +42,11 @@ services:
       - ./overrides.yaml:/config/overrides.yaml:ro
     env_file: .env
     environment:
+      # The digest leads with the Upgrades board and Claude's verdicts.
+      # VIKUNJA_API_TOKEN is in .env, shared with release-feeds.
+      VIKUNJA_API_URL: http://vikunja:3456/api/v1
+      VIKUNJA_PROJECT_ID: "2"
+      VIKUNJA_PUBLIC_URL: https://board.acbc.house
       OTEL_SERVICE_NAME: updates-tracker-discord-bot
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=updates-tracker
       OTEL_TRACES_EXPORTER: otlp
@@ -49,6 +54,7 @@ services:
     restart: unless-stopped
     networks:
       - ai
+      - board
       - otel
 
 networks:
