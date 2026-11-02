@@ -435,6 +435,37 @@ def test_docker_inspect_retries_under_sudo(monkeypatch):
     assert calls[1][:2] == ["sudo", "docker"]
 
 
+def test_writing_commands_wait_for_the_file_lock(repo, capsys):
+    import threading
+
+    from pin.lock import exclusive
+
+    finished = threading.Event()
+
+    def run():
+        main(["--root", str(repo), "set", "vabene1111/recipes", "2.8.0", "--no-digest"])
+        finished.set()
+
+    with exclusive(repo / "versions.yaml"):
+        t = threading.Thread(target=run)
+        t.start()
+        assert not finished.wait(0.5)  # blocked while someone else holds the lock
+        assert "tag: 2.7.1" in (repo / "versions.yaml").read_text()
+    t.join(5)
+    assert finished.is_set()
+    assert "tag: 2.8.0" in (repo / "versions.yaml").read_text()
+    assert "waiting for another pin command" in capsys.readouterr().err
+
+
+def test_read_only_commands_skip_the_lock(repo):
+    from pin.lock import exclusive
+
+    with exclusive(repo / "versions.yaml"):
+        assert main(["--root", str(repo), "list"]) == 0
+        assert main(["--root", str(repo), "check", "-q"]) in (0, 1)
+        assert main(["--root", str(repo), "sync", "--dry-run"]) == 0
+
+
 def test_docker_inspect_remembers_sudo_and_says_so_once(monkeypatch, capsys):
     import subprocess
     from pin import ops

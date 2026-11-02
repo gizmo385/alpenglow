@@ -71,6 +71,14 @@
 .actionCol {
   text-align: right;
 }
+.selectCol {
+  width: 28px;
+  padding-right: 0;
+}
+.selectCol input {
+  cursor: pointer;
+  accent-color: var(--color-accent-300);
+}
 
 /* Right-aligned action cell: changelog icon-link + Pull & recreate. */
 .actionCell {

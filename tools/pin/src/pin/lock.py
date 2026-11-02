@@ -7,6 +7,10 @@ survive a ``pin set``.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
+import sys
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -158,3 +162,26 @@ class Lock:
 
 def _opt_str(v: Any) -> str | None:
     return None if v is None or v == "" else str(v)
+
+
+@contextlib.contextmanager
+def exclusive(path: Path) -> Iterator[None]:
+    """Hold an exclusive lock on versions.yaml while a command edits the repo.
+
+    Commands that write (``set``, ``sync``, ``adopt``, ...) read the file, change
+    it and rewrite compose files; two at once, say the dashboard's Update
+    button and someone at a shell, would lose one of the edits. The lock is an
+    advisory ``flock`` on versions.yaml itself, so there's no separate lock
+    file whose ownership could get in the way (flock works on a read-only
+    descriptor). A second writer waits for the first.
+    """
+    with path.open("rb") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(f"waiting for another pin command to finish with {path.name}...", file=sys.stderr)
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)

@@ -37,7 +37,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
-from . import audit, auth, inventory, mock, models
+from . import audit, auth, inventory, mock, models, repin
 
 router = APIRouter(prefix="/api", tags=["actions"])
 
@@ -158,28 +158,112 @@ async def _run(cmd: list[str], timeout: float) -> tuple[int, str]:
     return proc.returncode or 0, (stderr or b"").decode("utf-8", "replace")
 
 
-async def _run_job(service_id: str, action: str, user: str, job_id: str) -> None:
-    """Background job: run the compose command(s), audit the outcome, clear busy."""
+async def _run_commands(service_id: str, action: str) -> tuple[bool, str]:
+    """Run an action's compose command(s); return (ok, stderr of the failure)."""
     timeout = _TIMEOUT_PULL if action == "pull" else _TIMEOUT_DEFAULT
-    outcome = "succeeded"
-    stderr_tail = ""
+    for cmd in _compose_commands(service_id, action):
+        rc, stderr = await _run(cmd, timeout)
+        if rc != 0:
+            return False, stderr
+    return True, ""
+
+
+async def _finish(service_id: str, action: str, user: str, job_id: str, ok: bool, detail: str) -> None:
+    async with _BUSY_LOCK:
+        _BUSY.pop(service_id, None)
+    await audit.record(
+        user, service_id, action, "succeeded" if ok else "failed",
+        stderr_tail="" if ok else detail, job_id=job_id,
+    )
+
+
+async def _run_job(service_id: str, action: str, user: str, job_id: str) -> None:
+    """Background job for restart/stop/start: run, audit the outcome, clear busy."""
+    ok, detail = False, ""
     try:
         async with _get_semaphore(), _service_lock(service_id):
-            for cmd in _compose_commands(service_id, action):
-                rc, stderr = await _run(cmd, timeout)
-                if rc != 0:
-                    outcome = "failed"
-                    stderr_tail = stderr
-                    break
+            ok, detail = await _run_commands(service_id, action)
     except Exception as exc:  # never let the background task die unaudited
-        outcome = "failed"
-        stderr_tail = f"{type(exc).__name__}: {exc}"
+        detail = f"{type(exc).__name__}: {exc}"
     finally:
-        async with _BUSY_LOCK:
-            _BUSY.pop(service_id, None)
-        await audit.record(
-            user, service_id, action, outcome, stderr_tail=stderr_tail, job_id=job_id
-        )
+        await _finish(service_id, action, user, job_id, ok, detail)
+
+
+# ── update: repin, then pull & recreate ───────────────────────────────────────
+
+# The dashboard's own service. Recreating it ends this process, so it's
+# updated last, after everything else in the same request has finished.
+SELF_SERVICE = "alpenglow_dashboard"
+
+Repinned = dict[str, tuple[repin.Target, str]]
+
+
+async def _repin_all(service_ids: list[str]) -> tuple[Repinned, dict[str, str]]:
+    """Repin each service's pending pinned image, one at a time (see :mod:`repin`).
+
+    Returns ``({service: (target, new tag)}, {service: why it can't update})``.
+    Services whose image floats appear in neither and are just pulled.
+    """
+    repinned: Repinned = {}
+    failed: dict[str, str] = {}
+    async with repin.repo_lock():
+        for sid in service_ids:
+            try:
+                t = await repin.target(sid)
+                if t is not None:
+                    repinned[sid] = (t, await repin.pin(t))
+            except repin.RepinError as err:
+                failed[sid] = str(err)
+            except Exception as exc:  # unreadable versions.yaml or tracker: don't guess
+                failed[sid] = f"couldn't work out the new version: {type(exc).__name__}: {exc}"
+    return repinned, failed
+
+
+async def _deploy(service_id: str, repinned: Repinned) -> tuple[bool, str]:
+    """Pull & recreate. A failure is reported, never rolled back.
+
+    Going back to the old version isn't always safe (a new release may already
+    have migrated its database), so a failed upgrade leaves the new pin in
+    place for a person to look at.
+    """
+    ok, stderr = await _run_commands(service_id, "pull")
+    if ok or service_id not in repinned:
+        return ok, stderr
+    t, tag = repinned[service_id]
+    return False, f"{stderr}\n[update] versions.yaml now pins {t.name} to {tag} (was {t.current_tag}); not rolled back"
+
+
+async def _update_job(jobs: list[tuple[str, str]], user: str) -> None:
+    """Background job for Update on one or more services.
+
+    1. Repin every pinned image among them, one at a time, so concurrent edits
+       of ``versions.yaml`` never interleave.
+    2. Pull & recreate each, in parallel up to the global cap. A failure only
+       affects its own service, and is not rolled back (see :func:`_deploy`).
+
+    Each service gets its own audit line and leaves the busy registry when its
+    own deploy ends.
+    """
+    try:
+        repinned, failed = await _repin_all([sid for sid, _ in jobs])
+    except Exception as exc:  # noqa: BLE001 - audit every job whatever happens
+        repinned, failed = {}, {sid: f"{type(exc).__name__}: {exc}" for sid, _ in jobs}
+
+    async def one(sid: str, job_id: str) -> None:
+        ok, detail = False, failed.get(sid, "")
+        try:
+            if sid not in failed:
+                async with _get_semaphore(), _service_lock(sid):
+                    ok, detail = await _deploy(sid, repinned)
+        except Exception as exc:  # never let the background task die unaudited
+            detail = f"{type(exc).__name__}: {exc}"
+        finally:
+            await _finish(sid, "pull", user, job_id, ok, detail)
+
+    await asyncio.gather(*(one(sid, job) for sid, job in jobs if sid != SELF_SERVICE))
+    for sid, job in jobs:
+        if sid == SELF_SERVICE:
+            await one(sid, job)
 
 
 # ── mock transition (unchanged from A1) ───────────────────────────────────────
@@ -233,8 +317,7 @@ async def post_action(
     user = _request_user(request)
 
     # validate the service against the real repo scan (reuse inventory's helper).
-    known = inventory.scan_repo()
-    if service_id not in known:
+    if service_id not in inventory.scan_repo():
         raise HTTPException(status_code=404, detail=f"unknown service '{service_id}'")
 
     # guardrail: high-blast-radius services need explicit confirm.
@@ -244,21 +327,82 @@ async def post_action(
             detail=f"action on '{service_id}' requires confirm=true",
         )
 
-    job_id = f"{action}-{service_id}-{uuid.uuid4().hex[:12]}"
+    job_id = await _register(service_id, action, user)
+    if job_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"an action is already in flight for '{service_id}'",
+        )
+    loop = asyncio.get_running_loop()
+    if action == "pull":
+        loop.create_task(_update_job([(service_id, job_id)], user))
+    else:
+        loop.create_task(_run_job(service_id, action, user, job_id))
+    return models.ActionResponse(accepted=True, jobId=job_id)
 
-    # reject if an action is already in flight for this service (register atomically).
+
+async def _register(service_id: str, action: str, user: str) -> str | None:
+    """Mark the service busy and audit the acceptance; ``None`` if it's already busy."""
+    job_id = f"{action}-{service_id}-{uuid.uuid4().hex[:12]}"
     async with _BUSY_LOCK:
         if service_id in _BUSY:
-            await audit.record(
-                user, service_id, action, "rejected",
-                stderr_tail="action already in flight", job_id=job_id,
-            )
-            raise HTTPException(
-                status_code=409,
-                detail=f"an action is already in flight for '{service_id}'",
-            )
-        _BUSY[service_id] = _BUSY_STATUS.get(action, "restarting")
-
+            busy = True
+        else:
+            busy = False
+            _BUSY[service_id] = _BUSY_STATUS.get(action, "restarting")
+    if busy:
+        await audit.record(
+            user, service_id, action, "rejected",
+            stderr_tail="action already in flight", job_id=job_id,
+        )
+        return None
     await audit.record(user, service_id, action, "accepted", job_id=job_id)
-    asyncio.get_running_loop().create_task(_run_job(service_id, action, user, job_id))
-    return models.ActionResponse(accepted=True, jobId=job_id)
+    return job_id
+
+
+@router.post("/updates/apply")
+async def post_update_batch(
+    request: Request, payload: models.UpdateBatchRequest
+) -> models.UpdateBatchResponse:
+    """Update several services at once: repin them all, then pull & recreate.
+
+    Services that are unknown or already busy are listed under ``rejected``;
+    the rest start. A guarded service without ``confirm`` refuses the whole
+    request (409), like the single-service action.
+    """
+    ids = list(dict.fromkeys(payload.services))
+    guarded = sorted(s for s in ids if s in GUARDED_SERVICES)
+    if guarded and not payload.confirm:
+        raise HTTPException(
+            status_code=409,
+            detail=f"updating {', '.join(guarded)} requires confirm=true",
+        )
+
+    jobs: list[models.UpdateJob] = []
+    rejected: list[models.UpdateRejected] = []
+
+    if mock.mock_enabled():
+        for sid in ids:
+            if sid not in mock.MOCK_SERVICES:
+                rejected.append(models.UpdateRejected(service=sid, reason="unknown service"))
+                continue
+            asyncio.get_running_loop().create_task(_mock_transition(sid, "pull"))
+            jobs.append(models.UpdateJob(service=sid, jobId=mock.mock_action(sid, "pull").jobId))
+        return models.UpdateBatchResponse(jobs=jobs, rejected=rejected)
+
+    user = _request_user(request)
+    known = inventory.scan_repo()
+    started: list[tuple[str, str]] = []
+    for sid in ids:
+        if sid not in known:
+            rejected.append(models.UpdateRejected(service=sid, reason="unknown service"))
+            continue
+        job_id = await _register(sid, "pull", user)
+        if job_id is None:
+            rejected.append(models.UpdateRejected(service=sid, reason="an action is already in flight"))
+            continue
+        started.append((sid, job_id))
+        jobs.append(models.UpdateJob(service=sid, jobId=job_id))
+    if started:
+        asyncio.get_running_loop().create_task(_update_job(started, user))
+    return models.UpdateBatchResponse(jobs=jobs, rejected=rejected)

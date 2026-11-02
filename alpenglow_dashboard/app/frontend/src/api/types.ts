@@ -256,6 +256,17 @@ export interface ActionResponse {
   jobId: string;
 }
 
+// POST /api/updates/apply — repin every selected pinned image, then pull & recreate.
+export interface UpdateBatchRequest {
+  services: string[];
+  confirm?: boolean;
+}
+
+export interface UpdateBatchResponse {
+  jobs: { service: string; jobId: string }[];
+  rejected: { service: string; reason: string }[];
+}
+
 // GET /api/updates
 export interface UpdateEntry {
   id: string;

@@ -1,12 +1,16 @@
 /* Updates view (C3) — the operator's update queue, fed by image-updates-tracker.
  *
- * Renders the §View 2 table inside a card: Service · Image · Current · Latest ·
- * Released · Action (changelog link + Pull & recreate). Busy state for each row
- * is NOT faked locally — it is read from the polled /api/services status
- * (useData().services): while a service's status is "updating" the row's button
- * shows a spinner + "Pulling…" and is disabled. Firing an action (Pull &
- * recreate / Update all) POSTs via the api client (which attaches CSRF), toasts,
- * then nudges the services poll so the busy state appears/clears promptly.
+ * Renders the §View 2 table inside a card: ☐ · Service · Image · Current ·
+ * Latest · Released · Assessment · Action (changelog link + Update). Busy state
+ * for each row is NOT faked locally — it is read from the polled /api/services
+ * status (useData().services): while a service's status is "updating" the row's
+ * button shows a spinner + "Updating…" and is disabled.
+ *
+ * Update (one row, or "Update selected" for the ticked rows) POSTs
+ * /api/updates/apply: the backend repins every image listed in versions.yaml to
+ * its new release, one at a time, then pulls & recreates each. The repin is left
+ * uncommitted in the server's checkout. It toasts, then nudges the services
+ * poll so the busy state appears/clears promptly.
  *
  * Copy commands use the exact repo path format:
  *   cd /services/{id} && sudo docker compose pull && sudo docker compose up -d
@@ -69,6 +73,7 @@ export function Updates() {
   const { services, refreshServices } = useData();
   const toast = useToast();
   const [checking, setChecking] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   // Guards the refresh poll below: it outlives a quick navigation away, and
   // must not setState (or toast) once this view is gone.
@@ -88,6 +93,24 @@ export function Updates() {
   const statusById = new Map(services.map((s) => [s.id, s.status]));
   const isBusy = (id: string) => statusById.get(id) === "updating";
   const anyBusy = entries.some((e) => isBusy(e.id));
+
+  // Selection only ever holds rows that are listed and idle.
+  const selectable = entries.filter((e) => !isBusy(e.id));
+  const chosen = selectable.filter((e) => selected.has(e.id));
+  const allChosen = selectable.length > 0 && chosen.length === selectable.length;
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allChosen ? new Set() : new Set(selectable.map((e) => e.id)));
+  }
 
   // While any row is updating, poll /api/services faster so the button flips
   // to "Pulling…" and back promptly (mock settles in ~2s; the 10s base poll is
@@ -146,10 +169,29 @@ export function Updates() {
     }
   }
 
-  async function pull(entry: UpdateEntry, confirm = false) {
+  /** Repin (when pinned) and pull & recreate these services. */
+  async function update(targets: UpdateEntry[], confirm = false): Promise<void> {
+    if (targets.length === 0) return;
+    const label =
+      targets.length === 1 ? targets[0].name : `${targets.length} services`;
     try {
-      await api.action(entry.id, { action: "pull", confirm });
-      toast(`Pulling ${entry.latestVersion} for ${entry.name}…`);
+      const res = await api.applyUpdates({ services: targets.map((e) => e.id), confirm });
+      if (res.jobs.length > 0) {
+        toast(
+          res.jobs.length === 1 && targets.length === 1
+            ? `Updating ${targets[0].name} to ${targets[0].latestVersion}…`
+            : `Updating ${res.jobs.length} service${res.jobs.length === 1 ? "" : "s"}…`,
+        );
+      }
+      for (const r of res.rejected) {
+        const name = targets.find((e) => e.id === r.service)?.name ?? r.service;
+        toast(`Could not update ${name}: ${r.reason}`);
+      }
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const j of res.jobs) next.delete(j.service);
+        return next;
+      });
       // Nudge both polls so the busy overlay and the cleared update appear.
       refreshServices();
       refresh();
@@ -157,20 +199,13 @@ export function Updates() {
       // Guardrail: 409 means confirm required (caddy/postgres/dashboard itself).
       if (e instanceof ApiError && e.status === 409 && !confirm) {
         const ok = window.confirm(
-          `Updating ${entry.name} is guarded and may interrupt service. Pull & recreate anyway?`,
+          `${e.message}\n\nUpdating these is guarded and may interrupt service. Update anyway?`,
         );
-        if (ok) return pull(entry, true);
+        if (ok) return update(targets, true);
         return;
       }
-      toast(`Could not update ${entry.name}: ${e instanceof Error ? e.message : String(e)}`);
+      toast(`Could not update ${label}: ${e instanceof Error ? e.message : String(e)}`);
     }
-  }
-
-  async function updateAll() {
-    const pending = entries.filter((e) => !isBusy(e.id));
-    if (pending.length === 0) return;
-    toast(`Updating ${pending.length} service${pending.length === 1 ? "" : "s"}…`);
-    await Promise.all(pending.map((e) => pull(e)));
   }
 
   async function copyAll() {
@@ -222,8 +257,14 @@ export function Updates() {
               <Button variant="secondary" onClick={copyAll}>
                 <Icon name="copy" size={15} /> Copy all commands
               </Button>
-              <Button variant="primary" onClick={updateAll}>
-                <Icon name="arrows-clockwise" size={15} /> Update all
+              <Button
+                variant="primary"
+                onClick={() => update(chosen)}
+                disabled={chosen.length === 0}
+                title="Repin and pull & recreate the ticked services"
+              >
+                <Icon name="arrows-clockwise" size={15} /> Update selected
+                {chosen.length > 0 && ` (${chosen.length})`}
               </Button>
             </>
           )}
@@ -235,6 +276,12 @@ export function Updates() {
         GitHub releases
         {data?.lastUpdated && ` · last checked ${relativeAgo(data.lastUpdated)}`}
       </p>
+      {count > 0 && (
+        <p className={styles.trackedBy}>
+          <Icon name="push-pin" size={14} /> Images in versions.yaml are repinned to the new
+          release before the pull. The change is left uncommitted on the server.
+        </p>
+      )}
 
       {trackerUnavailable ? (
         <Card className={styles.fillCard}>
@@ -255,6 +302,15 @@ export function Updates() {
           <table className="table">
             <thead>
               <tr>
+                <th className={styles.selectCol}>
+                  <input
+                    type="checkbox"
+                    checked={allChosen}
+                    disabled={selectable.length === 0}
+                    onChange={toggleAll}
+                    aria-label="Select all"
+                  />
+                </th>
                 <th>Service</th>
                 <th>Image</th>
                 <th>Current</th>
@@ -269,6 +325,15 @@ export function Updates() {
                 const busy = isBusy(e.id);
                 return (
                   <tr key={e.id}>
+                    <td className={styles.selectCol}>
+                      <input
+                        type="checkbox"
+                        checked={!busy && selected.has(e.id)}
+                        disabled={busy}
+                        onChange={() => toggle(e.id)}
+                        aria-label={`Select ${e.name}`}
+                      />
+                    </td>
                     <td>
                       <div className={styles.svcCell}>
                         <Icon name={e.icon} size={15} className={styles.svcIcon} />
@@ -300,20 +365,22 @@ export function Updates() {
                           variant="primary"
                           className={styles.pullBtn}
                           disabled={busy}
-                          onClick={() => pull(e)}
+                          onClick={() => update([e])}
                           onContextMenu={(ev) => {
                             ev.preventDefault();
                             void copyOne(e);
                           }}
-                          title={busy ? undefined : "Pull & recreate (right-click to copy command)"}
+                          title={
+                            busy ? undefined : "Repin and pull & recreate (right-click to copy command)"
+                          }
                         >
                           {busy ? (
                             <>
-                              <Icon name="spinner" size={13} className={styles.spin} /> Pulling…
+                              <Icon name="spinner" size={13} className={styles.spin} /> Updating…
                             </>
                           ) : (
                             <>
-                              <Icon name="arrows-clockwise" size={13} /> Pull &amp; recreate
+                              <Icon name="arrows-clockwise" size={13} /> Update
                             </>
                           )}
                         </Button>

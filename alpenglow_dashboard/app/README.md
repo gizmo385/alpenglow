@@ -86,6 +86,30 @@ links. `POST /api/upgrades/sync` (admin) syncs straight away.
 The token needs the **Tasks** preset (tasks, comments and labels). Code is in
 `backend/alpenglow_dashboard/upgrades/`.
 
+## Updating services
+
+In the Updates view, tick services and press **Update selected**, or press a
+row's **Update**. Either posts `POST /api/updates/apply` (admin, CSRF), which:
+
+1. repins every image among them that `versions.yaml` lists (not
+   `policy: float`), one at a time (pin locks `versions.yaml` while it
+   writes, so a `./pin` at a shell waits its turn too): `/services/pin set IMAGE TAG` with the
+   tracker's new release, spelled like the current tag (`v` prefix and a
+   suffix such as `-alpine` kept; the next spelling is tried if the registry
+   has no such tag);
+2. then runs `docker compose pull` and `up -d` for each, two at a time. The
+   dashboard's own service goes last.
+
+The repin is **not committed**: `versions.yaml` and the compose files are left
+modified in `/services` for you to review and commit. A failed pull or
+recreate is **not rolled back** either (going back to an older version isn't
+always safe once a release has migrated its data); the audit log records the
+error and the pin it left. pin runs as the owner of `/services/versions.yaml`
+so it never leaves root-owned files in the checkout, with its virtualenv and
+cache under `/tmp/alpenglow-repin`. This is why `/services` is mounted
+read-write. Code is in `backend/alpenglow_dashboard/repin.py` and
+`actions.py`.
+
 ## Layout
 
 ```
