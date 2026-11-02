@@ -9,6 +9,11 @@ Compose files stay plain, so `docker compose up -d` needs no extra flags.
 Only images listed in `versions.yaml` are managed. Anything else is left
 alone, so services can move onto the lock one at a time.
 
+In a git checkout, pin looks for compose files and Dockerfiles among the files
+git tracks, plus any at the top of a service directory that isn't committed
+yet, so it never walks service data directories. Outside git it walks the tree
+and skips the `exclude` directories.
+
 Run it from anywhere in the repo with the `./pin` wrapper (needs
 [uv](https://docs.astral.sh/uv/)).
 

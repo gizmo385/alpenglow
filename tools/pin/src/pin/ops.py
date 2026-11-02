@@ -112,21 +112,31 @@ def set_plugin(lock: Lock, name: str, module: str, version: str) -> None:
 # ── adopt ───────────────────────────────────────────────────────────────────
 
 
+# Set once ``docker`` has needed sudo, so later inspects go straight to it.
+_DOCKER_NEEDS_SUDO = False
+
+
 def docker_inspect(ref: str, run: Callable[..., subprocess.CompletedProcess] = subprocess.run) -> dict:
     """``docker image inspect`` for one image; honours DOCKER_HOST.
 
     If the Docker socket needs root, only this one read-only command is retried
-    under sudo, so pin itself (and the files it writes) stays yours.
+    under sudo, so pin itself (and the files it writes) stays yours. That's
+    remembered for the rest of the run, and said once.
     """
+    global _DOCKER_NEEDS_SUDO
     cmd = ["docker", "image", "inspect", ref]
     try:
-        try:
-            out = run(cmd, check=True, capture_output=True, text=True).stdout
-        except subprocess.CalledProcessError as err:
-            if "permission denied" not in (err.stderr or "").lower() or os.geteuid() == 0:
-                raise
-            print("Docker needs root here; running `sudo docker image inspect`.", file=sys.stderr)
+        if _DOCKER_NEEDS_SUDO:
             out = run(["sudo", *cmd], check=True, stdout=subprocess.PIPE, text=True).stdout
+        else:
+            try:
+                out = run(cmd, check=True, capture_output=True, text=True).stdout
+            except subprocess.CalledProcessError as err:
+                if "permission denied" not in (err.stderr or "").lower() or os.geteuid() == 0:
+                    raise
+                print("Docker needs root here; running `docker image inspect` under sudo.", file=sys.stderr)
+                _DOCKER_NEEDS_SUDO = True
+                out = run(["sudo", *cmd], check=True, stdout=subprocess.PIPE, text=True).stdout
     except FileNotFoundError as err:
         raise LockError("docker isn't installed here; run `pin adopt` on the server") from err
     except subprocess.CalledProcessError as err:
@@ -157,6 +167,7 @@ def adopt(
     force: bool = False,
     inspect: Callable[[str], dict] = docker_inspect,
     resolver: Resolver = resolve_digest,
+    usages: list | None = None,
 ) -> tuple[str, str, list[str]]:
     """Pin ``name`` to the exact image the server runs now.
 
@@ -167,7 +178,7 @@ def adopt(
     warnings: list[str] = []
     if ref is None:
         refs = sorted(
-            {str(u.ref) for u in scan(lock.root, lock.excludes, lock.extra_files)
+            {str(u.ref) for u in (usages if usages is not None else scan(lock.root, lock.excludes, lock.extra_files))
              if u.kind == "compose" and u.ref is not None and u.ref.name == name}
         )
         if not refs:
@@ -212,14 +223,15 @@ def adopt_all(
     ``(name, reason)`` pairs.
     """
     listed = lock.entries()
+    usages = scan(lock.root, lock.excludes, lock.extra_files)  # once, not once per image
     names = sorted(
-        {u.ref.name for u in scan(lock.root, lock.excludes, lock.extra_files)
+        {u.ref.name for u in usages
          if u.kind == "compose" and u.ref is not None and u.ref.name not in listed}
     )
     adopted, skipped = [], []
     for name in names:
         try:
-            tag, _, _ = adopt(lock, name, inspect=inspect, resolver=resolver)
+            tag, _, _ = adopt(lock, name, inspect=inspect, resolver=resolver, usages=usages)
         except Exception as err:  # each failure is reported, the rest carry on
             skipped.append((name, str(err)))
         else:

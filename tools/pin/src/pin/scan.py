@@ -17,7 +17,9 @@ rewrite touches only the reference and keeps comments, quotes and layout.
 from __future__ import annotations
 
 import fnmatch
+import os
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,22 +56,76 @@ def _excluded(rel: str, excludes: list[str]) -> bool:
     return any(fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch("/" + rel, pat) for pat in excludes)
 
 
+def _kind(name: str) -> str | None:
+    if any(fnmatch.fnmatch(name, g) for g in COMPOSE_GLOBS):
+        return "compose"
+    if any(fnmatch.fnmatch(name, g) for g in DOCKERFILE_GLOBS):
+        return "dockerfile"
+    return None
+
+
+def _git_files(root: Path) -> list[str] | None:
+    """Files git tracks under ``root``, or ``None`` when git can't say.
+
+    Reads the index instead of the disk, so service data directories (database
+    files, caches, uploads) are never walked. ``safe.directory`` lets it work
+    under sudo in a checkout owned by someone else.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-c", f"safe.directory={root}", "-C", str(root), "ls-files", "-z", "--cached"],
+            check=True, capture_output=True, timeout=30,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return [f for f in out.decode("utf-8", "replace").split("\0") if f]
+
+
+def _new_service_files(root: Path) -> list[str]:
+    """Files in the repo root and each top-level directory, not recursing.
+
+    Picks up a service that isn't committed yet (``create_service.sh`` runs
+    ``pin add`` before the first commit) without walking anything deep.
+    """
+    out = []
+    for d in [root, *(c for c in root.iterdir() if c.is_dir() and not c.name.startswith("."))]:
+        try:
+            out += [f.relative_to(root).as_posix() for f in d.iterdir() if _kind(f.name)]
+        except OSError:  # a data directory we can't read
+            continue
+    return out
+
+
+def _walk_files(root: Path, excludes: list[str]) -> list[str]:
+    """Every file under ``root``, skipping excluded directories instead of
+    walking into them. The fallback when git can't list the files."""
+    out = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = Path(dirpath).relative_to(root).as_posix()
+        rel_dir = "" if rel_dir == "." else rel_dir + "/"
+        dirnames[:] = [d for d in dirnames if not _excluded(f"{rel_dir}{d}/", excludes)]
+        out += [f"{rel_dir}{f}" for f in filenames]
+    return out
+
+
 def find_files(
     root: Path, excludes: list[str], extra: list[str]
 ) -> tuple[list[Path], list[Path], list[Path]]:
-    """``(compose_files, extra_files, dockerfiles)``, relative to ``root``, sorted."""
+    """``(compose_files, extra_files, dockerfiles)``, relative to ``root``, sorted.
+
+    In a git checkout this is the tracked files plus compose files and
+    Dockerfiles at the top of each service directory; otherwise a walk of the
+    tree that skips excluded directories.
+    """
+    tracked = _git_files(root)
+    candidates = tracked + _new_service_files(root) if tracked is not None else _walk_files(root, excludes)
     compose: set[Path] = set()
     docker: set[Path] = set()
-    for path in root.rglob("*"):
-        if not path.is_file():
+    for rel in candidates:
+        kind = _kind(rel.rsplit("/", 1)[-1])
+        if kind is None or _excluded(rel, excludes) or not (root / rel).is_file():
             continue
-        rel = path.relative_to(root)
-        if _excluded(rel.as_posix(), excludes):
-            continue
-        if any(fnmatch.fnmatch(path.name, g) for g in COMPOSE_GLOBS):
-            compose.add(rel)
-        elif any(fnmatch.fnmatch(path.name, g) for g in DOCKERFILE_GLOBS):
-            docker.add(rel)
+        (compose if kind == "compose" else docker).add(Path(rel))
     extras = {Path(e) for e in extra if (root / e).is_file()}
     return sorted(compose - extras), sorted(extras), sorted(docker)
 

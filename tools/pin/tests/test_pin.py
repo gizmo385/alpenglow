@@ -430,5 +430,80 @@ def test_docker_inspect_retries_under_sudo(monkeypatch):
         return subprocess.CompletedProcess(cmd, 0, stdout='[{"Id": "x"}]')
 
     monkeypatch.setattr(ops.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(ops, "_DOCKER_NEEDS_SUDO", False)
     assert ops.docker_inspect("freikin/dawarich:latest", run=run) == {"Id": "x"}
     assert calls[1][:2] == ["sudo", "docker"]
+
+
+def test_docker_inspect_remembers_sudo_and_says_so_once(monkeypatch, capsys):
+    import subprocess
+    from pin import ops
+
+    calls = []
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        if cmd[0] == "docker":
+            raise subprocess.CalledProcessError(1, cmd, stderr="permission denied while trying to connect")
+        return subprocess.CompletedProcess(cmd, 0, stdout='[{"Id": "x"}]')
+
+    monkeypatch.setattr(ops.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(ops, "_DOCKER_NEEDS_SUDO", False)
+    for ref in ("a:1", "b:1", "c:1"):
+        ops.docker_inspect(ref, run=run)
+    assert [c[0] for c in calls] == ["docker", "sudo", "sudo", "sudo"]
+    assert capsys.readouterr().err.count("Docker needs root") == 1
+
+
+def _git(root, *args):
+    import subprocess
+
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=root, check=True,
+                   capture_output=True)
+
+
+def test_find_files_in_a_checkout_skips_untracked_data(tmp_path: Path):
+    from pin.scan import find_files
+
+    write(tmp_path, "app/compose.yaml", "services: {}\n")
+    write(tmp_path, "app/build/Dockerfile", "FROM alpine:3\n")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-qm", "init")
+    # not committed: a new service (found) and a data dir deep in a service (never walked)
+    write(tmp_path, "newsvc/compose.yaml", "services: {}\n")
+    write(tmp_path, "app/data/pg/vendor/compose.yaml", "services: {}\n")
+    compose, _, docker = find_files(tmp_path, [".git/**"], [])
+    assert compose == [Path("app/compose.yaml"), Path("newsvc/compose.yaml")]
+    assert docker == [Path("app/build/Dockerfile")]
+
+
+def test_find_files_without_git_prunes_excluded_dirs(tmp_path: Path, monkeypatch):
+    from pin import scan
+
+    write(tmp_path, "app/compose.yaml", "services: {}\n")
+    write(tmp_path, "app/node_modules/x/compose.yaml", "services: {}\n")
+    walked = []
+    real_walk = scan.os.walk
+
+    def spy(top):
+        for dirpath, dirnames, filenames in real_walk(top):
+            walked.append(Path(dirpath).relative_to(top).as_posix())
+            yield dirpath, dirnames, filenames
+
+    monkeypatch.setattr(scan.os, "walk", spy)
+    compose, _, _ = scan.find_files(tmp_path, ["**/node_modules/**"], [])
+    assert compose == [Path("app/compose.yaml")]
+    assert not any("node_modules" in w for w in walked)
+
+
+def test_adopt_all_scans_the_repo_once(repo, monkeypatch):
+    from pin import ops
+
+    real = ops.scan
+    count = []
+    monkeypatch.setattr(ops, "scan", lambda *a: count.append(1) or real(*a))
+    lk = lock(repo)
+    ops.adopt_all(lk, inspect=lambda ref: (_ for _ in ()).throw(LockError("not running")),
+                  resolver=lambda n, t: D1)
+    assert len(count) == 1
