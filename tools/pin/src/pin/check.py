@@ -1,4 +1,8 @@
-"""Compare the repo with versions.yaml."""
+"""Compare the repo with versions.yaml.
+
+Only images listed in versions.yaml are managed. Unlisted images are left
+alone, so services can be moved onto the lock one at a time.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +33,8 @@ def check(lock: Lock) -> Report:
         if u.kind == "plugin":
             e = plugin_entry(u, entries)
             if e is None:
+                if not any(b in entries for b in u.base_images):
+                    continue  # the base image isn't managed yet, so neither are its plugins
                 bases = ", ".join(u.base_images) or "its base image"
                 report.errors.append(
                     f"{u.where()}: plugin {u.module} isn't pinned; add it under plugins: of {bases} in {LOCK_NAME}"
@@ -39,11 +45,7 @@ def check(lock: Lock) -> Report:
             name = u.ref.name
             e = entries.get(name)
             if e is None:
-                report.errors.append(
-                    f"{u.where()}: {u.ref} has no entry in {LOCK_NAME} "
-                    f"(pin it with `pin set`, or add a float entry with a reason)"
-                )
-                continue
+                continue  # not managed yet: only listed images are checked
             used.add(name)
             if u.kind == "compose":
                 in_compose.add(name)

@@ -168,12 +168,17 @@ def test_check_errors(repo):
     write(repo, "tandoor/compose.yaml", "services:\n  w:\n    image: vabene1111/recipes:2.6.0\n")
     write(repo, "caddy/Dockerfile", "FROM caddy:2.11.7\nRUN xcaddy build --with example.com/new\n")
     report = check(lock(repo))
-    assert "redis/compose.yaml:3: redis:alpine has no entry in versions.yaml " \
-        "(pin it with `pin set`, or add a float entry with a reason)" in report.errors
+    # Unlisted images aren't managed yet, so they're not an error.
+    assert not any("redis" in e for e in report.errors)
     assert f"tandoor/compose.yaml:3: says vabene1111/recipes:2.6.0, versions.yaml says " \
         f"vabene1111/recipes:2.7.1@{D1} (run `pin sync`)" in report.errors
     assert "caddy/Dockerfile:2: plugin example.com/new isn't pinned; add it under plugins: of caddy in versions.yaml" \
         in report.errors
+
+
+def test_check_ignores_plugins_of_unlisted_base_images(repo):
+    write(repo, "proxy/Dockerfile", "FROM caddy-custom:2\nRUN xcaddy build --with example.com/other\n")
+    assert not any("example.com/other" in e for e in check(lock(repo)).errors)
 
 
 def test_validate(repo):

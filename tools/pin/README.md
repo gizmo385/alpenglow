@@ -6,6 +6,9 @@ instead of referencing the lock file from compose, `pin sync` rewrites the
 `image:` and `FROM` lines from it, and `pin check` fails when they disagree.
 Compose files stay plain, so `docker compose up -d` needs no extra flags.
 
+Only images listed in `versions.yaml` are managed. Anything else is left
+alone, so services can move onto the lock one at a time.
+
 Run it from anywhere in the repo with the `./pin` wrapper (needs
 [uv](https://docs.astral.sh/uv/)).
 
@@ -13,7 +16,7 @@ Run it from anywhere in the repo with the `./pin` wrapper (needs
 
 | Command | What it does |
 |---|---|
-| `./pin check` | Compare the repo with `versions.yaml`. Exits 1 on any mismatch, unpinned image or unpinned Caddy plugin. CI runs this. |
+| `./pin check` | Compare the repo with `versions.yaml`. Exits 1 when a listed image doesn't match, or a listed base image has an unpinned Caddy plugin. CI runs this. |
 | `./pin sync [--dry-run]` | Write `versions.yaml` into compose files and Dockerfiles. |
 | `./pin set NAME TAG` | Pin an image (and every image in its `group`) to `TAG`. Looks up the digest, which also proves the tag exists. Then syncs. |
 | `./pin add IMAGE[:TAG]` | Give a new service's image an entry: a release tag is pinned (with its digest), no tag or `latest` becomes a `float` entry. `create_service.sh --image` runs this. |
