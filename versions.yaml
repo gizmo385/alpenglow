@@ -26,11 +26,142 @@ images:
   henrygd/beszel:
     tag: 0.21.1
     digest: sha256:8514a69d9bbbcb74f371a3205561ee231fc0289739cea64e8131f341d695b770
+    group: beszel
     policy: approve
     reason: First service on the lock, to try the upgrade flow
     compatibility:
       - henrygd/beszel-agent (keep it on the same version as the hub)
   henrygd/beszel-agent:
     tag: 0.21.1-alpine
+    digest: sha256:4100e26f7b5e6ab89e73699b2366417795f5046ab36bc452daf1f105766b40a0
+    group: beszel
     policy: approve
     reason: Moves with henrygd/beszel
+  alangrainger/immich-public-proxy:
+    tag: 4.1.2
+    digest: sha256:d6480d1e6beb3da661cb895e1b368340df48904ecbfe53ece2d5da343e78b857
+  copyparty/ac:
+    tag: 1.20.26
+    digest: sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
+  freikin/dawarich:
+    tag: 1.20.0
+    digest: sha256:18945f609942056e55fb24988229499be7bbe4703177fac662225dad465b021f
+  freshrss/freshrss:
+    tag: 1.30.4
+    digest: sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
+  ghcr.io/gizmo385/image-updates-tracker:
+    policy: float
+    reason: Built from main with no release tags yet; pin once the repo publishes them
+  ghcr.io/gizmo385/image-updates-tracker-bot:
+    policy: float
+    reason: Built from main with no release tags yet; pin once the repo publishes them
+  ghcr.io/home-assistant/home-assistant:
+    tag: 2026.10.4
+    digest: sha256:23f4dfbb69ce76315dbc4de7915504f1c2dcecd7ca2648113a493a385972e133
+  ghcr.io/immichframe/immichframe:
+    tag: v1.0.37.0
+    digest: sha256:edae2c0b9ab6e1384634582b2bab6246429e14bc209ff6ecc091fc9eedd4582c
+  ghcr.io/linkwarden/linkwarden:
+    tag: v2.16.3
+    digest: sha256:0664c28a039bda8ffa6663389e8536b2fc717219e329f85b83faca7efed3b144
+  ghcr.io/motioneye-project/motioneye:
+    tag: 0.44.0
+    digest: sha256:7da31d62e6c46ee8b61280f872801e429ec6f3db81bb23aca11c83863939cade
+  ghcr.io/music-assistant/server:
+    tag: 2.10.9
+    digest: sha256:4ac0d5844363fbbefd6a61251df09d96cd546e05e01b8c1cc1a28803f0935e07
+  ghcr.io/sergi0g/cup:
+    tag: v3.6.0
+    digest: sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
+  jellyfin/jellyfin:
+    tag: '12.2'
+    digest: sha256:357724bf0ae27a672c7cbaa899db2d9abeb13dbd8657ccce750258a4c059d037
+  lscr.io/linuxserver/ddclient:
+    tag: v4.0.0-ls237
+    digest: sha256:f94b9a1c19a34e3b5500cfbfbfdee1fed7e6636fbbf7519519b0e92424223f11
+  mauriceboe/trek:
+    tag: 5.1.0
+    digest: sha256:23bf3fa6a134dc38a3b4f40ef8f7e8040abc96965105dffdcfcf5f202fb5d0b7
+  otel/ebpf-instrument:
+    tag: v0.15.2
+    digest: sha256:101b5c773ac84545cac007ce3dbaf38bfb0e7091f26e813c08d649f35dca253e
+  otel/opentelemetry-collector-contrib:
+    tag: 0.164.0
+    digest: sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
+  pihole/pihole:
+    tag: 2026.10.1
+    digest: sha256:30f803ad5dd60ff96cc0a63008a2e9271af481c1b0399a182192b2e91152c1f9
+  quay.io/keycloak/keycloak:
+    tag: 26.8.1
+    digest: sha256:3f3c5f8e03c614774b4bd9173b88391fefa4153bfc010d8012d59ad825377332
+  quay.io/oauth2-proxy/oauth2-proxy:
+    tag: v7.15.5
+    digest: sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916
+  vabene1111/recipes:
+    tag: 2.7.2
+    digest: sha256:1b6d43c3c0f5d2888aa564d9daf29883212b79ad496f59f3c684c099eb1a57b9
+  vikunja/vikunja:
+    tag: 2.7.1
+    digest: sha256:f7dc8428d10aef17f3075886d3c1c022f566ec456f88985f02c137f4fc534576
+  crowdsecurity/crowdsec:
+    tag: v1.8.1
+    digest: sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
+  ekofr/pihole-exporter:
+    tag: v1.2.0
+    digest: sha256:242c53ef3c24b88fcbe8184390b456d05604bd50de5732ca3fd3eb24395585b3
+  fmtr/amniotic:
+    tag: v1.10.2
+    digest: sha256:8de4b03f79de0971fe61b4aab43c5de0e5d9e5d7784c8b7a7bf60306e6f0a04c
+  grafana/alloy:
+    tag: v1.21.3
+    digest: sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+  quay.io/prometheus/node-exporter:
+    tag: v1.12.1
+    digest: sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0
+  wollomatic/socket-proxy:
+    tag: 1.13.2
+    digest: sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
+  kopia/kopia:
+    tag: 0.23.1
+    digest: sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
+  louislam/uptime-kuma:
+    tag: 2.5.9
+    digest: sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd
+  nextcloud:
+    tag: 35.0.2
+    digest: sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
+  ollama/ollama:
+    tag: 0.40.13
+    digest: sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
+  redis:
+    tag: 8.10.3-alpine
+    digest: sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+  eclipse-mosquitto:
+    tag: 2.1.2-alpine
+    digest: sha256:860aeb5d63ce509508f6dcfb2bc8a1c1dd2bc60555b562b45ce90e52d8dabb0f
+  twentycrm/twenty:
+    tag: v2.54.0
+    digest: sha256:e64479a4daa9211864eb45ffdf15ce7a44a3664850dab06213105027538fce1e
+  ghcr.io/immich-app/immich-server:
+    tag: v3.3.5
+    digest: sha256:485d546a2e31d6a8b4db8423fcba5c109de8c218d93410af115fd1ccfc4352a6
+    group: immich
+  ghcr.io/immich-app/immich-machine-learning:
+    tag: v3.3.5
+    digest: sha256:5b28c9352c8374b8a1ed96fbdd8d6755fea6e43510ec43fdf6538aa02ea40f56
+    group: immich
+  ghcr.io/gizmo385/servo:
+    policy: float
+    reason: Not pinned yet
+  ghcr.io/gizmo385/youtube-rss-manager:
+    policy: float
+    reason: Not pinned yet
+  nicolargo/glances:
+    policy: float
+    reason: Not pinned yet
+  ghcr.io/zhaofengli/attic:
+    policy: float
+    reason: Not pinned yet
+  ghcr.io/klutchell/dnscrypt-proxy:
+    policy: float
+    reason: Not pinned yet

@@ -1,7 +1,7 @@
 services:
   web_recipes:
     restart: always
-    image: vabene1111/recipes:2.7.2
+    image: vabene1111/recipes:2.7.2@sha256:1b6d43c3c0f5d2888aa564d9daf29883212b79ad496f59f3c684c099eb1a57b9
     env_file:
       - ./.env
     volumes:

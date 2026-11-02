@@ -1,7 +1,7 @@
 services:
   immichframe: 
     restart: always 
-    image: ghcr.io/immichframe/immichframe:latest
+    image: ghcr.io/immichframe/immichframe:v1.0.37.0@sha256:edae2c0b9ab6e1384634582b2bab6246429e14bc209ff6ecc091fc9eedd4582c
     environment:
       TZ: America/Denver
     volumes:

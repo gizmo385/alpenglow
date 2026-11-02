@@ -10,7 +10,7 @@ name: immich
 
 services:
   immich-proxy:
-    image: alangrainger/immich-public-proxy:latest
+    image: alangrainger/immich-public-proxy:4.1.2@sha256:d6480d1e6beb3da661cb895e1b368340df48904ecbfe53ece2d5da343e78b857
     container_name: immich_public_proxy
     restart: always
     expose:
@@ -30,7 +30,7 @@ services:
 
   immich-server:
     container_name: immich_server
-    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    image: ghcr.io/immich-app/immich-server:v3.3.5@sha256:485d546a2e31d6a8b4db8423fcba5c109de8c218d93410af115fd1ccfc4352a6
     expose:
       - "8081"
       - "8082"
@@ -62,7 +62,7 @@ services:
     container_name: immich_machine_learning
     # For hardware acceleration, add one of -[armnn, cuda, openvino] to the image tag.
     # Example tag: ${IMMICH_VERSION:-release}-cuda
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    image: ghcr.io/immich-app/immich-machine-learning:v3.3.5@sha256:5b28c9352c8374b8a1ed96fbdd8d6755fea6e43510ec43fdf6538aa02ea40f56
     # extends: # uncomment this section for hardware acceleration - see https://immich.app/docs/features/ml-hardware-acceleration
     #   file: hwaccel.ml.yml
     #   service: cpu # set to one of [armnn, cuda, openvino, openvino-wsl] for accelerated inference - use the `-wsl` version for WSL2 where applicable

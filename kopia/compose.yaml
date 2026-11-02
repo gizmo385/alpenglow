@@ -1,6 +1,6 @@
 services:
   kopia:
-    image: kopia/kopia:latest
+    image: kopia/kopia:0.23.1@sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
     hostname: kopia.alpenglow.acbc.house
     container_name: Kopia
     restart: unless-stopped

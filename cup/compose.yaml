@@ -1,6 +1,6 @@
 services:
   cup:
-    image: ghcr.io/sergi0g/cup:latest
+    image: ghcr.io/sergi0g/cup:v3.6.0@sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
     container_name: cup
     # Read-only Docker API via /services/docker-proxy.
     extends:

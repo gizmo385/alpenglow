@@ -1,7 +1,7 @@
 services:
   motioneye:
     restart: unless-stopped
-    image: ghcr.io/motioneye-project/motioneye:latest
+    image: ghcr.io/motioneye-project/motioneye:0.44.0@sha256:7da31d62e6c46ee8b61280f872801e429ec6f3db81bb23aca11c83863939cade
     volumes:
       - ./etc:/etc/motioneye
       - ./var_lib_motioneye:/var/lib/motioneye

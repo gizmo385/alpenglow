@@ -2,7 +2,7 @@ services:
   amniotic:
     container_name: amniotic
     hostname: amniotic
-    image: fmtr/amniotic:v1.10.2 
+    image: fmtr/amniotic:v1.10.2@sha256:8de4b03f79de0971fe61b4aab43c5de0e5d9e5d7784c8b7a7bf60306e6f0a04c 
     restart: unless-stopped
 
     # Expose container port to host

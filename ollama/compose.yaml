@@ -1,6 +1,6 @@
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:0.40.13@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
     container_name: ollama
     volumes:
       - ollama_data:/root/.ollama
@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
 
   ollama-pull:
-    image: ollama/ollama
+    image: ollama/ollama:0.40.13@sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
     volumes:
       - ollama_data:/root/.ollama
     networks:

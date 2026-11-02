@@ -10,7 +10,7 @@ services:
   # of its own (impersonation, see casting.yaml), so this proxy lets in
   # Keycloak's Admin group and nobody else (.proxy_env).
   oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.4
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916
     container_name: signoz-oauth2-proxy
     restart: unless-stopped
     env_file:
@@ -29,7 +29,7 @@ services:
       caddy_1.redir: "@signoz_old https://monitoring.acbc.house{uri} permanent"
 
   alloy:
-    image: grafana/alloy:v1.21.3
+    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
     container_name: signoz-alloy
     # Container list and logs via /services/docker-proxy (read-only).
     extends:
@@ -84,7 +84,7 @@ services:
   # host-metrics/config.yaml). On the host network so network counters are
   # the host's rather than a container's.
   host-metrics:
-    image: otel/opentelemetry-collector-contrib:0.164.0
+    image: otel/opentelemetry-collector-contrib:0.164.0@sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
     container_name: signoz-host-metrics
     restart: unless-stopped
     network_mode: host
@@ -99,7 +99,7 @@ services:
   # Listens only on the docker0 bridge address (host.docker.internal), not
   # the LAN or tailnet.
   node-exporter:
-    image: quay.io/prometheus/node-exporter:v1.12.1
+    image: quay.io/prometheus/node-exporter:v1.12.1@sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0
     container_name: signoz-node-exporter
     restart: unless-stopped
     network_mode: host
@@ -116,7 +116,7 @@ services:
   # OpenTelemetry eBPF Instrumentation: traces for every listening container
   # without app changes (see obi/config.yaml).
   obi:
-    image: otel/ebpf-instrument:v0.15.2
+    image: otel/ebpf-instrument:v0.15.2@sha256:101b5c773ac84545cac007ce3dbaf38bfb0e7091f26e813c08d649f35dca253e
     container_name: signoz-obi
     restart: unless-stopped
     command:
