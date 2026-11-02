@@ -65,6 +65,27 @@ sudo docker run --rm -e MOCK_DATA=1 -e DEV_NO_AUTH=1 \
 curl http://127.0.0.1:18080/api/health
 ```
 
+## Upgrades board
+
+With `VIKUNJA_API_TOKEN` and `VIKUNJA_PROJECT_ID` set (see `../compose.yaml`),
+the backend keeps Vikunja's Upgrades project in step with the update tracker
+every 30 minutes (`UPGRADES_SYNC_INTERVAL`):
+
+- a new release of an image listed in `versions.yaml` (never `policy: float`)
+  gets a card, which the claude-dispatcher assesses and labels with a verdict;
+- an open card is retargeted, with an `@claude` comment, when a newer release
+  comes out, and closed once the server runs the release;
+- a card you closed isn't refiled for the same version.
+
+The verdicts show in the Updates view's Assessment column, and
+`GET /internal/upgrades/annotations` serves them to the tracker's Discord bot
+(`ANNOTATIONS_URL`). That route sits outside `/api` because the bot can't pass
+oauth2-proxy: it is read-only and returns only card titles, verdicts and
+links. `POST /api/upgrades/sync` (admin) syncs straight away.
+
+The token needs the **Tasks** preset (tasks, comments and labels). Code is in
+`backend/alpenglow_dashboard/upgrades/`.
+
 ## Layout
 
 ```

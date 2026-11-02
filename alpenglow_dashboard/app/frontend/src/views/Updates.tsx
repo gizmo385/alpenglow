@@ -37,6 +37,33 @@ const REFRESH_TIMEOUT_MS = 90_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Claude's verdict for an update (from upgrades-board), linking to its card. */
+function Verdict({ entry }: { entry: UpdateEntry }) {
+  if (!entry.verdict) return <span className={styles.noVerdict}>—</span>;
+  const label = (
+    <>
+      <span
+        className={styles.verdictDot}
+        style={{ background: entry.verdictColor ?? "var(--color-neutral-500)" }}
+        aria-hidden
+      />
+      {entry.verdict}
+    </>
+  );
+  return (
+    <div title={entry.verdictNote ?? undefined}>
+      {entry.cardUrl ? (
+        <a className={styles.verdict} href={entry.cardUrl} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+      ) : (
+        <span className={styles.verdict}>{label}</span>
+      )}
+      {entry.verdictNote && <div className={styles.verdictNote}>{entry.verdictNote}</div>}
+    </div>
+  );
+}
+
 export function Updates() {
   const { data, refresh } = useUpdates();
   const { services, refreshServices } = useData();
@@ -233,6 +260,7 @@ export function Updates() {
                 <th>Current</th>
                 <th>Latest</th>
                 <th>Released</th>
+                <th>Assessment</th>
                 <th className={styles.actionCol}>Action</th>
               </tr>
             </thead>
@@ -251,6 +279,9 @@ export function Updates() {
                     <td className={styles.mono}>{e.currentVersion}</td>
                     <td className={`${styles.mono} ${styles.latest}`}>{e.latestVersion}</td>
                     <td className={styles.released}>{relativeAgo(e.releasedAt)}</td>
+                    <td className={styles.verdictCell}>
+                      <Verdict entry={e} />
+                    </td>
                     <td>
                       <div className={styles.actionCell}>
                         {e.changelogUrl && (

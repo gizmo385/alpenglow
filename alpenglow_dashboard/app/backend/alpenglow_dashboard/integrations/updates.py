@@ -22,6 +22,11 @@ Connection failure / 404 → empty list + ``trackerUnavailable=True``.
 ``service_enrichment()`` reuses the same cached fetch to hand inventory the
 ``latestVersion``/``releasedAt``/``changelogUrl`` per dir (inventory calls it on
 every request — caching is required).
+
+Each entry also carries Claude's verdict when the Upgrades board has a card for
+it (see ``alpenglow_dashboard.upgrades``), matched by the tracker's
+``owner/repo``. Vikunja being down only drops the verdicts; the list still
+renders.
 """
 
 from __future__ import annotations
@@ -101,6 +106,26 @@ async def _tracker_cached() -> Optional[dict]:
     if isinstance(payload, dict) and payload.get("refreshing"):
         _CACHE.invalidate()
     return payload
+
+
+# ── verdicts (Upgrades board) ─────────────────────────────────────────────────
+
+
+async def _annotations_cached() -> dict:
+    from .. import upgrades  # avoids an import cycle
+
+    return await upgrades.annotations_by_repo()
+
+
+def _verdict_fields(entry: dict, annotations: dict) -> dict[str, Optional[str]]:
+    from ..upgrades.verdicts import GROUPS
+
+    ann = annotations.get(f"{entry.get('owner')}/{entry.get('repo')}".lower())
+    if not ann:
+        return {}
+    color = next((g["color"] for g in GROUPS if g["name"] == ann.group), None)
+    return {"verdict": ann.group, "verdictNote": ann.note or None,
+            "verdictColor": color, "cardUrl": ann.url}
 
 
 # ── matching ──────────────────────────────────────────────────────────────────
@@ -221,7 +246,7 @@ def _meta_for(sid: str) -> tuple[str, str]:
     return name, icon
 
 
-def _build_updates(payload: dict) -> models.Updates:
+def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.Updates:
     matched, unmatched = _match_entries(payload)
     if unmatched:
         log.info("updates: %d tracker entries unmatched to a service dir: %s",
@@ -243,6 +268,7 @@ def _build_updates(payload: dict) -> models.Updates:
                 latestVersion=latest,
                 releasedAt=fields["releasedAt"],
                 changelogUrl=fields["changelogUrl"],
+                **_verdict_fields(entry, annotations or {}),
             )
         )
     return models.Updates(
@@ -264,7 +290,7 @@ async def get_updates() -> models.Updates:
     if payload is None:
         return models.Updates(services=[], lastUpdated=None, refreshing=False,
                               trackerUnavailable=True)
-    return _build_updates(payload)
+    return _build_updates(payload, await _annotations_cached())
 
 
 async def _proxy_refresh() -> Optional[dict]:
@@ -294,6 +320,6 @@ async def refresh_updates() -> models.Updates:
     if payload is None:
         return models.Updates(services=[], lastUpdated=None, refreshing=False,
                               trackerUnavailable=True)
-    result = _build_updates(payload)
+    result = _build_updates(payload, await _annotations_cached())
     result.refreshing = True
     return result

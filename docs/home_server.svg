@@ -116,11 +116,11 @@
 <g class="el lane t-postgres">
 <path d="M682,408 L682,952 L469.733,952 L469.733,1028" fill="none" stroke="#a68cf2" stroke-width="1.6" marker-end="url(#ah-a68cf2)" stroke-linejoin="round"/>
 </g>
-<g class="el lane t-ollama">
-<path d="M912,528 L912,988 L806.933,988 L806.933,1028" fill="none" stroke="#9fd36a" stroke-width="1.6" marker-end="url(#ah-9fd36a)" stroke-linejoin="round"/>
-</g>
 <g class="el lane t-vikunja">
-<path d="M944,767 L944,880 L1044.6,880 L1044.6,1028" fill="none" stroke="#6fb7f0" stroke-width="1.6" marker-end="url(#ah-6fb7f0)" stroke-linejoin="round"/>
+<path d="M944,460 L944,880 L1044.6,880 L1044.6,1028" fill="none" stroke="#6fb7f0" stroke-width="1.6" marker-end="url(#ah-6fb7f0)" stroke-linejoin="round"/>
+</g>
+<g class="el lane t-ollama">
+<path d="M912,486 L912,988 L806.933,988 L806.933,1028" fill="none" stroke="#9fd36a" stroke-width="1.6" marker-end="url(#ah-9fd36a)" stroke-linejoin="round"/>
 </g>
 <g class="el t-keycloak" data-svc="immich">
 <path d="M452,377 L484,377" fill="none" stroke="#e8923a" stroke-width="1.6" stroke-linejoin="round"/>
@@ -230,29 +230,37 @@
 <path d="M746,424 L714,424" fill="none" stroke="#e3c44c" stroke-width="1.6" stroke-linejoin="round"/>
 <circle cx="714" cy="424" r="3" fill="#e3c44c"/>
 </g>
-<g class="el t-keycloak" data-svc="copyparty">
-<path d="M746,450 L698,450" fill="none" stroke="#e8923a" stroke-width="1.6" stroke-linejoin="round"/>
-<circle cx="698" cy="450" r="3" fill="#e8923a"/>
-</g>
-<g class="el t-redis" data-svc="copyparty">
-<path d="M746,460 L714,460" fill="none" stroke="#e3c44c" stroke-width="1.6" stroke-linejoin="round"/>
-<circle cx="714" cy="460" r="3" fill="#e3c44c"/>
-</g>
 <g class="el t-docker-proxy" data-svc="alpenglow_dashboard">
+<path d="M896,450 L928,450" fill="none" stroke="#9aa3b5" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="928" cy="450" r="3" fill="#9aa3b5"/>
+</g>
+<g class="el t-keycloak" data-svc="alpenglow_dashboard">
+<path d="M746,455 L698,455" fill="none" stroke="#e8923a" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="698" cy="455" r="3" fill="#e8923a"/>
+</g>
+<g class="el t-vikunja" data-svc="alpenglow_dashboard">
+<path d="M896,460 L944,460" fill="none" stroke="#6fb7f0" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="944" cy="460" r="3" fill="#6fb7f0"/>
+</g>
+<g class="el t-docker-proxy" data-svc="updates-tracker">
 <path d="M896,494 L928,494" fill="none" stroke="#9aa3b5" stroke-width="1.6" stroke-linejoin="round"/>
 <circle cx="928" cy="494" r="3" fill="#9aa3b5"/>
 </g>
-<g class="el t-keycloak" data-svc="alpenglow_dashboard">
-<path d="M746,494 L698,494" fill="none" stroke="#e8923a" stroke-width="1.6" stroke-linejoin="round"/>
-<circle cx="698" cy="494" r="3" fill="#e8923a"/>
-</g>
-<g class="el t-docker-proxy" data-svc="updates-tracker">
-<path d="M896,538 L928,538" fill="none" stroke="#9aa3b5" stroke-width="1.6" stroke-linejoin="round"/>
-<circle cx="928" cy="538" r="3" fill="#9aa3b5"/>
-</g>
 <g class="el t-ollama" data-svc="updates-tracker">
-<path d="M896,528 L912,528" fill="none" stroke="#9fd36a" stroke-width="1.6" stroke-linejoin="round"/>
-<circle cx="912" cy="528" r="3" fill="#9fd36a"/>
+<path d="M896,486 L912,486" fill="none" stroke="#9fd36a" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="912" cy="486" r="3" fill="#9fd36a"/>
+</g>
+<g class="el t-vikunja" data-svc="updates-tracker">
+<path d="M896,502 L944,502" fill="none" stroke="#6fb7f0" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="944" cy="502" r="3" fill="#6fb7f0"/>
+</g>
+<g class="el t-keycloak" data-svc="copyparty">
+<path d="M746,528 L698,528" fill="none" stroke="#e8923a" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="698" cy="528" r="3" fill="#e8923a"/>
+</g>
+<g class="el t-redis" data-svc="copyparty">
+<path d="M746,538 L714,538" fill="none" stroke="#e3c44c" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="714" cy="538" r="3" fill="#e3c44c"/>
 </g>
 <g class="el t-docker-proxy" data-svc="beszel">
 <path d="M896,572 L928,572" fill="none" stroke="#9aa3b5" stroke-width="1.6" stroke-linejoin="round"/>
@@ -346,17 +354,17 @@
 <rect x="746" y="401" width="150" height="30" rx="5" fill="#1a1f26" stroke="#4a5563" stroke-width="1.4"/>
 <text x="821" y="420.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">SigNoz</text>
 </g>
-<g class="el svc t-keycloak t-redis" data-svc="copyparty" data-label="Copyparty" data-deps="keycloak redis">
+<g class="el svc t-docker-proxy t-keycloak t-vikunja" data-svc="alpenglow_dashboard" data-label="Dashboard" data-deps="docker-proxy keycloak vikunja">
 <rect x="746" y="440" width="150" height="30" rx="5" fill="#1a1f26" stroke="#4a5563" stroke-width="1.4"/>
-<text x="821" y="459.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">Copyparty</text>
+<text x="821" y="459.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">Dashboard</text>
 </g>
-<g class="el svc t-docker-proxy t-keycloak" data-svc="alpenglow_dashboard" data-label="Dashboard" data-deps="docker-proxy keycloak">
+<g class="el svc t-docker-proxy t-ollama t-vikunja" data-svc="updates-tracker" data-label="Updates Tracker" data-deps="docker-proxy ollama vikunja">
 <rect x="746" y="479" width="150" height="30" rx="5" fill="#1a1f26" stroke="#4a5563" stroke-width="1.4"/>
-<text x="821" y="498.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">Dashboard</text>
+<text x="821" y="498.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">Updates Tracker</text>
 </g>
-<g class="el svc t-docker-proxy t-ollama" data-svc="updates-tracker" data-label="Updates Tracker" data-deps="docker-proxy ollama">
+<g class="el svc t-keycloak t-redis" data-svc="copyparty" data-label="Copyparty" data-deps="keycloak redis">
 <rect x="746" y="518" width="150" height="30" rx="5" fill="#1a1f26" stroke="#4a5563" stroke-width="1.4"/>
-<text x="821" y="537.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">Updates Tracker</text>
+<text x="821" y="537.86" font-size="13.5" fill="#e9e6ee" text-anchor="middle" font-weight="500">Copyparty</text>
 </g>
 <g class="el svc t-docker-proxy" data-svc="beszel" data-label="Beszel" data-deps="docker-proxy">
 <rect x="746" y="557" width="150" height="30" rx="5" fill="#1a1f26" stroke="#4a5563" stroke-width="1.4"/>

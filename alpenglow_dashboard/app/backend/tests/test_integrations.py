@@ -447,6 +447,38 @@ async def test_updates_route_builds_entries(monkeypatch, updates_env):
 
 
 @pytest.mark.asyncio
+async def test_updates_carry_upgrades_board_verdicts(monkeypatch, updates_env):
+    from alpenglow_dashboard import upgrades
+    from alpenglow_dashboard.upgrades.verdicts import Annotation
+
+    payload = {**TRACKER_PAYLOAD, "services": [
+        {**e, "owner": "immich-app" if e["repo"] == "immich" else "ollama"} for e in TRACKER_PAYLOAD["services"][:2]
+    ]}
+
+    async def by_repo():
+        return {"immich-app/immich": Annotation("Immich-App/Immich", "Immich v2.7.5 → v3.0.2", "Easy",
+                                                "Bug fixes only.", "https://board.example/tasks/4", 4)}
+
+    monkeypatch.setattr(upgrades, "annotations_by_repo", by_repo)
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_tracker_handler(payload)))
+    result = await updates_mod.get_updates()
+    by_id = {e.id: e for e in result.services}
+    immich = by_id["immich"]
+    assert (immich.verdict, immich.verdictNote, immich.verdictColor, immich.cardUrl) == \
+        ("Easy", "Bug fixes only.", "#2e7d32", "https://board.example/tasks/4")
+    assert by_id["ollama"].verdict is None
+
+
+@pytest.mark.asyncio
+async def test_updates_without_upgrades_board_still_list(monkeypatch, updates_env):
+    monkeypatch.delenv("VIKUNJA_API_TOKEN", raising=False)
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(_tracker_handler(TRACKER_PAYLOAD)))
+    result = await updates_mod.get_updates()
+    assert {e.id for e in result.services} == {"immich", "ollama", "twenty"}
+    assert all(e.verdict is None for e in result.services)
+
+
+@pytest.mark.asyncio
 async def test_updates_tracker_unavailable(monkeypatch, updates_env):
     monkeypatch.setattr(httpx.AsyncClient, "__init__",
                         _mock_client(_tracker_handler({}, status=404)))

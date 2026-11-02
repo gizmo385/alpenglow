@@ -30,6 +30,12 @@ services:
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=alpenglow_dashboard
       OTEL_TRACES_EXPORTER: otlp
       OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
+      # Upgrades board: a card in Vikunja's Upgrades project for each pending
+      # upgrade of an image in versions.yaml, and Claude's verdicts back in the
+      # Updates view and the Discord digest. VIKUNJA_API_TOKEN is in .env.
+      VIKUNJA_API_URL: http://vikunja:3456/api/v1
+      VIKUNJA_PROJECT_ID: "2"   # Upgrades
+      VIKUNJA_PUBLIC_URL: https://board.acbc.house
     env_file:
       - path: .env
         required: true
@@ -41,9 +47,14 @@ services:
       - "8080"
     networks:
       - caddy
+      # Vikunja's API, and the tracker's Discord bot reading
+      # /internal/upgrades/annotations.
+      - board
 
 networks:
   caddy:
+    external: true
+  board:
     external: true
   docker-proxy:
     external: true

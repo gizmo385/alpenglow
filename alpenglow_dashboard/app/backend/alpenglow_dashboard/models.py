@@ -361,6 +361,13 @@ class UpdateEntry(BaseModel):
     latestVersion: str
     releasedAt: Optional[str]
     changelogUrl: Optional[str]
+    # Claude's assessment from the upgrades board (upgrades-board/), when the
+    # update has a card: verdict ("Easy", "Needs care", "Hold" or "Waiting for
+    # assessment"), its one-sentence reason, the verdict colour and the card.
+    verdict: Optional[str] = None
+    verdictNote: Optional[str] = None
+    verdictColor: Optional[str] = None
+    cardUrl: Optional[str] = None
 
 
 class Updates(BaseModel):
