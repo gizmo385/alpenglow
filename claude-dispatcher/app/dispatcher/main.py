@@ -21,6 +21,25 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"), format="%(asctime
 log = logging.getLogger("dispatcher")
 
 MAX_CONTEXT_COMMENTS = 10
+VERDICT_PREFIX = "Verdict: "
+# Label colours by position in the profile's verdict list: good, caution, stop.
+VERDICT_COLORS = ("2e7d32", "f9a825", "c62828")
+
+
+def find_verdict(text: str, verdicts: tuple[str, ...]) -> str | None:
+    """The verdict a reply opens with, e.g. "Verdict: Needs care — ..." -> "Needs care".
+
+    Only the first few non-empty lines count, and Markdown emphasis is ignored.
+    """
+    lines = [ln.strip().strip("*_#> ").strip() for ln in text.splitlines() if ln.strip()][:3]
+    for line in lines:
+        if not line.casefold().startswith("verdict"):
+            continue
+        rest = line[len("verdict"):].lstrip(" :*_-–—").casefold()
+        for v in sorted(verdicts, key=len, reverse=True):
+            if rest.startswith(v.casefold()):
+                return v
+    return None
 
 
 def build_prompt(trigger: Trigger, profile: Profile, history: list[str]) -> str:
@@ -78,6 +97,29 @@ class Dispatcher:
         self.count += 1
         return True
 
+    async def _move(self, trigger: Trigger, bucket: str) -> None:
+        if not bucket:
+            return
+        try:
+            if not await self.vikunja.move(trigger.project_id, trigger.task_id, bucket):
+                log.warning("project %s has no Kanban column %r", trigger.project_id, bucket)
+        except Exception:
+            log.exception("couldn't move task %s to %r", trigger.task_id, bucket)
+
+    async def _label_verdict(self, trigger: Trigger, profile: Profile, result: JobResult) -> None:
+        if not profile.verdicts or result.is_error:
+            return
+        verdict = find_verdict(result.text, profile.verdicts)
+        if verdict is None:
+            log.warning("task %s: reply has no verdict line", trigger.task_id)
+            return
+        idx = profile.verdicts.index(verdict)
+        color = VERDICT_COLORS[idx] if idx < len(VERDICT_COLORS) else ""
+        try:
+            await self.vikunja.set_label(trigger.task_id, VERDICT_PREFIX + verdict, VERDICT_PREFIX, color)
+        except Exception:
+            log.exception("couldn't label task %s with its verdict", trigger.task_id)
+
     def accept(self, trigger: Trigger) -> tuple[Profile | None, str]:
         profile = self.cfg.profile_for(trigger.project_id)
         if profile is None:
@@ -98,9 +140,12 @@ class Dispatcher:
                 comments = await self.vikunja.comments(trigger.task_id)
                 history = [html_to_text(c.get("comment")) for c in comments[-MAX_CONTEXT_COMMENTS:]]
             await self.vikunja.comment(trigger.task_id, f"Working on this ({profile.name} profile).")
+            await self._move(trigger, profile.working_bucket)
             async with self.slots:
                 result = await asyncio.to_thread(self.runner.run, profile, build_prompt(trigger, profile, history))
             await self.vikunja.comment(trigger.task_id, reply_text(profile, result))
+            await self._label_verdict(trigger, profile, result)
+            await self._move(trigger, profile.replied_bucket)
             log.info("task %s done (error=%s, turns=%s)", trigger.task_id, result.is_error, result.turns)
         except Exception:
             log.exception("task %s failed", trigger.task_id)

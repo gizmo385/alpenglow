@@ -39,23 +39,28 @@ profiles:
     allowed_users: [chris@acbc.house, adam@acbc.house]
     max_turns: 30
     timeout_minutes: 20
+    # Kanban columns from vikunja/README.md, and the verdicts that become
+    # "Verdict: ..." labels (green, amber, red in this order).
+    buckets:
+      working: Assessing
+      replied: Needs decision
+    verdicts: [Easy, Needs care, Hold]
     instructions: |
       The card names a service, its current version and the version to
       assess, and may list apps or plugins that must keep working with it.
       Read the release notes for every version in between, not just the
-      newest one. Reply with these sections, short and in plain sentences:
+      newest one.
 
-      Verdict: one of Easy, Needs care or Hold, and why in one sentence.
-      Drift: how many releases and how long since the current version.
-      Breaking changes: config, database migrations, removed features or
-      env vars, and what we'd have to change. Say "none found" if so.
-      Security: fixed CVEs or advisories, with severity.
-      Compatibility: for each listed app or plugin, whether it supports the
-      new version, and any client app update needed.
-      Steps: the upgrade steps if anything beyond bumping the tag is needed.
+      Keep the reply short; it's read on a phone. Start with exactly one of
+      "Verdict: Easy", "Verdict: Needs care" or "Verdict: Hold", followed by
+      one sentence saying why.
 
-      Link the sources you used. If you couldn't read something, say so
-      instead of guessing.
+      Then list only what we need to know or do, each as a short bullet with
+      a source link: breaking changes that affect us (config, env vars,
+      database migrations, removed features), security fixes, problems with
+      the listed apps or plugins, and steps beyond bumping the tag. Leave
+      out anything with nothing to report, and don't list what you checked.
+      If something important couldn't be verified, say so in one line.
 
 projects:
   # Vikunja project id: profile. Find the id in the project's URL.

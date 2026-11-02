@@ -31,6 +31,13 @@ class Profile:
     cpus: float = 1.0
     runtime: str | None = None  # e.g. "runsc" for gVisor, when installed on the job daemon
     instructions: str = ""
+    # Kanban columns (bucket titles) to move the card to while a job runs and
+    # once Claude has replied. Empty leaves the card where it is.
+    working_bucket: str = ""
+    replied_bucket: str = ""
+    # Verdicts Claude's reply may start with ("Verdict: Easy"). Each one found
+    # becomes a "Verdict: <name>" label on the card, replacing older ones.
+    verdicts: tuple[str, ...] = ()
 
     @property
     def all_egress(self) -> tuple[str, ...]:
@@ -79,6 +86,9 @@ def load(path: Path) -> Config:
                 cpus=float(merged.get("cpus", Profile.cpus)),
                 runtime=merged.get("runtime"),
                 instructions=str(merged.get("instructions", "")),
+                working_bucket=str((merged.get("buckets") or {}).get("working", "")),
+                replied_bucket=str((merged.get("buckets") or {}).get("replied", "")),
+                verdicts=_tuple(merged.get("verdicts")),
             )
         except (TypeError, ValueError) as err:
             raise ConfigError(f"profile {name}: {err}") from err

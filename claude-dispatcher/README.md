@@ -67,7 +67,8 @@ sudo docker compose up -d --build
   signed in to Claude.
 - `WEBHOOK_SECRET`: any random string, e.g. `openssl rand -hex 32`.
 - `VIKUNJA_API_TOKEN`: in Vikunja, **Settings → API Tokens**, with
-  permission to read and create task comments.
+  permission to read and create task comments, read projects and their
+  views, move tasks between buckets, and read, create and attach labels.
 
 The `board` network comes from `../vikunja/compose.yaml`, so recreate Vikunja
 first (`sudo docker compose up -d` in `../vikunja`).
@@ -99,7 +100,16 @@ answer.
 
 ## Profiles
 
-`profiles.yaml` holds the profiles and the project-to-profile map. Adding a
+`profiles.yaml` holds the profiles and the project-to-profile map.
+
+A profile can also move cards and label verdicts:
+- `buckets: {working: Assessing, replied: Needs decision}` moves the card to
+  the Kanban column with that title when a job starts and when Claude
+  replies. A column that doesn't exist is skipped with a warning.
+- `verdicts: [Easy, Needs care, Hold]` looks for a reply that opens with
+  "Verdict: <one of these>" and gives the card a matching `Verdict: …`
+  label (green, amber, red in list order), replacing an older verdict
+  label. The Discord digest reads these labels. Adding a
 profile, widening `egress` or `allowed_tools`, or mapping a new project are
 all changes to what Claude can do, so they go through review in git. See the
 comments in that file for each setting.
