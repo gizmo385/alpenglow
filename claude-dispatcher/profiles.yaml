@@ -20,17 +20,6 @@ defaults:
   # runtime: runsc   # gVisor, once installed on the job daemon
 
 profiles:
-  # Smoke test for the board integration: answers a card with web research,
-  # no repo, no tools that touch anything.
-  test:
-    description: Answers the card's question. No repository, read-only tools.
-    allowed_tools: [WebSearch, WebFetch, Read, Grep, Glob]
-    egress:
-      - github.com
-      - githubusercontent.com
-    allowed_users: [chris@acbc.house, adam@acbc.house]
-    max_turns: 15
-
   # Upgrade assessments: one card per pending image upgrade, filed by hand
   # for now and later by the update tracker. Reads release notes and
   # advisories, then rates the upgrade. It can't change anything: the bump
@@ -70,5 +59,3 @@ profiles:
 
 projects:
   # Vikunja project id: profile. Find the id in the project's URL.
-  # 1: test
-  # 2: upgrade
