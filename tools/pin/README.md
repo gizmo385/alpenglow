@@ -23,6 +23,7 @@ Run it from anywhere in the repo with the `./pin` wrapper (needs
 | `./pin plugin NAME MODULE VERSION` | Pin an `xcaddy build --with` plugin of a base image (e.g. `caddy`). |
 | `./pin digests` | Look up digests for pinned images that don't have one yet. |
 | `./pin adopt NAME [--tag T]` | On the server: pin exactly what's running now, so moving off `latest` changes nothing. Reads the image's version label unless `--tag` is given, and refuses if that tag now points at a different digest (`--force` pins the running digest anyway). |
+| `./pin adopt --all` | On the server: `adopt` every compose image that has no entry in `versions.yaml` yet. Listed images (pinned or float) are left alone. Images it can't adopt (not running here, no version label, tag moved, env-var tag) are listed with the reason and skipped; retry those one at a time with `--tag`. |
 | `./pin list` | Show every entry. |
 
 ## versions.yaml

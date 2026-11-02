@@ -8,7 +8,7 @@ import pytest
 from pin.check import check
 from pin.cli import main
 from pin.lock import Lock, LockError
-from pin.ops import add_ref, adopt, fill_digests, set_plugin, set_tag
+from pin.ops import add_ref, adopt, adopt_all, fill_digests, set_plugin, set_tag
 from pin.refs import parse_ref, split_variant
 from pin.registry import split_name
 from pin.sync import apply, plan
@@ -301,6 +301,51 @@ def test_adopt_refuses_when_tag_moved(repo):
         lk, "nextcloud", tag="32.0.1", force=True, inspect=lambda ref: info, resolver=lambda n, t: D3
     )
     assert digest == D2 and warnings
+
+
+def test_adopt_all_adopts_unlisted_images_and_reports_failures(repo):
+    write(repo, "beszel/compose.yaml", """
+        services:
+          hub:
+            image: henrygd/beszel:latest
+          agent:
+            image: henrygd/beszel-agent
+          broken:
+            image: example/nolabel:1.0
+          gone:
+            image: example/notrunning:2.0
+    """)
+    infos = {
+        "henrygd/beszel:latest": {"RepoDigests": [f"henrygd/beszel@{D2}"],
+                                  "Config": {"Labels": {"org.opencontainers.image.version": "0.21.1"}}},
+        "henrygd/beszel-agent": {"RepoDigests": [f"henrygd/beszel-agent@{D3}"],
+                                 "Config": {"Labels": {"org.opencontainers.image.version": "0.21.1"}}},
+        "example/nolabel:1.0": {"RepoDigests": [f"example/nolabel@{D2}"], "Config": {"Labels": {}}},
+    }
+
+    def inspect(ref):
+        if ref not in infos:
+            raise LockError(f"docker has no image {ref}")
+        return infos[ref]
+
+    lk = lock(repo)
+    before = {n: (e.tag, e.digest, e.policy) for n, e in lk.entries().items()}
+    resolver = {"henrygd/beszel": D2, "henrygd/beszel-agent": D3}
+    adopted, skipped = adopt_all(lk, inspect=inspect, resolver=lambda n, t: resolver[n])
+    assert adopted == [("henrygd/beszel", "0.21.1"), ("henrygd/beszel-agent", "0.21.1")]
+    assert [n for n, _ in skipped] == ["example/nolabel", "example/notrunning"]
+    assert "no version label" in skipped[0][1] and "no image" in skipped[1][1]
+    after = lk.entries()
+    assert (after["henrygd/beszel"].tag, after["henrygd/beszel"].digest) == ("0.21.1", D2)
+    # listed images, including the float one, are untouched
+    assert all((after[n].tag, after[n].digest, after[n].policy) == v for n, v in before.items())
+
+
+def test_cli_adopt_needs_name_or_all(repo, capsys):
+    assert main(["--root", str(repo), "adopt"]) == 2
+    assert "or pass --all" in capsys.readouterr().err
+    assert main(["--root", str(repo), "adopt", "nextcloud", "--all"]) == 2
+    assert "can't be combined" in capsys.readouterr().err
 
 
 # ── cli ─────────────────────────────────────────────────────────────────────

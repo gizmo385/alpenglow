@@ -7,6 +7,7 @@
     pin plugin NAME MODULE VERSION  pin an xcaddy plugin of a base image
     pin digests                     look up missing digests for pinned images
     pin adopt NAME [--tag T]        pin what the server runs now (run on the server)
+    pin adopt --all                 adopt every compose image not in versions.yaml yet
     pin list                        show every entry
 """
 
@@ -18,7 +19,7 @@ from pathlib import Path
 
 from .check import check
 from .lock import LOCK_NAME, Lock, LockError
-from .ops import add_ref, adopt, fill_digests, set_plugin, set_tag
+from .ops import add_ref, adopt, adopt_all, fill_digests, set_plugin, set_tag
 from .registry import RegistryError
 from .sync import apply, plan
 
@@ -95,6 +96,22 @@ def cmd_digests(lock: Lock, args: argparse.Namespace) -> int:
 
 
 def cmd_adopt(lock: Lock, args: argparse.Namespace) -> int:
+    if args.all:
+        if args.name or args.tag or args.ref or args.force:
+            raise LockError("--all adopts every unlisted image; it can't be combined with NAME, --tag, --ref or --force")
+        adopted, skipped = adopt_all(lock)
+        for name, tag in adopted:
+            print(f"pinned {name} to {tag}")
+        for name, reason in skipped:
+            print(f"skipped {name}: {reason}")
+        if adopted:
+            lock.save()
+            _sync(lock)
+        print(f"adopted {len(adopted)}, skipped {len(skipped)}"
+              + ("; retry those with `pin adopt NAME --tag ...`" if skipped else ""))
+        return 1 if skipped else 0
+    if not args.name:
+        raise LockError("name an image, or pass --all")
     tag, digest, warnings = adopt(lock, args.name, tag=args.tag, ref=args.ref, force=args.force)
     for w in warnings:
         print(f"warning: {w}")
@@ -147,7 +164,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(func=cmd_digests)
 
     s = sub.add_parser("adopt", help="pin the image the server runs now")
-    s.add_argument("name")
+    s.add_argument("name", nargs="?")
+    s.add_argument("--all", action="store_true", help="adopt every compose image that has no entry yet")
     s.add_argument("--tag", help="release tag (default: the image's version label)")
     s.add_argument("--ref", help="image reference to inspect (for env-var tags)")
     s.add_argument("--force", action="store_true", help="pin the running digest even if the tag moved")

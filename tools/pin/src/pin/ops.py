@@ -196,3 +196,32 @@ def adopt(
             warnings.append(msg)
     _pin(lock, name, tag, digest)
     return tag, digest, warnings
+
+
+def adopt_all(
+    lock: Lock,
+    *,
+    inspect: Callable[[str], dict] = docker_inspect,
+    resolver: Resolver = resolve_digest,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Adopt every compose image that has no versions.yaml entry yet.
+
+    Images already listed (pinned or float) are left alone. One image failing
+    (not running here, no version label, tag moved, env-var tag) doesn't stop
+    the rest. Returns ``(adopted, skipped)`` as ``(name, tag)`` and
+    ``(name, reason)`` pairs.
+    """
+    listed = lock.entries()
+    names = sorted(
+        {u.ref.name for u in scan(lock.root, lock.excludes, lock.extra_files)
+         if u.kind == "compose" and u.ref is not None and u.ref.name not in listed}
+    )
+    adopted, skipped = [], []
+    for name in names:
+        try:
+            tag, _, _ = adopt(lock, name, inspect=inspect, resolver=resolver)
+        except Exception as err:  # each failure is reported, the rest carry on
+            skipped.append((name, str(err)))
+        else:
+            adopted.append((name, tag))
+    return adopted, skipped
