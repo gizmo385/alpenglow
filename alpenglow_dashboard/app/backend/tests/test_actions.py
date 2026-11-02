@@ -267,6 +267,58 @@ def test_concurrent_action_rejected_while_busy(client):
     assert "in flight" in resp.json()["detail"]
 
 
+# ── batch update ──────────────────────────────────────────────────────────────
+
+
+def _no_update_job(monkeypatch) -> list:
+    started: list = []
+
+    async def fake(jobs, user):
+        started.append(jobs)
+
+    monkeypatch.setattr(actions, "_update_job", fake)
+    return started
+
+
+def test_batch_update_starts_known_services_and_rejects_the_rest(client, monkeypatch):
+    started = _no_update_job(monkeypatch)
+    actions._BUSY["postgres"] = "restarting"
+    resp = client.post(
+        "/api/updates/apply",
+        json={"services": ["glances", "nope", "postgres", "glances"], "confirm": True},
+        headers=_csrf(client),
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [j["service"] for j in body["jobs"]] == ["glances"]
+    assert body["jobs"][0]["jobId"].startswith("pull-glances-")
+    assert {r["service"]: r["reason"] for r in body["rejected"]} == {
+        "nope": "unknown service",
+        "postgres": "an action is already in flight",
+    }
+    assert [[sid for sid, _ in jobs] for jobs in started] == [["glances"]]
+    assert actions._BUSY["glances"] == "updating"
+
+
+def test_batch_update_with_a_guarded_service_needs_confirm(client, monkeypatch):
+    started = _no_update_job(monkeypatch)
+    resp = client.post(
+        "/api/updates/apply", json={"services": ["glances", "caddy"]}, headers=_csrf(client)
+    )
+    assert resp.status_code == 409
+    assert "caddy" in resp.json()["detail"]
+    assert started == [] and actions._BUSY == {}
+
+
+def test_single_pull_goes_through_the_update_job(client, monkeypatch):
+    started = _no_update_job(monkeypatch)
+    resp = client.post(
+        "/api/services/glances/actions", json={"action": "pull"}, headers=_csrf(client)
+    )
+    assert resp.status_code == 200
+    assert [[sid for sid, _ in jobs] for jobs in started] == [["glances"]]
+
+
 # ── audit log format ──────────────────────────────────────────────────────────
 
 

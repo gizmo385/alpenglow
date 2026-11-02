@@ -349,6 +349,26 @@ class ActionResponse(BaseModel):
     jobId: str
 
 
+class UpdateBatchRequest(BaseModel):
+    services: list[str]
+    confirm: Optional[bool] = False
+
+
+class UpdateJob(BaseModel):
+    service: str
+    jobId: str
+
+
+class UpdateRejected(BaseModel):
+    service: str
+    reason: str
+
+
+class UpdateBatchResponse(BaseModel):
+    jobs: list[UpdateJob]
+    rejected: list[UpdateRejected]
+
+
 # ── GET /api/updates ──────────────────────────────────────────────────────────
 
 

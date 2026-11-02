@@ -23,6 +23,8 @@ import type {
   TagInfo,
   TagMutationResult,
   TagRenameRequest,
+  UpdateBatchRequest,
+  UpdateBatchResponse,
   Updates,
 } from "./types";
 
@@ -94,6 +96,8 @@ export const api = {
     mutate<ActionResponse>(`/api/services/${id}/actions`, "POST", action),
   updates: () => request<Updates>("/api/updates"),
   refreshUpdates: () => mutate<Updates>("/api/updates/refresh", "POST"),
+  applyUpdates: (body: UpdateBatchRequest) =>
+    mutate<UpdateBatchResponse>("/api/updates/apply", "POST", body),
 
   // Category management (G1)
   categories: () => request<CategoryInfo[]>("/api/categories"),

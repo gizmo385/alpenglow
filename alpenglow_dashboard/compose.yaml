@@ -40,7 +40,10 @@ services:
       - path: .env
         required: true
     volumes:
-      - /services:/services:ro
+      # Read-write so Update can repin images in versions.yaml and the
+      # compose files (./pin set, run as the checkout's owner). Nothing is
+      # committed; see app/README.md, "Updating services".
+      - /services:/services
       - ./data:/data-store
       - /data/postgres_backups:/pg-backups:ro
     expose:
