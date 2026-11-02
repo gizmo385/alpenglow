@@ -7,6 +7,9 @@
 # Every profile can reach api.anthropic.com. `egress` adds hosts (a name also
 # allows its subdomains). `allowed_tools` is passed to `claude --allowedTools`;
 # anything not listed is refused in headless mode.
+#
+# `allowed_users` are Vikunja usernames. With Keycloak login, Vikunja uses the
+# Keycloak username, which for us is the email address.
 
 defaults:
   image: claude-job:local
@@ -25,7 +28,7 @@ profiles:
     egress:
       - github.com
       - githubusercontent.com
-    allowed_users: [chris]
+    allowed_users: [chris@acbc.house, adam@acbc.house]
     max_turns: 15
 
   # Upgrade assessments: one card per pending image upgrade, filed by hand
@@ -44,7 +47,7 @@ profiles:
       - home-assistant.io
       - caddyserver.com
       - docs.tandoor.dev
-    allowed_users: [chris]
+    allowed_users: [chris@acbc.house, adam@acbc.house]
     max_turns: 30
     timeout_minutes: 20
     instructions: |
