@@ -3,6 +3,7 @@
     pin check                       compare the repo with versions.yaml
     pin sync [--dry-run]            write versions.yaml into compose files and Dockerfiles
     pin set NAME TAG                pin an image (and its group), resolving the digest
+    pin add IMAGE[:TAG]             give a new service's image an entry
     pin plugin NAME MODULE VERSION  pin an xcaddy plugin of a base image
     pin digests                     look up missing digests for pinned images
     pin adopt NAME [--tag T]        pin what the server runs now (run on the server)
@@ -17,7 +18,7 @@ from pathlib import Path
 
 from .check import check
 from .lock import LOCK_NAME, Lock, LockError
-from .ops import adopt, fill_digests, set_plugin, set_tag
+from .ops import add_ref, adopt, fill_digests, set_plugin, set_tag
 from .registry import RegistryError
 from .sync import apply, plan
 
@@ -63,6 +64,15 @@ def cmd_set(lock: Lock, args: argparse.Namespace) -> int:
     names = set_tag(lock, args.name, args.tag, resolve=not args.no_digest)
     lock.save()
     print(f"pinned {', '.join(names)} to {args.tag}")
+    return _sync(lock)
+
+
+def cmd_add(lock: Lock, args: argparse.Namespace) -> int:
+    what, warnings = add_ref(lock, args.ref, reason=args.reason)
+    for w in warnings:
+        print(f"warning: {w}")
+    lock.save()
+    print(what)
     return _sync(lock)
 
 
@@ -121,6 +131,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("tag")
     s.add_argument("--no-digest", action="store_true", help="don't look up the digest")
     s.set_defaults(func=cmd_set)
+
+    s = sub.add_parser("add", help="give a new service's image an entry (pin a release tag, float anything else)")
+    s.add_argument("ref", help="image reference as written in compose, e.g. ghcr.io/org/app:1.2.3")
+    s.add_argument("--reason", default="Not pinned yet", help="reason recorded for a float entry")
+    s.set_defaults(func=cmd_add)
 
     s = sub.add_parser("plugin", help="pin an xcaddy plugin of a base image")
     s.add_argument("name")

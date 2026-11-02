@@ -72,6 +72,30 @@ def fill_digests(lock: Lock, *, resolver: Resolver = resolve_digest) -> tuple[li
     return filled, failures
 
 
+def add_ref(
+    lock: Lock, ref: str, *, reason: str = "Not pinned yet", resolver: Resolver = resolve_digest
+) -> tuple[str, list[str]]:
+    """Give an image reference an entry, for a newly added service.
+
+    A release tag is pinned (with its digest when the registry answers); no tag
+    or a channel such as ``latest`` gets a float entry with ``reason``. An image
+    that already has an entry is left alone. Returns ``(what_happened, warnings)``.
+    """
+    r = parse_ref(ref)
+    if r.name in lock.entries():
+        return f"{r.name} already has an entry", []
+    if r.tag and r.tag not in FLOATING_TAGS and not r.interpolated:
+        try:
+            set_tag(lock, r.name, r.tag, resolver=resolver)
+            return f"pinned {r.name} to {r.tag}", []
+        except Exception as err:  # registry unreachable or rate limited
+            set_tag(lock, r.name, r.tag, resolve=False)
+            return f"pinned {r.name} to {r.tag} without a digest", [f"digest lookup failed: {err}"]
+    lock.set_field(r.name, "policy", "float")
+    lock.set_field(r.name, "reason", reason)
+    return f"added {r.name} as float ({reason})", []
+
+
 def set_plugin(lock: Lock, name: str, module: str, version: str) -> None:
     if name not in lock.entries():
         raise LockError(f"{name} isn't in {LOCK_NAME}")

@@ -16,6 +16,7 @@ Run it from anywhere in the repo with the `./pin` wrapper (needs
 | `./pin check` | Compare the repo with `versions.yaml`. Exits 1 on any mismatch, unpinned image or unpinned Caddy plugin. CI runs this. |
 | `./pin sync [--dry-run]` | Write `versions.yaml` into compose files and Dockerfiles. |
 | `./pin set NAME TAG` | Pin an image (and every image in its `group`) to `TAG`. Looks up the digest, which also proves the tag exists. Then syncs. |
+| `./pin add IMAGE[:TAG]` | Give a new service's image an entry: a release tag is pinned (with its digest), no tag or `latest` becomes a `float` entry. `create_service.sh --image` runs this. |
 | `./pin plugin NAME MODULE VERSION` | Pin an `xcaddy build --with` plugin of a base image (e.g. `caddy`). |
 | `./pin digests` | Look up digests for pinned images that don't have one yet. |
 | `./pin adopt NAME [--tag T]` | On the server: pin exactly what's running now, so moving off `latest` changes nothing. Reads the image's version label unless `--tag` is given, and refuses if that tag now points at a different digest (`--force` pins the running digest anyway). |

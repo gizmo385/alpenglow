@@ -8,7 +8,7 @@ import pytest
 from pin.check import check
 from pin.cli import main
 from pin.lock import Lock, LockError
-from pin.ops import adopt, fill_digests, set_plugin, set_tag
+from pin.ops import add_ref, adopt, fill_digests, set_plugin, set_tag
 from pin.refs import parse_ref, split_variant
 from pin.registry import split_name
 from pin.sync import apply, plan
@@ -346,3 +346,22 @@ def test_new_digest_goes_after_tag_not_after_trailing_comment(repo):
   fmtr/amniotic:
     tag: v1.10.1
 """
+
+
+def test_add_ref(repo):
+    write(repo, "newapp/compose.yaml", "services:\n  a:\n    image: example/newapp:1.4.0\n")
+    write(repo, "other/compose.yaml", "services:\n  a:\n    image: example/other:latest\n")
+    lk = lock(repo)
+    assert add_ref(lk, "example/newapp:1.4.0", resolver=lambda n, t: D2) == ("pinned example/newapp to 1.4.0", [])
+    assert add_ref(lk, "example/other:latest")[0] == "added example/other as float (Not pinned yet)"
+    assert add_ref(lk, "example/other:2.0")[0] == "example/other already has an entry"
+
+    def down(n, t):
+        raise RuntimeError("429")
+
+    write(repo, "third/compose.yaml", "services:\n  a:\n    image: example/third:3.1\n")
+    what, warnings = add_ref(lk, "example/third:3.1", resolver=down)
+    assert what == "pinned example/third to 3.1 without a digest" and warnings
+    lk.save()
+    apply(repo, plan(lock(repo)))
+    assert f"image: example/newapp:1.4.0@{D2}" in (repo / "newapp/compose.yaml").read_text()
