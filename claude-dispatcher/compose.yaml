@@ -1,0 +1,31 @@
+# Claude dispatcher: Vikunja webhooks in, sandboxed Claude jobs out, results
+# back as card comments. See README.md for the job daemon it needs.
+services:
+  dispatcher:
+    build: ./app
+    restart: unless-stopped
+    # Runs as the claude-jobs user so it can open that user's rootless Docker
+    # socket, and nothing else. It never touches the main Docker daemon.
+    user: "${JOBS_UID:?set JOBS_UID in .env}:${JOBS_GID:?set JOBS_GID in .env}"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      DOCKER_HOST: unix:///run/jobs-docker.sock
+      PROFILES_PATH: /config/profiles.yaml
+      VIKUNJA_API_URL: http://vikunja:3456/api/v1
+    volumes:
+      - ./profiles.yaml:/config/profiles.yaml:ro
+      - /run/user/${JOBS_UID}/docker.sock:/run/jobs-docker.sock
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    networks:
+      # Shared with Vikunja only: webhooks in, API calls out. No Caddy labels;
+      # nothing else needs to reach it.
+      board:
+        aliases: [claude-dispatcher]
+
+networks:
+  board:
+    external: true

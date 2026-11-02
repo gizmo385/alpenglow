@@ -44,6 +44,13 @@ services:
     description: Reverse proxy and TLS termination. Reads routing from container labels (caddy-docker-proxy).
     primary_container: caddy
 
+  claude-dispatcher:
+    name: Claude Dispatcher
+    category: Infrastructure
+    icon: ph-robot
+    description: Runs sandboxed Claude jobs for Vikunja cards and posts the answers back as comments.
+    primary_container: dispatcher
+
   copyparty:
     category: Infrastructure
     icon: ph-folder-open
