@@ -1,0 +1,20 @@
+# Fails when an image: or FROM line for an image listed in versions.yaml
+# disagrees with it. Fix with `./pin sync` (or `./pin set`), see tools/pin.
+name: pin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Unit tests
+        working-directory: tools/pin
+        run: uv run pytest -q
+      - name: versions.yaml matches the repo
+        run: ./pin check
