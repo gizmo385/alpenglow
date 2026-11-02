@@ -1,0 +1,9 @@
+# Vikunja only reads VIKUNJA_AUTH_OPENID_PROVIDERS_<KEY>_* env vars for a
+# provider that's named in a config file, so this file names it. Everything
+# else (URLs, client id, secret) is in .env.
+auth:
+  openid:
+    enabled: true
+    providers:
+      keycloak:
+        name: Keycloak

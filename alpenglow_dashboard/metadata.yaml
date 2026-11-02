@@ -211,6 +211,12 @@ services:
     icon: ph-heartbeat
     description: Uptime monitoring; receives webhook pings from backup and cron scripts.
 
+  vikunja:
+    sso: true
+    category: Productivity
+    icon: ph-kanban
+    description: Kanban board at board.acbc.house; cards in mapped projects start sandboxed Claude jobs.
+
   youtube_rss_manager:
     name: YouTube RSS
     sso: true

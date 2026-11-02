@@ -1,0 +1,35 @@
+# Vikunja: the kanban board for the upgrade pipeline (and later, other Claude
+# jobs). Tailnet only, login through Keycloak. See README.md.
+services:
+  vikunja:
+    image: vikunja/vikunja:2.7.1@sha256:f7dc8428d10aef17f3075886d3c1c022f566ec456f88985f02c137f4fc534576
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: https://board.acbc.house/
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+      VIKUNJA_DATABASE_TYPE: postgres
+      VIKUNJA_DATABASE_HOST: postgres.postgres
+      VIKUNJA_DATABASE_USER: vikunja
+      VIKUNJA_DATABASE_DATABASE: vikunja
+      VIKUNJA_AUTH_OPENID_ENABLED: "true"
+    volumes:
+      # Defines the Keycloak provider; its URL and secret come from .env.
+      - ./config.yml:/etc/vikunja/config.yml:ro
+      # Attachments. Vikunja runs as uid 1000: `sudo chown 1000 files`.
+      - ./files:/app/vikunja/files
+    networks:
+      - caddy
+      - postgres
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@board.host: "board.acbc.house"
+      caddy.reverse_proxy: "@board {{upstreams http 3456}}"
+
+networks:
+  caddy:
+    external: true
+  postgres:
+    external: true
