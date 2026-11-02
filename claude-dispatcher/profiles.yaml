@@ -28,6 +28,44 @@ profiles:
     allowed_users: [chris]
     max_turns: 15
 
+  # Upgrade assessments: one card per pending image upgrade, filed by hand
+  # for now and later by the update tracker. Reads release notes and
+  # advisories, then rates the upgrade. It can't change anything: the bump
+  # itself stays with a person (and later the approval flow).
+  upgrade:
+    description: Assesses one image upgrade. No repository, read-only tools.
+    allowed_tools: [WebSearch, WebFetch, Read, Grep, Glob]
+    egress:
+      - github.com              # release notes, changelogs, issues
+      - githubusercontent.com
+      - hub.docker.com          # tag lists
+      - api.osv.dev             # security advisories
+      - jellyfin.org
+      - home-assistant.io
+      - caddyserver.com
+      - docs.tandoor.dev
+    allowed_users: [chris]
+    max_turns: 30
+    timeout_minutes: 20
+    instructions: |
+      The card names a service, its current version and the version to
+      assess, and may list apps or plugins that must keep working with it.
+      Read the release notes for every version in between, not just the
+      newest one. Reply with these sections, short and in plain sentences:
+
+      Verdict: one of Easy, Needs care or Hold, and why in one sentence.
+      Drift: how many releases and how long since the current version.
+      Breaking changes: config, database migrations, removed features or
+      env vars, and what we'd have to change. Say "none found" if so.
+      Security: fixed CVEs or advisories, with severity.
+      Compatibility: for each listed app or plugin, whether it supports the
+      new version, and any client app update needed.
+      Steps: the upgrade steps if anything beyond bumping the tag is needed.
+
+      Link the sources you used. If you couldn't read something, say so
+      instead of guessing.
+
 projects:
   # Vikunja project id: profile. Find the id in the project's URL.
   # 1: test
+  # 2: upgrade
