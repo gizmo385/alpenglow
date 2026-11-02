@@ -99,6 +99,7 @@ def test_annotations_sorted_and_linked():
     data = v.payload(out)
     assert [g["name"] for g in data["groups"]] == ["Easy", "Needs care", "Hold", v.WAITING]
     assert data["items"][0]["repo"] == "TandoorRecipes/recipes"
+    assert data["link_label"] == "Open card"
 
 
 # ── API against fake Vikunja and tracker ────────────────────────────────────

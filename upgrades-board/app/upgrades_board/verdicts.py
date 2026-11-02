@@ -86,7 +86,8 @@ def annotations_from(cards: list[Card], comments: dict[int, list[dict]], public_
 
 def payload(annotations: list[Annotation]) -> dict:
     """The JSON the tracker's ``ANNOTATIONS_URL`` expects."""
-    return {"title": "Upgrades", "groups": GROUPS, "items": [asdict(a) for a in annotations]}
+    return {"title": "Upgrades", "link_label": "Open card", "groups": GROUPS,
+            "items": [asdict(a) for a in annotations]}
 
 
 async def fetch(api: Vikunja, public_url: str | None) -> list[Annotation]:

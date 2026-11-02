@@ -33,7 +33,7 @@ lines in their description, so leave those in place.
 labelled them with and the one-sentence reason from Claude's reply:
 
 ```json
-{"title": "Upgrades",
+{"title": "Upgrades", "link_label": "Open card",
  "groups": [{"name": "Easy", "emoji": "🟢", "color": "#2e7d32"}, …],
  "items": [{"repo": "Freika/dawarich", "title": "Dawarich 1.20.0 → 1.20.1",
             "group": "Easy", "note": "1.20.1 is a bug-fix patch…",
