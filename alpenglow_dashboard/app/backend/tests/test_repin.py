@@ -89,8 +89,9 @@ def test_load_pins_skips_floating(tmp_path: Path):
 FAKE_PIN = """\
 #!/usr/bin/env python3
 # Stand-in for ./pin set NAME TAG: rewrites versions.yaml and compose files.
-# Tags starting with "v" don't exist. Logs each call to pin.log.
-import pathlib, re, sys
+# Tags starting with "v" don't exist. Logs each call to pin.log; a "slow" file
+# makes it pause between reading and writing versions.yaml.
+import pathlib, re, sys, time
 _, cmd, name, tag = sys.argv
 root = pathlib.Path(__file__).parent
 with (root / "pin.log").open("a") as log:
@@ -98,7 +99,10 @@ with (root / "pin.log").open("a") as log:
 if tag.startswith("v"):
     sys.exit("error: manifest unknown")
 lock = root / "versions.yaml"
-lock.write_text(re.sub(rf"({re.escape(name)}: {{tag: )[^,}}]+", rf"\\g<1>{tag}", lock.read_text()))
+text = lock.read_text()
+if (root / "slow").exists():  # widen the read-modify-write window
+    time.sleep(0.3)
+lock.write_text(re.sub(rf"({re.escape(name)}: {{tag: )[^,}}]+", rf"\\g<1>{tag}", text))
 for c in root.glob("*/compose.yaml"):
     c.write_text(re.sub(rf"({re.escape(name)}):[^\\s@]+", rf"\\g<1>:{tag}", c.read_text()))
 """
@@ -222,3 +226,21 @@ def test_the_dashboard_updates_itself_last(job, repo: Path):
     calls, *_ = job
     run_update("alpenglow_dashboard", "beszel", "jellyfin")
     assert calls[-1] == ("alpenglow_dashboard", "pull")
+
+
+def test_back_to_back_clicks_queue_on_the_lock(job, repo: Path):
+    """Two separate Update requests in flight at once both land in versions.yaml."""
+    (repo / "slow").write_text("")
+    for sid in ("beszel", "jellyfin"):
+        actions._BUSY[sid] = "updating"
+
+    async def two_clicks():
+        await asyncio.gather(
+            actions._update_job([("beszel", "job-a")], "chris"),
+            actions._update_job([("jellyfin", "job-b")], "chris"),
+        )
+
+    asyncio.run(two_clicks())
+    lock = (repo / "versions.yaml").read_text()
+    assert "henrygd/beszel: {tag: 0.22.0" in lock
+    assert "jellyfin/jellyfin: {tag: 10.11.0" in lock
