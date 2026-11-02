@@ -26,6 +26,11 @@ Run it from anywhere in the repo with the `./pin` wrapper (needs
 | `./pin adopt --all` | On the server: `adopt` every compose image that has no entry in `versions.yaml` yet. Listed images (pinned or float) are left alone. Images it can't adopt (not running here, no version label, tag moved, env-var tag) are listed with the reason and skipped; retry those one at a time with `--tag`. |
 | `./pin list` | Show every entry. |
 
+Commands that write (`sync`, `set`, `add`, `plugin`, `digests`, `adopt`) hold
+an exclusive `flock` on `versions.yaml` until they finish, so two at once (the
+dashboard's Update button and a shell, say) never lose an edit; the second
+prints a note and waits. `check`, `list` and `sync --dry-run` don't lock.
+
 ## versions.yaml
 
 ```yaml

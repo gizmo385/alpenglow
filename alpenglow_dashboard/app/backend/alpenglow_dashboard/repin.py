@@ -10,7 +10,9 @@ rewrites the compose files.
 
 Nothing is committed: the edited ``versions.yaml`` and compose files are left
 in the server's checkout for a person to commit. Every repin edits the same
-``versions.yaml``, so they run one at a time under :func:`repo_lock`. A failed
+``versions.yaml``, so they run one at a time: :func:`repo_lock` orders the
+dashboard's own repins, and pin itself holds a ``flock`` on ``versions.yaml``
+while it writes, so a ``./pin`` run at a shell at the same moment waits too. A failed
 pull or recreate is not rolled back: an older version isn't always safe to go
 back to once a new one has migrated its data.
 

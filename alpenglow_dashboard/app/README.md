@@ -92,7 +92,8 @@ In the Updates view, tick services and press **Update selected**, or press a
 row's **Update**. Either posts `POST /api/updates/apply` (admin, CSRF), which:
 
 1. repins every image among them that `versions.yaml` lists (not
-   `policy: float`), one at a time: `/services/pin set IMAGE TAG` with the
+   `policy: float`), one at a time (pin locks `versions.yaml` while it
+   writes, so a `./pin` at a shell waits its turn too): `/services/pin set IMAGE TAG` with the
    tracker's new release, spelled like the current tag (`v` prefix and a
    suffix such as `-alpine` kept; the next spelling is tried if the registry
    has no such tag);

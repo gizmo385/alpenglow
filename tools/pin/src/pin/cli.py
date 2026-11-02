@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from .check import check
-from .lock import LOCK_NAME, Lock, LockError
+from .lock import LOCK_NAME, Lock, LockError, exclusive
 from .ops import add_ref, adopt, adopt_all, fill_digests, set_plugin, set_tag
 from .registry import RegistryError
 from .sync import apply, plan
@@ -176,12 +176,21 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+# Commands that write versions.yaml or compose files: they hold the file lock.
+WRITES = {"sync", "set", "add", "plugin", "digests", "adopt"}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         root = args.root.resolve() if args.root else find_root(Path.cwd())
-        lock = Lock.load(root / LOCK_NAME)
-        return args.func(lock, args)
+        path = root / LOCK_NAME
+        if not path.is_file():
+            raise LockError(f"no {LOCK_NAME} in {root}")
+        if args.command in WRITES and not getattr(args, "dry_run", False):
+            with exclusive(path):
+                return args.func(Lock.load(path), args)
+        return args.func(Lock.load(path), args)
     except (LockError, RegistryError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 2
