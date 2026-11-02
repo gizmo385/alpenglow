@@ -5,6 +5,7 @@
 #   - A service directory with compose.yaml, .env, .env.example, .gitignore
 #   - An optional dedicated system user (nologin, /nonexistent home) for running the container
 #   - An optional dedicated PostgreSQL database and role
+#   - An entry in versions.yaml for the image (see tools/pin), so `./pin check` passes
 #
 # Usage:
 #   ./create_service.sh <service_name> [options]
@@ -182,6 +183,19 @@ mkdir -p "$SERVICE_DIR"
     fi
 } > "${SERVICE_DIR}/compose.yaml"
 
+# --- Record the image in versions.yaml ---
+# A release tag is pinned with its digest; latest or no tag gets a float entry.
+# Without an entry, CI's `./pin check` fails on the new compose.yaml.
+if [[ -n "$IMAGE" ]]; then
+    echo ""
+    if command -v uv >/dev/null 2>&1; then
+        "${SCRIPT_DIR}/pin" add "$IMAGE" || echo "Warning: couldn't add ${IMAGE} to versions.yaml; run ./pin add ${IMAGE}"
+    else
+        echo "Warning: uv isn't installed, so ${IMAGE} wasn't added to versions.yaml."
+        echo "Run ./pin add ${IMAGE} before committing, or CI's pin check fails."
+    fi
+fi
+
 # --- Create .env and .gitignore ---
 touch "${SERVICE_DIR}/.env"
 echo "data" > "${SERVICE_DIR}/.gitignore"
@@ -224,5 +238,8 @@ fi
 echo ""
 echo "Next steps:"
 echo "  1. Edit ${SERVICE_DIR}/compose.yaml to finalize the configuration"
+if [[ -z "$IMAGE" ]]; then
+    echo "     then record its image: ./pin add <image:tag>"
+fi
 echo "  2. Add required environment variables to ${SERVICE_DIR}/.env"
 echo "  3. Run: cd ${SERVICE_DIR} && sudo docker compose up -d"
