@@ -28,15 +28,15 @@ prompt-injected job from sending it anywhere else.
 
 ## Setup
 
-These steps are for Debian/Ubuntu with Docker's apt repo. They haven't been
-run on alpenglow yet.
+These steps are for Debian/Ubuntu with Docker's apt repo. Steps 1 to 3 are
+once per server; step 4 is once per Vikunja project.
 
 ### 1. A rootless Docker daemon for jobs
 
 ```sh
 sudo apt-get install -y uidmap docker-ce-rootless-extras systemd-container
 sudo useradd --create-home --shell /usr/sbin/nologin claude-jobs
-sudo usermod --add-subuids 300000-365535 --add-subgids 300000-365535 claude-jobs
+grep claude-jobs /etc/subuid /etc/subgid   # useradd assigns one range each; don't add another
 sudo loginctl enable-linger claude-jobs
 sudo machinectl shell claude-jobs@ /bin/bash -c 'dockerd-rootless-setuptool.sh install && systemctl --user enable --now docker'
 ls -l /run/user/$(id -u claude-jobs)/docker.sock   # should exist
@@ -57,33 +57,45 @@ Rebuild after changing `job/` (for example to bump `CLAUDE_CODE_VERSION`).
 ### 3. Configure and start the dispatcher
 
 ```sh
-cp .env.example .env    # JOBS_UID/GID from `id claude-jobs`, a `claude setup-token` token,
-                        # a webhook secret, and a Vikunja API token
+cp .env.example .env
 sudo docker compose up -d --build
 ```
+
+`.env` needs:
+- `JOBS_UID` / `JOBS_GID` from `id claude-jobs`.
+- `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, run anywhere you're
+  signed in to Claude.
+- `WEBHOOK_SECRET`: any random string, e.g. `openssl rand -hex 32`.
+- `VIKUNJA_API_TOKEN`: in Vikunja, **Settings → API Tokens**, with
+  permission to read and create task comments.
 
 The `board` network comes from `../vikunja/compose.yaml`, so recreate Vikunja
 first (`sudo docker compose up -d` in `../vikunja`).
 
-### 4. Point a Vikunja project at it
+### 4. Connect a Vikunja project
 
-1. Create a project, for example **Claude test**, and note its id from the URL.
-2. Map it in `profiles.yaml` (`projects: {<id>: test}`) and restart the
-   dispatcher.
+Each project that should run Claude jobs needs a profile and a webhook.
+
+1. Note the project's id from its URL.
+2. Map it to a profile under `projects:` in `profiles.yaml`
+   (`<id>: <profile>`), commit, and restart the dispatcher.
 3. In the project's settings, open **Webhooks** and add:
    - Target URL: `http://claude-dispatcher:8080/webhooks/vikunja`
    - Secret: the same `WEBHOOK_SECRET` as `.env`
    - Events: `task.created`, `task.comment.created`
 
-### 5. Try it
+A new card in the project starts a job, and a comment starting with
+`@claude` starts a follow-up. Each job posts "Working on this", then its
+answer.
 
-Create a card in that project, such as "What changed in the latest Immich
-release?". Within a few seconds it should get a "Working on this" comment,
-then Claude's answer. Reply with `@claude ...` to ask a follow-up.
+## Troubleshooting
 
-If nothing happens: `sudo docker compose logs dispatcher`, and the proxy's
-allow/deny log with
-`sudo -u claude-jobs env DOCKER_HOST=$JOBS_DOCKER docker logs claude-egress-test`.
+- **No "Working on this" comment:** `sudo docker compose logs dispatcher`.
+  "bad or missing signature" means the webhook secret doesn't match, and
+  "has no profile" means the project isn't mapped.
+- **The job can't reach a site:** the egress proxy logs each allow and deny.
+  `sudo -u claude-jobs env DOCKER_HOST=$JOBS_DOCKER docker logs claude-egress-<profile>`
+  (`JOBS_DOCKER` as in step 2).
 
 ## Profiles
 
