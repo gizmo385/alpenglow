@@ -66,9 +66,16 @@ sudo docker compose up -d --build
 - `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, run anywhere you're
   signed in to Claude.
 - `WEBHOOK_SECRET`: any random string, e.g. `openssl rand -hex 32`.
-- `VIKUNJA_API_TOKEN`: in Vikunja, **Settings → API Tokens**, with
-  permission to read and create task comments, read projects and their
-  views, move tasks between buckets, and read, create and attach labels.
+- `VIKUNJA_API_TOKEN`: in Vikunja, **Settings → API Tokens**. Vikunja
+  doesn't let you change a token's permissions later, so tick all of these
+  when you create it:
+  - **Tasks**: Read One, Update
+  - **Tasks Comments**: Read All, Create
+  - **Projects Views**: Read All
+  - **Projects**: Views Buckets, Views Buckets Tasks (to move cards between
+    columns)
+  - **Labels**: Read All, Create
+  - **Tasks Labels**: Read All, Create, Delete
 
 The `board` network comes from `../vikunja/compose.yaml`, so recreate Vikunja
 first (`sudo docker compose up -d` in `../vikunja`).
