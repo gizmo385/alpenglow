@@ -211,6 +211,13 @@ services:
     icon: ph-heartbeat
     description: Uptime monitoring; receives webhook pings from backup and cron scripts.
 
+  vikunja:
+    name: Board
+    sso: true
+    category: Productivity
+    icon: ph-kanban
+    description: Kanban board for the upgrade pipeline; one card per pending image upgrade.
+
   youtube_rss_manager:
     name: YouTube RSS
     sso: true
