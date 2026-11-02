@@ -370,3 +370,20 @@ def test_add_ref(repo):
     lk.save()
     apply(repo, plan(lock(repo)))
     assert f"image: example/newapp:1.4.0@{D2}" in (repo / "newapp/compose.yaml").read_text()
+
+
+def test_docker_inspect_retries_under_sudo(monkeypatch):
+    import subprocess
+    from pin import ops
+
+    calls = []
+
+    def run(cmd, **kw):
+        calls.append(cmd)
+        if cmd[0] == "docker":
+            raise subprocess.CalledProcessError(1, cmd, stderr="permission denied while trying to connect")
+        return subprocess.CompletedProcess(cmd, 0, stdout='[{"Id": "x"}]')
+
+    monkeypatch.setattr(ops.os, "geteuid", lambda: 1000)
+    assert ops.docker_inspect("freikin/dawarich:latest", run=run) == {"Id": "x"}
+    assert calls[1][:2] == ["sudo", "docker"]
