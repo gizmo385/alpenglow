@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import subprocess
 from collections.abc import Callable
 
@@ -110,16 +112,25 @@ def set_plugin(lock: Lock, name: str, module: str, version: str) -> None:
 # ── adopt ───────────────────────────────────────────────────────────────────
 
 
-def docker_inspect(ref: str) -> dict:
-    """``docker image inspect`` for one image; honours DOCKER_HOST."""
+def docker_inspect(ref: str, run: Callable[..., subprocess.CompletedProcess] = subprocess.run) -> dict:
+    """``docker image inspect`` for one image; honours DOCKER_HOST.
+
+    If the Docker socket needs root, only this one read-only command is retried
+    under sudo, so pin itself (and the files it writes) stays yours.
+    """
+    cmd = ["docker", "image", "inspect", ref]
     try:
-        out = subprocess.run(
-            ["docker", "image", "inspect", ref], check=True, capture_output=True, text=True
-        ).stdout
+        try:
+            out = run(cmd, check=True, capture_output=True, text=True).stdout
+        except subprocess.CalledProcessError as err:
+            if "permission denied" not in (err.stderr or "").lower() or os.geteuid() == 0:
+                raise
+            print("Docker needs root here; running `sudo docker image inspect`.", file=sys.stderr)
+            out = run(["sudo", *cmd], check=True, stdout=subprocess.PIPE, text=True).stdout
     except FileNotFoundError as err:
         raise LockError("docker isn't installed here; run `pin adopt` on the server") from err
     except subprocess.CalledProcessError as err:
-        raise LockError(f"docker image inspect {ref} failed: {err.stderr.strip()}") from err
+        raise LockError(f"docker image inspect {ref} failed: {(err.stderr or '').strip()}") from err
     data = json.loads(out)
     if not data:
         raise LockError(f"docker has no image {ref}")
