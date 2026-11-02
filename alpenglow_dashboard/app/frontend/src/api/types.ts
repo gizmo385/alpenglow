@@ -266,6 +266,11 @@ export interface UpdateEntry {
   latestVersion: string;
   releasedAt: string | null;
   changelogUrl: string | null;
+  /** Claude's assessment from upgrades-board, when the update has a card. */
+  verdict?: string | null;
+  verdictNote?: string | null;
+  verdictColor?: string | null;
+  cardUrl?: string | null;
 }
 
 export interface Updates {

@@ -1,0 +1,18 @@
+name: upgrades-board
+
+on:
+  push:
+    branches: [main]
+    paths: ["upgrades-board/**", ".github/workflows/upgrades-board.yaml"]
+  pull_request:
+    paths: ["upgrades-board/**", ".github/workflows/upgrades-board.yaml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Tests
+        working-directory: upgrades-board/app
+        run: uv run pytest -q

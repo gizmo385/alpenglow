@@ -33,7 +33,7 @@
     -webkit-overflow-scrolling: touch;
   }
   .tableCard :global(.table) {
-    min-width: 560px;
+    min-width: 680px;
   }
 }
 
@@ -114,4 +114,41 @@
   font-size: 13px;
   margin: 2px 0 0;
   color: var(--color-neutral-500);
+}
+
+/* Assessment column: Claude's verdict from upgrades-board, linking to its card. */
+.verdictCell {
+  max-width: 260px;
+}
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.verdict:hover {
+  text-decoration: underline;
+}
+.verdictDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.verdictNote {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--color-neutral-500);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.noVerdict {
+  color: var(--color-neutral-600);
 }

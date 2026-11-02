@@ -125,8 +125,8 @@ comments in that file for each setting.
 
 - Telemetry to SigNoz (needs a filtering relay in front of Alloy).
 - Polling as a fallback for missed webhooks (Vikunja sends each one once).
-- The upgrade flow: the update tracker filing cards, assessments, Discord
-  approval and the applier.
+- The rest of the upgrade flow: approving from Discord and an applier.
+  Cards are filed and their verdicts served by [`../upgrades-board`](../upgrades-board).
 
 ## Development
 

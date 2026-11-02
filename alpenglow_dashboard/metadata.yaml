@@ -213,6 +213,13 @@ services:
     description: Inspects running containers and checks GitHub for newer releases. Feeds this dashboard.
     primary_container: release-feeds
 
+  upgrades-board:
+    name: Upgrades Board
+    category: Infrastructure
+    icon: ph-kanban
+    description: Files a Vikunja card for each pending upgrade for Claude to assess, and serves the verdicts to the Updates view and the Discord digest.
+    primary_container: upgrades-board
+
   uptime_kuma:
     category: Monitoring
     icon: ph-heartbeat

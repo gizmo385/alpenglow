@@ -52,13 +52,13 @@ def _mock_client(handler):
 @pytest.fixture(autouse=True)
 def _reset_caches():
     """Each test starts with cold integration caches."""
-    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE,
+    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE, updates_mod._ANNOTATIONS_CACHE,
                   beszel._INFO_CACHE, beszel._CHARTS_CACHE, beszel._CONTAINERS_CACHE,
                   beszel._CONTAINER_HISTORY_CACHE):
         cache.invalidate()
     beszel._TOKENS.clear()
     yield
-    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE,
+    for cache in (glances._CACHE, kuma._CACHE, updates_mod._CACHE, updates_mod._ANNOTATIONS_CACHE,
                   beszel._INFO_CACHE, beszel._CHARTS_CACHE, beszel._CONTAINERS_CACHE,
                   beszel._CONTAINER_HISTORY_CACHE):
         cache.invalidate()
@@ -444,6 +444,45 @@ async def test_updates_route_builds_entries(monkeypatch, updates_env):
     immich = next(e for e in result.services if e.id == "immich")
     assert immich.name == "Immich" and immich.icon == "ph-images"
     assert immich.latestVersion == "v3.0.2"
+
+
+@pytest.mark.asyncio
+async def test_updates_carry_upgrades_board_verdicts(monkeypatch, updates_env):
+    payload = {**TRACKER_PAYLOAD, "services": [
+        {**e, "owner": "immich-app" if e["repo"] == "immich" else "ollama"} for e in TRACKER_PAYLOAD["services"][:2]
+    ]}
+    annotations = {
+        "title": "Upgrades",
+        "groups": [{"name": "Easy", "emoji": "🟢", "color": "#2e7d32"}],
+        "items": [{"repo": "Immich-App/Immich", "title": "Immich v2.7.5 → v3.0.2", "group": "Easy",
+                   "note": "Bug fixes only.", "url": "https://board.example/tasks/4", "card_id": 4}],
+    }
+
+    def handler(request):
+        if request.url.path.endswith("/annotations"):
+            return httpx.Response(200, json=annotations)
+        return _tracker_handler(payload)(request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(handler))
+    result = await updates_mod.get_updates()
+    by_id = {e.id: e for e in result.services}
+    immich = by_id["immich"]
+    assert (immich.verdict, immich.verdictNote, immich.verdictColor, immich.cardUrl) == \
+        ("Easy", "Bug fixes only.", "#2e7d32", "https://board.example/tasks/4")
+    assert by_id["ollama"].verdict is None
+
+
+@pytest.mark.asyncio
+async def test_updates_without_upgrades_board_still_list(monkeypatch, updates_env):
+    def handler(request):
+        if request.url.path.endswith("/annotations"):
+            raise httpx.ConnectError("no route", request=request)
+        return _tracker_handler(TRACKER_PAYLOAD)(request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", _mock_client(handler))
+    result = await updates_mod.get_updates()
+    assert {e.id for e in result.services} == {"immich", "ollama", "twenty"}
+    assert all(e.verdict is None for e in result.services)
 
 
 @pytest.mark.asyncio

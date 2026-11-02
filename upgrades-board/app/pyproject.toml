@@ -1,0 +1,26 @@
+[project]
+name = "upgrades-board"
+version = "0.1.0"
+description = "Files Vikunja Upgrades cards from the update tracker and serves Claude's verdicts"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "httpx>=0.28",
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["upgrades_board"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

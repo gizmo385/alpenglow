@@ -500,11 +500,24 @@ def mock_beszel_containers(detail: models.ServiceDetail) -> list[models.BeszelCo
     return out
 
 
+# What upgrades-board would report for a few of the mock updates.
+_MOCK_VERDICTS = [
+    ("Easy", "#2e7d32", "Bug-fix patch with no migrations or config changes."),
+    ("Needs care", "#f9a825", "Changes the default database pool size; check your overrides first."),
+    ("Waiting for assessment", "#9e9e9e", None),
+]
+
+
 def mock_updates() -> models.Updates:
     entries = []
     for sid, s in MOCK_SERVICES.items():
         if not s["latest"]:
             continue
+        verdict = {}
+        if len(entries) < len(_MOCK_VERDICTS):
+            name, color, note = _MOCK_VERDICTS[len(entries)]
+            verdict = dict(verdict=name, verdictColor=color, verdictNote=note,
+                           cardUrl=f"https://board.example/tasks/{len(entries) + 1}")
         entries.append(models.UpdateEntry(
             id=sid,
             name=s["name"],
@@ -514,6 +527,7 @@ def mock_updates() -> models.Updates:
             latestVersion=s["latest"],
             releasedAt=_ago(days=s["released"]) if s.get("released") is not None else None,
             changelogUrl=s["changelog"],
+            **verdict,
         ))
     return models.Updates(
         services=entries,
