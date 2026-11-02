@@ -13,8 +13,8 @@ from fastapi.testclient import TestClient
 from dispatcher import config
 from dispatcher.config import Config, Profile
 from dispatcher.jobs import JobResult, command, container_options, parse_output
-from dispatcher.main import Dispatcher, build_prompt, create_app, reply_text
-from dispatcher.vikunja import to_html
+from dispatcher.main import Dispatcher, build_prompt, create_app, find_verdict, reply_text
+from dispatcher.vikunja import Vikunja, to_html
 from dispatcher.webhook import html_to_text, parse, verify
 
 SECRET = "s3cret"
@@ -122,6 +122,15 @@ def test_parse_output():
 class FakeVikunja:
     def __init__(self):
         self.posted: list[tuple[int, str]] = []
+        self.moves: list[tuple[int, int, str]] = []
+        self.labels: list[tuple[int, str, str, str]] = []
+
+    async def move(self, project_id, task_id, bucket):
+        self.moves.append((project_id, task_id, bucket))
+        return True
+
+    async def set_label(self, task_id, title, prefix, color=""):
+        self.labels.append((task_id, title, prefix, color))
 
     async def comment(self, task_id, text):
         self.posted.append((task_id, text))
@@ -190,3 +199,83 @@ def test_webhook_endpoint():
     assert client.post("/webhooks/vikunja", content=body, headers={"X-Vikunja-Signature": sign(body)}).status_code == 202
     other = json.dumps(event("task.created", project_id=99)).encode()
     assert client.post("/webhooks/vikunja", content=other, headers={"X-Vikunja-Signature": sign(other)}).status_code == 204
+
+
+# ── verdicts and columns ────────────────────────────────────────────────────
+
+VERDICTS = ("Easy", "Needs care", "Hold")
+
+
+def test_find_verdict():
+    assert find_verdict("Verdict: Easy. Patch release.", VERDICTS) == "Easy"
+    assert find_verdict("**Verdict: Needs care** — new env var", VERDICTS) == "Needs care"
+    assert find_verdict("\n\nverdict - hold\nmigration breaks", VERDICTS) == "Hold"
+    assert find_verdict("Looks easy to me", VERDICTS) is None
+    assert find_verdict("a\nb\nc\nVerdict: Easy", VERDICTS) is None  # too far down
+
+
+def test_load_buckets_and_verdicts(tmp_path: Path):
+    path = tmp_path / "profiles.yaml"
+    path.write_text("profiles:\n  u:\n    buckets: {working: Assessing, replied: Needs decision}\n"
+                    "    verdicts: [Easy, Hold]\n")
+    p = config.load(path).profiles["u"]
+    assert (p.working_bucket, p.replied_bucket, p.verdicts) == ("Assessing", "Needs decision", ("Easy", "Hold"))
+
+
+def test_handle_moves_card_and_labels_verdict():
+    profile = Profile(name="upgrade", working_bucket="Assessing", replied_bucket="Needs decision", verdicts=VERDICTS)
+    cfg = Config(profiles={"upgrade": profile}, projects={7: "upgrade"})
+    v = FakeVikunja()
+    d = Dispatcher(cfg, v, FakeRunner(JobResult("Verdict: Needs care\n- new env var", False)), jobs_per_day=5, max_concurrent=1)
+    trigger = parse(event("task.created"))
+    asyncio.run(d.handle(trigger, d.accept(trigger)[0]))
+    assert v.moves == [(7, 42, "Assessing"), (7, 42, "Needs decision")]
+    assert v.labels == [(42, "Verdict: Needs care", "Verdict: ", "f9a825")]
+
+
+def test_handle_skips_label_on_error_and_without_config():
+    v = FakeVikunja()
+    profile = Profile(name="upgrade", verdicts=VERDICTS)
+    d = Dispatcher(Config(profiles={"upgrade": profile}, projects={7: "upgrade"}), v,
+                   FakeRunner(JobResult("Verdict: Easy", True)), jobs_per_day=5, max_concurrent=1)
+    trigger = parse(event("task.created"))
+    asyncio.run(d.handle(trigger, d.accept(trigger)[0]))
+    assert v.labels == [] and v.moves == []
+
+
+def test_vikunja_move_and_label():
+    import httpx
+
+    calls = []
+
+    def handler(request):
+        body = json.loads(request.content) if request.content else None
+        calls.append((request.method, request.url.path, body))
+        path = request.url.path
+        if path == "/api/v1/projects/2/views":
+            return httpx.Response(200, json=[{"id": 5, "view_kind": "list"}, {"id": 8, "view_kind": "kanban"}])
+        if path == "/api/v1/projects/2/views/8/buckets":
+            return httpx.Response(200, json=[{"id": 30, "title": "Inbox"}, {"id": 31, "title": "Needs decision"}])
+        if path == "/api/v1/tasks/42/labels" and request.method == "GET":
+            return httpx.Response(200, json=[{"id": 1, "title": "Verdict: Easy"}, {"id": 2, "title": "infra"}])
+        if path == "/api/v1/labels" and request.method == "GET":
+            return httpx.Response(200, json=[{"id": 9, "title": "Verdict: Hold (old)"}])
+        if path == "/api/v1/labels" and request.method == "PUT":
+            return httpx.Response(200, json={"id": 10})
+        return httpx.Response(200, json={})
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            v = Vikunja("http://v/api/v1", "tok", client)
+            assert await v.move(2, 42, "needs decision")
+            assert not await v.move(2, 42, "Nope")
+            await v.set_label(42, "Verdict: Hold", "Verdict: ", "c62828")
+
+    asyncio.run(go())
+    writes = [(m, p, b) for m, p, b in calls if m != "GET"]
+    assert writes == [
+        ("POST", "/api/v1/projects/2/views/8/buckets/31/tasks", {"task_id": 42}),
+        ("DELETE", "/api/v1/tasks/42/labels/1", None),
+        ("PUT", "/api/v1/labels", {"title": "Verdict: Hold", "hex_color": "c62828"}),
+        ("PUT", "/api/v1/tasks/42/labels", {"label_id": 10}),
+    ]
