@@ -66,7 +66,7 @@ def test_unknown_profile_is_an_error(tmp_path: Path):
 
 def test_repo_profiles_file_loads():
     cfg = config.load(Path(__file__).parents[2] / "profiles.yaml")
-    assert "test" in cfg.profiles
+    assert "upgrade" in cfg.profiles
 
 
 # ── webhook ─────────────────────────────────────────────────────────────────

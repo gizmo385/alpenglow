@@ -7,6 +7,9 @@
 # Every profile can reach api.anthropic.com. `egress` adds hosts (a name also
 # allows its subdomains). `allowed_tools` is passed to `claude --allowedTools`;
 # anything not listed is refused in headless mode.
+#
+# `allowed_users` are Vikunja usernames. With Keycloak login, Vikunja uses the
+# Keycloak username, which for us is the email address.
 
 defaults:
   image: claude-job:local
@@ -17,17 +20,43 @@ defaults:
   # runtime: runsc   # gVisor, once installed on the job daemon
 
 profiles:
-  # Smoke test for the board integration: answers a card with web research,
-  # no repo, no tools that touch anything.
-  test:
-    description: Answers the card's question. No repository, read-only tools.
+  # Upgrade assessments: one card per pending image upgrade, filed by hand
+  # for now and later by the update tracker. Reads release notes and
+  # advisories, then rates the upgrade. It can't change anything: the bump
+  # itself stays with a person (and later the approval flow).
+  upgrade:
+    description: Assesses one image upgrade. No repository, read-only tools.
     allowed_tools: [WebSearch, WebFetch, Read, Grep, Glob]
     egress:
-      - github.com
+      - github.com              # release notes, changelogs, issues
       - githubusercontent.com
-    allowed_users: [chris]
-    max_turns: 15
+      - hub.docker.com          # tag lists
+      - api.osv.dev             # security advisories
+      - jellyfin.org
+      - home-assistant.io
+      - caddyserver.com
+      - docs.tandoor.dev
+    allowed_users: [chris@acbc.house, adam@acbc.house]
+    max_turns: 30
+    timeout_minutes: 20
+    instructions: |
+      The card names a service, its current version and the version to
+      assess, and may list apps or plugins that must keep working with it.
+      Read the release notes for every version in between, not just the
+      newest one. Reply with these sections, short and in plain sentences:
+
+      Verdict: one of Easy, Needs care or Hold, and why in one sentence.
+      Drift: how many releases and how long since the current version.
+      Breaking changes: config, database migrations, removed features or
+      env vars, and what we'd have to change. Say "none found" if so.
+      Security: fixed CVEs or advisories, with severity.
+      Compatibility: for each listed app or plugin, whether it supports the
+      new version, and any client app update needed.
+      Steps: the upgrade steps if anything beyond bumping the tag is needed.
+
+      Link the sources you used. If you couldn't read something, say so
+      instead of guessing.
 
 projects:
   # Vikunja project id: profile. Find the id in the project's URL.
-  # 1: test
+  2: upgrade   # Upgrades
