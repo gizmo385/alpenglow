@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import fcntl
+import io
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -155,9 +156,13 @@ class Lock:
             pos = max((i + 1 for i, k in enumerate(raw) if k in before), default=0)
             raw.insert(pos, key, value)
 
+    def dumps(self) -> str:
+        buf = io.StringIO()
+        _yaml().dump(self.doc, buf)
+        return buf.getvalue()
+
     def save(self) -> None:
-        with self.path.open("w") as fh:
-            _yaml().dump(self.doc, fh)
+        self.path.write_text(self.dumps())
 
 
 def _opt_str(v: Any) -> str | None:

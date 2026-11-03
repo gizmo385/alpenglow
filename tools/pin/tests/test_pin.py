@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import textwrap
 from pathlib import Path
 
@@ -300,6 +301,101 @@ def test_set_saves_nothing_when_a_group_member_has_no_such_tag(repo):
     with pytest.raises(RegistryError):
         set_tag(lock(repo), "henrygd/beszel", "0.22.0", resolver=resolver)
     assert (repo / "versions.yaml").read_text() == before
+
+
+def _repo_with_two_services(repo):
+    """Two compose files: a sync that writes ``a`` first would still reach ``b``."""
+    write(repo, "versions.yaml", """
+        images:
+          example/a:
+            tag: 1.0.0
+          example/b:
+            tag: 1.0.0
+    """)
+    write(repo, "a/compose.yaml", "services:\n  a:\n    image: example/a:1.0.0\n")
+    write(repo, "b/compose.yaml", "services:\n  b:\n    image: example/b:0.9.0\n")
+
+
+def _snapshot(repo):
+    return {rel: (repo / rel).read_text() for rel in ("versions.yaml", "a/compose.yaml", "b/compose.yaml")}
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can write a read-only file")
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["set", "example/a", "2.0.0", "--no-digest"],
+        ["add", "example/new:latest"],
+        ["sync"],
+    ],
+)
+def test_unwritable_file_changes_nothing(repo, capsys, argv):
+    _repo_with_two_services(repo)
+    (repo / "b/compose.yaml").chmod(0o444)
+    before = _snapshot(repo)
+    assert main(["--root", str(repo), *argv]) == 2
+    assert _snapshot(repo) == before
+    err = capsys.readouterr().err
+    assert "b/compose.yaml" in err and "nothing was changed" in err
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can write a read-only file")
+def test_set_works_once_the_file_is_writable_again(repo):
+    _repo_with_two_services(repo)
+    (repo / "b/compose.yaml").chmod(0o444)
+    assert main(["--root", str(repo), "set", "example/a", "2.0.0", "--no-digest"]) == 2
+    (repo / "b/compose.yaml").chmod(0o644)
+    assert main(["--root", str(repo), "set", "example/a", "2.0.0", "--no-digest"]) == 0
+    assert "example/a:2.0.0" in (repo / "a/compose.yaml").read_text()
+    assert "example/b:1.0.0" in (repo / "b/compose.yaml").read_text()
+    assert main(["--root", str(repo), "check", "-q"]) == 0
+
+
+def test_failed_write_restores_what_was_already_written(repo, capsys, monkeypatch):
+    _repo_with_two_services(repo)
+    before = _snapshot(repo)
+    real_write = Path.write_text
+    failed = []
+
+    def write_text(self, text, *args, **kwargs):
+        if self.name == "compose.yaml" and self.parent.name == "b" and not failed:
+            failed.append(self)
+            real_write(self, "")  # a full disk can leave the file truncated
+            raise OSError(28, "No space left on device")
+        return real_write(self, text, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", write_text)
+    assert main(["--root", str(repo), "set", "example/a", "2.0.0", "--no-digest"]) == 2
+    assert failed
+    assert _snapshot(repo) == before
+    assert "nothing was changed" in capsys.readouterr().err
+
+
+def test_failed_restore_says_which_files_need_attention(repo, capsys, monkeypatch):
+    _repo_with_two_services(repo)
+    real_write = Path.write_text
+    calls = []
+
+    def write_text(self, text, *args, **kwargs):
+        if self.parent.name == "b":
+            raise OSError(5, "Input/output error")
+        calls.append(self)
+        return real_write(self, text, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", write_text)
+    assert main(["--root", str(repo), "set", "example/a", "2.0.0", "--no-digest"]) == 2
+    err = capsys.readouterr().err
+    assert "nothing was changed" not in err
+    assert "couldn't restore" in err and "b/compose.yaml" in err
+
+
+def test_set_does_not_claim_a_pin_it_failed_to_write(repo, capsys):
+    if os.geteuid() == 0:
+        pytest.skip("root can write a read-only file")
+    _repo_with_two_services(repo)
+    (repo / "b/compose.yaml").chmod(0o444)
+    main(["--root", str(repo), "set", "example/a", "2.0.0", "--no-digest"])
+    assert "pinned" not in capsys.readouterr().out
 
 
 def test_extra_files_get_tag_only(repo):

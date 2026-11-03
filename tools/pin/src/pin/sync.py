@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from .lock import Entry, Lock
+from .lock import LOCK_NAME, Entry, Lock, LockError
 from .refs import format_ref, split_variant
 from .scan import FROM_LINE_RE, IMAGE_LINE_RE, Usage, scan
 
@@ -78,16 +79,59 @@ def _rewrite_line(line: str, change: Change) -> str:
     return re.sub(rf"--with\s+{mod}(?:@[^\s\\]+)?(?=[\s\\]|$)", f"--with {change.new}", line, count=1)
 
 
-def apply(root: Path, changes: list[Change]) -> list[Path]:
-    """Write the changes; return the files touched."""
+def _render(root: Path, changes: list[Change]) -> dict[Path, str]:
+    """The new text of each file the changes touch, by path relative to ``root``."""
     by_file: dict[Path, list[Change]] = {}
     for c in changes:
         by_file.setdefault(c.usage.path, []).append(c)
+    out = {}
     for rel, file_changes in by_file.items():
-        path = root / rel
-        text = path.read_text()
-        lines = text.split("\n")
+        lines = (root / rel).read_text().split("\n")
         for c in file_changes:
             lines[c.usage.line - 1] = _rewrite_line(lines[c.usage.line - 1], c)
-        path.write_text("\n".join(lines))
-    return sorted(by_file)
+        out[rel] = "\n".join(lines)
+    return out
+
+
+def _write_together(root: Path, contents: dict[Path, str]) -> None:
+    """Write every file or, as far as the filesystem allows, none of them.
+
+    Anything that can't be written is found before the first write, and a write
+    that fails anyway (a full disk) puts back the files already touched. Files
+    are rewritten in place: a rename would lose their owner and group, and the
+    flock held on versions.yaml.
+    """
+    blocked = [str(rel) for rel in contents if not os.access(root / rel, os.W_OK)]
+    if blocked:
+        raise LockError(f"can't write {', '.join(blocked)}; nothing was changed")
+    originals = {rel: (root / rel).read_text() for rel in contents}
+    written: list[Path] = []
+    try:
+        for rel, text in contents.items():
+            written.append(rel)
+            (root / rel).write_text(text)
+    except OSError as err:
+        unrestored = []
+        for rel in written:
+            try:
+                (root / rel).write_text(originals[rel])
+            except OSError:
+                unrestored.append(str(rel))
+        outcome = (
+            f"couldn't restore {', '.join(unrestored)}; check them with `git diff`"
+            if unrestored
+            else "nothing was changed"
+        )
+        raise LockError(f"writing {written[-1]} failed: {err}; {outcome}") from err
+
+
+def apply(root: Path, changes: list[Change], lock: Lock | None = None) -> list[Path]:
+    """Write the changes, and ``lock`` when given, together; return the files changed.
+
+    versions.yaml goes first: if the process is killed partway, it's still the
+    truth and ``pin sync`` finishes the job.
+    """
+    rendered = _render(root, changes)
+    contents = {Path(LOCK_NAME): lock.dumps()} if lock else {}
+    _write_together(root, contents | rendered)
+    return sorted(rendered)

@@ -31,12 +31,16 @@ def find_root(start: Path) -> Path:
     raise LockError(f"no {LOCK_NAME} in {start} or any parent; pass --root")
 
 
-def _sync(lock: Lock, dry_run: bool = False) -> int:
+def _sync(lock: Lock, dry_run: bool = False, save: bool = False) -> int:
+    """Bring the repo in line with ``lock``; ``save`` writes the lock itself too.
+
+    Printed only after the writes succeed, so a failure never reports a change.
+    """
     changes = plan(lock)
+    files = [] if dry_run else apply(lock.root, changes, lock if save else None)
     for c in changes:
         print(f"{c.usage.where()}: {c.old} -> {c.new}")
-    if not dry_run and changes:
-        files = apply(lock.root, changes)
+    if files:
         print(f"updated {len(files)} file(s)")
     elif not changes:
         print("everything matches versions.yaml")
@@ -63,26 +67,26 @@ def cmd_sync(lock: Lock, args: argparse.Namespace) -> int:
 
 def cmd_set(lock: Lock, args: argparse.Namespace) -> int:
     names = set_tag(lock, args.name, args.tag, resolve=not args.no_digest)
-    lock.save()
+    _sync(lock, save=True)
     entries = lock.entries()
     print("pinned " + ", ".join(f"{name} to {entries[name].tag}" for name in names))
-    return _sync(lock)
+    return 0
 
 
 def cmd_add(lock: Lock, args: argparse.Namespace) -> int:
     what, warnings = add_ref(lock, args.ref, reason=args.reason)
     for w in warnings:
         print(f"warning: {w}")
-    lock.save()
+    _sync(lock, save=True)
     print(what)
-    return _sync(lock)
+    return 0
 
 
 def cmd_plugin(lock: Lock, args: argparse.Namespace) -> int:
     set_plugin(lock, args.name, args.module, args.version)
-    lock.save()
+    _sync(lock, save=True)
     print(f"pinned {args.module} to {args.version}")
-    return _sync(lock)
+    return 0
 
 
 def cmd_digests(lock: Lock, args: argparse.Namespace) -> int:
@@ -90,9 +94,8 @@ def cmd_digests(lock: Lock, args: argparse.Namespace) -> int:
     for f in failures:
         print(f"warning: {f}")
     if filled:
-        lock.save()
+        _sync(lock, save=True)
         print(f"filled {len(filled)} digest(s)")
-        _sync(lock)
     return 1 if failures else 0
 
 
@@ -101,13 +104,12 @@ def cmd_adopt(lock: Lock, args: argparse.Namespace) -> int:
         if args.name or args.tag or args.ref or args.force:
             raise LockError("--all adopts every unlisted image; it can't be combined with NAME, --tag, --ref or --force")
         adopted, skipped = adopt_all(lock)
+        if adopted:
+            _sync(lock, save=True)
         for name, tag in adopted:
             print(f"pinned {name} to {tag}")
         for name, reason in skipped:
             print(f"skipped {name}: {reason}")
-        if adopted:
-            lock.save()
-            _sync(lock)
         print(f"adopted {len(adopted)}, skipped {len(skipped)}"
               + ("; retry those with `pin adopt NAME --tag ...`" if skipped else ""))
         return 1 if skipped else 0
@@ -116,9 +118,9 @@ def cmd_adopt(lock: Lock, args: argparse.Namespace) -> int:
     tag, digest, warnings = adopt(lock, args.name, tag=args.tag, ref=args.ref, force=args.force)
     for w in warnings:
         print(f"warning: {w}")
-    lock.save()
+    _sync(lock, save=True)
     print(f"pinned {args.name} to {tag}@{digest}")
-    return _sync(lock)
+    return 0
 
 
 def cmd_list(lock: Lock, args: argparse.Namespace) -> int:

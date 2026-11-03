@@ -36,6 +36,10 @@ an exclusive `flock` on `versions.yaml` until they finish, so two at once (the
 dashboard's Update button and a shell, say) never lose an edit; the second
 prints a note and waits. `check`, `list` and `sync --dry-run` don't lock.
 
+Those commands also write `versions.yaml` and the compose files together: if
+any file can't be written, the command says which and changes nothing. A write
+that fails partway (a full disk) puts back what it already wrote.
+
 ## versions.yaml
 
 ```yaml
