@@ -110,7 +110,7 @@ answer.
 `profiles.yaml` holds the profiles and the project-to-profile map.
 
 A profile can also move cards and label verdicts:
-- `buckets: {working: Assessing, replied: Needs decision}` moves the card to
+- `buckets: {working: Assessing, replied: Done}` moves the card to
   the Kanban column with that title when a job starts and when Claude
   replies. A column that doesn't exist is skipped with a warning.
 - `verdicts: [Easy, Needs care, Hold]` looks for a reply that opens with

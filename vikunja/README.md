@@ -20,8 +20,16 @@ In Keycloak, create a confidential client `vikunja` with the redirect URI
 Keycloak, then set `VIKUNJA_AUTH_LOCAL_ENABLED=false` in `.env` and recreate.
 
 Then create a project named **Upgrades** with these buckets, left to right:
-Inbox, Assessing, Needs decision, Approved, Applying, Done, Rolled back,
-Skipped. The dispatcher will look buckets up by name.
+Inbox, Assessing, Done. The dispatcher will look buckets up by name.
+
+The board tracks which versions have been assessed, not the upgrade itself: a
+card lands in Done once Claude has replied, and the dashboard ticks it once the
+server runs that version. So an unticked card in Done is assessed but not
+applied yet.
+
+Don't make Done the view's done bucket. Vikunja would mark every card done as it
+arrives, and the dashboard only reads verdicts from open cards, so they'd vanish
+from the Updates view and the Discord digest.
 
 ## Upgrading
 
