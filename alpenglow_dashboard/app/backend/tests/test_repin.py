@@ -97,7 +97,8 @@ root = pathlib.Path(__file__).parent
 with (root / "pin.log").open("a") as log:
     log.write(f"{name} {tag}\\n")
 if tag.startswith("v"):
-    sys.exit("error: manifest unknown")
+    print("error: manifest unknown", file=sys.stderr)
+    sys.exit(3)
 lock = root / "versions.yaml"
 text = lock.read_text()
 if (root / "slow").exists():  # widen the read-modify-write window
@@ -144,9 +145,37 @@ def test_pin_uses_the_first_tag_that_exists(repo: Path):
 
 
 def test_pin_with_no_tag_raises(repo: Path):
-    (repo / "pin").write_text("#!/bin/sh\necho 'error: manifest unknown' >&2\nexit 2\n")
+    (repo / "pin").write_text("#!/bin/sh\necho 'error: manifest unknown' >&2\nexit 3\n")
     with pytest.raises(repin.RepinError, match="no image tag found.*manifest unknown"):
         asyncio.run(repin.pin(BESZEL))
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        "error: can't write keycloak/compose.yaml; nothing was changed",
+        "error: registry-1.docker.io is rate limiting anonymous lookups; try again later",
+    ],
+)
+def test_pin_stops_at_a_failure_that_another_spelling_cannot_fix(repo: Path, error: str):
+    (repo / "pin").write_text(f"#!/bin/sh\necho \"$2 $3\" >> {repo}/pin.log\necho \"{error}\" >&2\nexit 2\n")
+    with pytest.raises(repin.RepinError) as err:
+        asyncio.run(repin.pin(BESZEL))
+    assert str(err.value) == f"couldn't pin henrygd/beszel to 0.22.0: {error}"
+    assert pin_log(repo) == ["henrygd/beszel 0.22.0"]
+
+
+def test_pin_stops_when_pin_times_out(repo: Path, monkeypatch):
+    calls = []
+
+    async def timed_out(root, name, tag):
+        calls.append(tag)
+        return 124, "timed out after 180s: ./pin set"
+
+    monkeypatch.setattr(repin, "_pin_set", timed_out)
+    with pytest.raises(repin.RepinError, match="couldn't pin .* timed out"):
+        asyncio.run(repin.pin(BESZEL))
+    assert calls == ["0.22.0"]
 
 
 # ── the Update job ────────────────────────────────────────────────────────────

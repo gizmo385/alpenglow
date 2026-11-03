@@ -20,7 +20,7 @@ from pathlib import Path
 from .check import check
 from .lock import LOCK_NAME, Lock, LockError, exclusive
 from .ops import add_ref, adopt, adopt_all, fill_digests, set_plugin, set_tag
-from .registry import RegistryError
+from .registry import RegistryError, TagNotFound
 from .sync import apply, plan
 
 
@@ -179,6 +179,10 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+# Exit code for a tag the registry doesn't have. Every other failure exits 2, so
+# the dashboard's repin knows when trying another spelling of a tag can help.
+EXIT_NO_SUCH_TAG = 3
+
 # Commands that write versions.yaml or compose files: they hold the file lock.
 WRITES = {"sync", "set", "add", "plugin", "digests", "adopt"}
 
@@ -194,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
             with exclusive(path):
                 return args.func(Lock.load(path), args)
         return args.func(Lock.load(path), args)
+    except TagNotFound as err:
+        print(f"error: {err}", file=sys.stderr)
+        return EXIT_NO_SUCH_TAG
     except (LockError, RegistryError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 2

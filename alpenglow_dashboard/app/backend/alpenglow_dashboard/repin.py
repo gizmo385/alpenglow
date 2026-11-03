@@ -43,6 +43,9 @@ LOCK_NAME = "versions.yaml"
 # dependency, so give it a few minutes.
 _TIMEOUT_PIN = 180
 
+# pin's exit code for a tag the registry doesn't have (tools/pin/src/pin/cli.py).
+_EXIT_NO_SUCH_TAG = 3
+
 _repo_lock: Optional[asyncio.Lock] = None
 
 
@@ -223,14 +226,15 @@ async def _pin_set(root: Path, name: str, tag: str) -> tuple[int, str]:
     return await _run([str(root / "pin"), "set", name, tag], root, _TIMEOUT_PIN)
 
 
-# ── the repin and its undo ────────────────────────────────────────────────────
+# ── the repin ─────────────────────────────────────────────────────────────────
 
 
 async def pin(t: Target) -> str:
     """Pin ``t`` to its new release; return the tag used. Hold :func:`repo_lock`.
 
-    Tries each of :meth:`Target.tags` until pin accepts one. pin checks the tag
-    before writing anything, so a refused tag leaves the files as they were.
+    Tries each of :meth:`Target.tags` until the registry has one. Any other
+    failure stops there, since another spelling wouldn't help. pin writes all
+    of its files or none, so a failure leaves them as they were.
     """
     root = repo_root()
     tried: list[str] = []
@@ -239,5 +243,8 @@ async def pin(t: Target) -> str:
         if rc == 0:
             log.info("repin: %s %s -> %s", t.name, t.current_tag, candidate)
             return candidate
-        tried.append(f"{candidate}: {out.splitlines()[-1] if out else f'exit {rc}'}")
+        reason = out.splitlines()[-1] if out else f"exit {rc}"
+        if rc != _EXIT_NO_SUCH_TAG:
+            raise RepinError(f"couldn't pin {t.name} to {candidate}: {reason}")
+        tried.append(f"{candidate}: {reason}")
     raise RepinError(f"no image tag found for {t.name} {t.latest_version} ({'; '.join(tried)})")

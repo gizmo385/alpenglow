@@ -22,6 +22,10 @@ DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 # The leading version of a tag: "2.11.7" in "2.11.7-builder", "24" in "24-slim".
 _VERSION_PREFIX_RE = re.compile(r"^v?\d+(?:\.\d+)*")
 
+# A full release: "v1.21.3", "8.10.3-alpine". Not "2", "12.2" or "alpine", which
+# keep moving as new releases come out.
+_RELEASE_TAG_RE = re.compile(r"^v?\d+\.\d+\.\d+")
+
 
 @dataclass(frozen=True)
 class ImageRef:
@@ -61,6 +65,10 @@ def format_ref(name: str, tag: str | None, digest: str | None = None) -> str:
     if digest:
         out += f"@{digest}"
     return out
+
+
+def is_release_tag(tag: str | None) -> bool:
+    return bool(tag and _RELEASE_TAG_RE.match(tag) and "$" not in tag)
 
 
 def split_variant(tag: str) -> tuple[str, str]:

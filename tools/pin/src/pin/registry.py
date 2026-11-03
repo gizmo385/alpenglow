@@ -35,6 +35,10 @@ class RegistryError(Exception):
     pass
 
 
+class TagNotFound(RegistryError):
+    """The registry answered, and has no such tag."""
+
+
 def split_name(name: str) -> tuple[str, str]:
     """``(registry_host, repository)`` for an image name.
 
@@ -86,7 +90,7 @@ def resolve_digest(name: str, tag: str, timeout: float = 20.0) -> str:
             digest = resp.headers.get("Docker-Content-Digest")
     except urllib.error.HTTPError as err:
         if err.code == 404:
-            raise RegistryError(f"{name}:{tag} doesn't exist in {host}") from err
+            raise TagNotFound(f"{name}:{tag} doesn't exist in {host}") from err
         if err.code == 429:
             raise RegistryError(f"{host} is rate limiting anonymous lookups; try again later") from err
         raise RegistryError(f"{name}:{tag}: {host} returned {err.code}") from err

@@ -96,7 +96,8 @@ row's **Update**. Either posts `POST /api/updates/apply` (admin, CSRF), which:
    writes, so a `./pin` at a shell waits its turn too): `/services/pin set IMAGE TAG` with the
    tracker's new release, spelled like the current tag (`v` prefix and a
    suffix such as `-alpine` kept; the next spelling is tried if the registry
-   has no such tag);
+   has no such tag, and any other failure stops that service's update with the
+   reason, leaving its files as they were);
 2. then runs `docker compose pull` and `up -d` for each, two at a time. The
    dashboard's own service goes last.
 

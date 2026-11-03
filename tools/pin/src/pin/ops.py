@@ -9,7 +9,7 @@ import subprocess
 from collections.abc import Callable
 
 from .lock import LOCK_NAME, Lock, LockError
-from .refs import FLOATING_TAGS, parse_ref, split_variant
+from .refs import FLOATING_TAGS, is_release_tag, parse_ref, split_variant
 from .registry import resolve_digest
 from .scan import scan
 
@@ -178,9 +178,12 @@ def adopt(
 ) -> tuple[str, str, list[str]]:
     """Pin ``name`` to the exact image the server runs now.
 
-    Returns ``(tag, digest, warnings)``. The tag comes from ``--tag`` or the
-    image's ``org.opencontainers.image.version`` label. Unless ``force``, the
-    tag must still point at the running digest, so the pin is reproducible.
+    Returns ``(tag, digest, warnings)``. The tag comes from ``--tag``, then a
+    release tag already in the compose file (or ``--ref``), then the image's
+    ``org.opencontainers.image.version`` label, which is often missing or
+    inherited from a base image. Unless ``force``, the tag must still point at
+    the running digest, so the pin is reproducible. A moving tag such as
+    ``main`` is always refused, as ``pin set`` and ``pin check`` refuse it.
     """
     warnings: list[str] = []
     if ref is None:
@@ -195,11 +198,15 @@ def adopt(
             raise LockError(f"{ref} depends on an env var; pass --ref with what the server runs")
     info = inspect(ref)
     digest = _running_digest(info, name)
+    if tag is None and is_release_tag(parse_ref(ref).tag):
+        tag = parse_ref(ref).tag
     if tag is None:
         labels = (info.get("Config") or {}).get("Labels") or {}
         tag = labels.get("org.opencontainers.image.version")
         if not tag:
             raise LockError(f"{ref} has no version label; pass --tag with the release it runs")
+    if tag in FLOATING_TAGS:
+        raise LockError(f"{name}: {tag!r} is a moving channel; pass --tag with the release it runs")
     try:
         tag_digest = resolver(name, tag)
     except Exception as err:  # registry missing the tag, or unreachable

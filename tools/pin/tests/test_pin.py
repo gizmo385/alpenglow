@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import textwrap
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -449,6 +450,113 @@ def test_adopt_refuses_when_tag_moved(repo):
         lk, "nextcloud", tag="32.0.1", force=True, inspect=lambda ref: info, resolver=lambda n, t: D3
     )
     assert digest == D2 and warnings
+
+
+def _image(name, label=None):
+    labels = {"org.opencontainers.image.version": label} if label is not None else {}
+    return {"RepoDigests": [f"{name}@{D2}"], "Config": {"Labels": labels}}
+
+
+def _uses(repo, image):
+    write(repo, "app/compose.yaml", f"services:\n  app:\n    image: {image}\n")
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"force": True}])
+def test_adopt_refuses_a_moving_tag_from_the_label(repo, kwargs):
+    _uses(repo, "example/app:main")
+    lk = lock(repo)
+    with pytest.raises(LockError, match="'main' is a moving channel"):
+        adopt(lk, "example/app", inspect=lambda ref: _image("example/app", "main"), resolver=lambda n, t: D2, **kwargs)
+    assert "example/app" not in lk.entries()
+
+
+def test_adopt_refuses_a_moving_tag_passed_by_hand(repo):
+    _uses(repo, "example/app:1.2.3")
+    with pytest.raises(LockError, match="'latest' is a moving channel"):
+        adopt(lock(repo), "example/app", tag="latest", inspect=lambda ref: _image("example/app"),
+              resolver=lambda n, t: D2)
+
+
+def test_adopt_all_skips_an_image_labelled_with_a_moving_tag(repo):
+    _uses(repo, "example/app:main")
+    lk = lock(repo)
+    adopted, skipped = adopt_all(lk, inspect=lambda ref: _image("example/app", "main"), resolver=lambda n, t: D2)
+    assert adopted == []
+    assert skipped[0][0] == "example/app" and "moving channel" in skipped[0][1]
+    assert "example/app" not in lk.entries()
+
+
+@pytest.mark.parametrize("label", [None, "24.04"], ids=["no label", "base image's label"])
+@pytest.mark.parametrize(
+    "image, tag",
+    [
+        ("example/app:v1.21.3", "v1.21.3"),
+        ("example/app:8.10.3-alpine", "8.10.3-alpine"),
+        (f"example/app:v1.2.0@{D2}", "v1.2.0"),
+    ],
+)
+def test_adopt_prefers_a_release_tag_in_compose(repo, image, tag, label):
+    _uses(repo, image)
+    resolved = []
+
+    def resolver(name, t):
+        resolved.append(t)
+        return D2
+
+    got, digest, warnings = adopt(lock(repo), "example/app", inspect=lambda ref: _image("example/app", label),
+                                  resolver=resolver)
+    assert (got, digest, warnings) == (tag, D2, [])
+    assert resolved == [tag]
+
+
+@pytest.mark.parametrize("image", ["example/app", "example/app:latest", "example/app:2", "example/app:12.2",
+                                   "example/app:alpine", "example/app:8-alpine"])
+def test_adopt_reads_the_label_when_compose_has_no_release_tag(repo, image):
+    _uses(repo, image)
+    tag, _, _ = adopt(lock(repo), "example/app", inspect=lambda ref: _image("example/app", "3.4.5"),
+                      resolver=lambda n, t: D2)
+    assert tag == "3.4.5"
+
+
+def test_adopt_tag_flag_beats_compose_and_label(repo):
+    _uses(repo, "example/app:1.0.0")
+    tag, _, _ = adopt(lock(repo), "example/app", tag="1.0.0-slim", inspect=lambda ref: _image("example/app", "9.9.9"),
+                      resolver=lambda n, t: D2)
+    assert tag == "1.0.0-slim"
+
+
+def test_adopt_uses_the_release_tag_in_ref(repo):
+    _uses(repo, "example/app:${TAG:-latest}")
+    tag, _, _ = adopt(lock(repo), "example/app", ref="example/app:1.2.3", inspect=lambda ref: _image("example/app"),
+                      resolver=lambda n, t: D2)
+    assert tag == "1.2.3"
+
+
+def test_adopt_does_not_fall_back_to_the_label_when_the_compose_tag_moved(repo):
+    _uses(repo, "example/app:1.2.3")
+    with pytest.raises(LockError, match="example/app:1.2.3 now points at"):
+        adopt(lock(repo), "example/app", inspect=lambda ref: _image("example/app", "4.5.6"),
+              resolver=lambda n, t: D3 if t == "1.2.3" else D2)
+
+
+def _registry_answers(monkeypatch, code):
+    def urlopen(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, code, "no", {}, None)
+
+    monkeypatch.setattr("pin.registry._token", lambda *a: None)
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+
+
+def test_set_exits_3_when_the_tag_does_not_exist(repo, capsys, monkeypatch):
+    _registry_answers(monkeypatch, 404)
+    assert main(["--root", str(repo), "set", "vabene1111/recipes", "9.9.9"]) == 3
+    assert "doesn't exist" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("code", [401, 429, 500])
+def test_set_exits_2_when_the_registry_fails_some_other_way(repo, monkeypatch, code):
+    _registry_answers(monkeypatch, code)
+    assert main(["--root", str(repo), "set", "vabene1111/recipes", "9.9.9"]) == 2
 
 
 def test_adopt_all_adopts_unlisted_images_and_reports_failures(repo):

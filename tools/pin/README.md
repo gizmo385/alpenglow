@@ -27,8 +27,8 @@ Run it from anywhere in the repo with the `./pin` wrapper (needs
 | `./pin add IMAGE[:TAG]` | Give a new service's image an entry: a release tag is pinned (with its digest), no tag or `latest` becomes a `float` entry. `create_service.sh --image` runs this. |
 | `./pin plugin NAME MODULE VERSION` | Pin an `xcaddy build --with` plugin of a base image (e.g. `caddy`). |
 | `./pin digests` | Look up digests for pinned images that don't have one yet. |
-| `./pin adopt NAME [--tag T]` | On the server: pin exactly what's running now, so moving off `latest` changes nothing. Reads the image's version label unless `--tag` is given, and refuses if that tag now points at a different digest (`--force` pins the running digest anyway). |
-| `./pin adopt --all` | On the server: `adopt` every compose image that has no entry in `versions.yaml` yet. Listed images (pinned or float) are left alone. Images it can't adopt (not running here, no version label, tag moved, env-var tag) are listed with the reason and skipped; retry those one at a time with `--tag`. |
+| `./pin adopt NAME [--tag T]` | On the server: pin exactly what's running now, so moving off `latest` changes nothing. The tag is `--tag`, else a full release tag already in the compose file (`v1.21.3`, not `2` or `alpine`), else the image's version label. Refuses a moving tag such as `main`, and refuses if the tag now points at a different digest (`--force` pins the running digest anyway). |
+| `./pin adopt --all` | On the server: `adopt` every compose image that has no entry in `versions.yaml` yet. Listed images (pinned or float) are left alone. Images it can't adopt (not running here, no usable tag, moving tag, tag moved, env-var tag) are listed with the reason and skipped; retry those one at a time with `--tag`. |
 | `./pin list` | Show every entry. |
 
 Commands that write (`sync`, `set`, `add`, `plugin`, `digests`, `adopt`) hold
@@ -39,6 +39,9 @@ prints a note and waits. `check`, `list` and `sync --dry-run` don't lock.
 Those commands also write `versions.yaml` and the compose files together: if
 any file can't be written, the command says which and changes nothing. A write
 that fails partway (a full disk) puts back what it already wrote.
+
+A command that fails exits 2, except that `set` exits 3 when the registry has no
+such tag, which is how the dashboard's Update knows to try another spelling.
 
 ## versions.yaml
 
