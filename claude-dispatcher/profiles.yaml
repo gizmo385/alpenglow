@@ -43,7 +43,7 @@ profiles:
     # "Verdict: ..." labels (green, amber, red in this order).
     buckets:
       working: Assessing
-      replied: Needs decision
+      replied: Done
     verdicts: [Easy, Needs care, Hold]
     instructions: |
       The card names a service, its current version and the version to
