@@ -74,8 +74,8 @@ images:
     tag: v3.6.0
     digest: sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
   jellyfin/jellyfin:
-    tag: '12.2'
-    digest: sha256:357724bf0ae27a672c7cbaa899db2d9abeb13dbd8657ccce750258a4c059d037
+    tag: '12.4'
+    digest: sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771
   lscr.io/linuxserver/ddclient:
     tag: v4.0.0-ls237
     digest: sha256:f94b9a1c19a34e3b5500cfbfbfdee1fed7e6636fbbf7519519b0e92424223f11
@@ -104,8 +104,8 @@ images:
     tag: 2.7.1
     digest: sha256:f7dc8428d10aef17f3075886d3c1c022f566ec456f88985f02c137f4fc534576
   crowdsecurity/crowdsec:
-    tag: v1.8.1
-    digest: sha256:0f2523fa61ef507f15d953045cface490cc880670c62f2755ced17524107f71a
+    tag: v1.8.2
+    digest: sha256:65b74942f7e7ed5c60fde4ac15fc4ba715904c398c8b16dd451f4907d90347d4
   ekofr/pihole-exporter:
     tag: v1.2.0
     digest: sha256:242c53ef3c24b88fcbe8184390b456d05604bd50de5732ca3fd3eb24395585b3
