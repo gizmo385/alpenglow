@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import textwrap
 from pathlib import Path
 
 import pytest
+import uvloop
 
 from alpenglow_dashboard import actions, audit, repin
 from alpenglow_dashboard.repin import Target, candidate_tags, target_for
@@ -176,6 +178,51 @@ def test_pin_stops_when_pin_times_out(repo: Path, monkeypatch):
     with pytest.raises(repin.RepinError, match="couldn't pin .* timed out"):
         asyncio.run(repin.pin(BESZEL))
     assert calls == ["0.22.0"]
+
+
+# ── running pin, on the event loop the server really uses ─────────────────────
+
+
+def on_uvloop(coro):
+    """Run ``coro`` on uvloop, which is what uvicorn[standard] serves the app on."""
+    loop = uvloop.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
+def test_run_as_the_repo_owner_on_uvloop(repo: Path, monkeypatch):
+    """uvloop's subprocess API refuses user/group/extra_groups; the dashboard runs as root."""
+    seen = {}
+
+    def fake_run(argv, **kw):
+        seen.update(kw, argv=argv)
+        return subprocess.CompletedProcess(argv, 0, stdout=b"done\n")
+
+    monkeypatch.setattr(repin, "_owner", lambda root: (1002, 1003))
+    monkeypatch.setattr(repin, "_env", lambda owner: {})
+    monkeypatch.setattr(repin.subprocess, "run", fake_run)
+    assert on_uvloop(repin._run(["./pin", "set"], repo, 5)) == (0, "done")
+    assert (seen["user"], seen["group"], seen["extra_groups"]) == (1002, 1003, [])
+    assert seen["cwd"] == str(repo)
+
+
+def test_run_a_real_process_on_uvloop(repo: Path):
+    rc, out = on_uvloop(repin._run(["/bin/sh", "-c", "echo out; echo err >&2; exit 3"], repo, 5))
+    assert rc == 3
+    assert out.splitlines() == ["out", "err"]
+
+
+def test_run_times_out_on_uvloop(repo: Path):
+    rc, out = on_uvloop(repin._run(["/bin/sleep", "30"], repo, 0.2))
+    assert rc == 124
+    assert "timed out" in out
+
+
+def test_pin_on_uvloop(repo: Path):
+    assert on_uvloop(repin.pin(BESZEL)) == "0.22.0"
+    assert "henrygd/beszel:0.22.0" in (repo / "beszel/compose.yaml").read_text()
 
 
 # ── the Update job ────────────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ import asyncio
 import logging
 import os
 import pwd
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -202,24 +203,27 @@ def _env(owner: tuple[int, int] | None) -> dict[str, str]:
 
 
 async def _run(argv: list[str], root: Path, timeout: float) -> tuple[int, str]:
-    """Run as the repo's owner in ``root``; return (returncode, stdout+stderr)."""
+    """Run as the repo's owner in ``root``; return (returncode, stdout+stderr).
+
+    In a worker thread with ``subprocess.run``, because the server runs on
+    uvloop, whose ``create_subprocess_exec`` refuses user, group and extra_groups.
+    """
     owner = _owner(root)
     kw = {"user": owner[0], "group": owner[1], "extra_groups": []} if owner else {}
-    proc = await asyncio.create_subprocess_exec(
-        *argv,
-        cwd=str(root),
-        env=_env(owner),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-        **kw,
-    )
     try:
-        out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
-        proc.kill()
-        await proc.wait()
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            argv,
+            cwd=str(root),
+            env=_env(owner),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=timeout,
+            **kw,
+        )
+    except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout:.0f}s: {' '.join(argv)}"
-    return proc.returncode or 0, (out or b"").decode("utf-8", "replace").strip()
+    return proc.returncode or 0, (proc.stdout or b"").decode("utf-8", "replace").strip()
 
 
 async def _pin_set(root: Path, name: str, tag: str) -> tuple[int, str]:

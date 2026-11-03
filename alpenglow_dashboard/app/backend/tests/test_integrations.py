@@ -9,6 +9,7 @@ and ``/api/overview`` never 500s.
 
 from __future__ import annotations
 
+import copy
 import json
 import time
 from pathlib import Path
@@ -476,6 +477,16 @@ async def test_updates_without_upgrades_board_still_list(monkeypatch, updates_en
     result = await updates_mod.get_updates()
     assert {e.id for e in result.services} == {"immich", "ollama", "twenty"}
     assert all(e.verdict is None for e in result.services)
+
+
+def test_updates_leave_the_digest_out_of_the_image(updates_env):
+    digest = "sha256:" + "a" * 64
+    payload = copy.deepcopy(TRACKER_PAYLOAD)
+    for entry in payload["services"]:
+        entry["image"] += f"@{digest}"
+    images = [e.image for e in updates_mod._build_updates(payload).services]
+    assert images and not [i for i in images if "sha256" in i]
+    assert "twentycrm/twenty:latest" in images
 
 
 @pytest.mark.asyncio

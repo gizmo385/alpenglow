@@ -263,7 +263,8 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.
                 id=sid,
                 name=name,
                 icon=icon,
-                image=str(entry.get("image", "")),
+                # A pinned container's ref ends in @sha256:…, which is no use to read.
+                image=str(entry.get("image", "")).split("@", 1)[0],
                 currentVersion=str(entry.get("current_version") or "—"),
                 latestVersion=latest,
                 releasedAt=fields["releasedAt"],
