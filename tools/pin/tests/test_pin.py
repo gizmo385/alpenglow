@@ -10,7 +10,7 @@ from pin.cli import main
 from pin.lock import Lock, LockError
 from pin.ops import add_ref, adopt, adopt_all, fill_digests, set_plugin, set_tag
 from pin.refs import parse_ref, split_variant
-from pin.registry import split_name
+from pin.registry import RegistryError, split_name
 from pin.sync import apply, plan
 
 D1 = "sha256:" + "1" * 64
@@ -248,6 +248,58 @@ def test_set_moves_group_and_resolves_digests(repo):
     assert f"ghcr.io/immich-app/immich-machine-learning:v2.3.0@{D3}" in text
     saved = (repo / "versions.yaml").read_text()
     assert "# top comment survives" in saved and "# inline comment survives" in saved
+
+
+def _hub_and_agent(repo):
+    write(repo, "versions.yaml", """
+        images:
+          henrygd/beszel:
+            tag: 0.21.1
+            group: beszel
+          henrygd/beszel-agent:
+            tag: 0.21.1-alpine
+            group: beszel
+    """)
+    write(repo, "beszel/compose.yaml", """
+        services:
+          beszel:
+            image: henrygd/beszel:0.21.1
+          beszel-agent:
+            image: henrygd/beszel-agent:0.21.1-alpine
+    """)
+
+
+@pytest.mark.parametrize("name, tag", [("henrygd/beszel", "0.22.0"), ("henrygd/beszel-agent", "0.22.0-alpine")])
+def test_set_keeps_each_group_members_variant(repo, name, tag):
+    _hub_and_agent(repo)
+    calls = []
+
+    def resolver(image, image_tag):
+        calls.append((image, image_tag))
+        return D2 if image == "henrygd/beszel" else D3
+
+    lk = lock(repo)
+    set_tag(lk, name, tag, resolver=resolver)
+    lk.save()
+    assert sorted(calls) == [("henrygd/beszel", "0.22.0"), ("henrygd/beszel-agent", "0.22.0-alpine")]
+    apply(repo, plan(lock(repo)))
+    text = (repo / "beszel/compose.yaml").read_text()
+    assert f"henrygd/beszel:0.22.0@{D2}" in text
+    assert f"henrygd/beszel-agent:0.22.0-alpine@{D3}" in text
+
+
+def test_set_saves_nothing_when_a_group_member_has_no_such_tag(repo):
+    _hub_and_agent(repo)
+    before = (repo / "versions.yaml").read_text()
+
+    def resolver(image, image_tag):
+        if image_tag.endswith("-alpine"):
+            raise RegistryError(f"{image}:{image_tag} doesn't exist")
+        return D2
+
+    with pytest.raises(RegistryError):
+        set_tag(lock(repo), "henrygd/beszel", "0.22.0", resolver=resolver)
+    assert (repo / "versions.yaml").read_text() == before
 
 
 def test_extra_files_get_tag_only(repo):

@@ -64,7 +64,8 @@ def cmd_sync(lock: Lock, args: argparse.Namespace) -> int:
 def cmd_set(lock: Lock, args: argparse.Namespace) -> int:
     names = set_tag(lock, args.name, args.tag, resolve=not args.no_digest)
     lock.save()
-    print(f"pinned {', '.join(names)} to {args.tag}")
+    entries = lock.entries()
+    print("pinned " + ", ".join(f"{name} to {entries[name].tag}" for name in names))
     return _sync(lock)
 
 

@@ -9,7 +9,7 @@ import subprocess
 from collections.abc import Callable
 
 from .lock import LOCK_NAME, Lock, LockError
-from .refs import FLOATING_TAGS, parse_ref
+from .refs import FLOATING_TAGS, parse_ref, split_variant
 from .registry import resolve_digest
 from .scan import scan
 
@@ -42,17 +42,24 @@ def set_tag(
     Only images used in compose files get a digest: Dockerfile FROM lines keep
     a variant suffix (``-builder``) whose digest differs from the plain tag's,
     and extra files (casting.yaml) are read by tools that may not accept one.
+
+    ``name`` gets ``tag`` as given. The rest of its group get the same version
+    with their own variant suffix: with ``tag: 0.21.1-alpine``, a member follows
+    a group move to ``0.22.0`` as ``0.22.0-alpine``.
     """
     if tag in FLOATING_TAGS:
         raise LockError(f"{tag!r} is a moving channel; pin a release tag")
     if name not in lock.entries():
         lock.raw(name)
     members = lock.group_members(name)
+    entries = lock.entries()
+    version, _ = split_variant(tag)
     for member in members:
+        member_tag = tag if member == name else version + split_variant(entries[member].tag or "")[1]
         digest = None
         if resolve and "compose" in _usage_kinds(lock, member):
-            digest = resolver(member, tag)
-        _pin(lock, member, tag, digest)
+            digest = resolver(member, member_tag)
+        _pin(lock, member, member_tag, digest)
     return members
 
 
