@@ -19,6 +19,7 @@ Vikunja ──webhook──▶ dispatcher ──job daemon (rootless)──▶ c
 | No secrets | Nothing from the host is mounted. The only secret a job gets is the Claude token. |
 | Container | uid 1000, `cap_drop: ALL`, `no-new-privileges`, read-only root, tmpfs for `$HOME` and `/work`, memory/CPU/PID limits, time limit. Optional gVisor (`runtime: runsc` in a profile). |
 | Network | Each profile has an internal network with no route out. Its egress proxy allows HTTPS only to `api.anthropic.com` plus the profile's `egress` hosts, and refuses any name that resolves to a LAN, loopback or Tailnet address. |
+| Telemetry | With `OTLP_UPSTREAM` set, the egress proxy relays `POST /v1/metrics` (up to 1 MiB) to that one URL and nothing else. Jobs send metrics only, so no prompts, tool details or traces leave the job this way. A job could still forge its own metrics, which at worst skews a dashboard. |
 | Who can start jobs | Webhooks must carry Vikunja's HMAC signature. A card's **project** picks its profile in `profiles.yaml`; a card can't choose. `allowed_users` limits who can start jobs per profile. |
 | Runaway use | `JOBS_PER_DAY` and `MAX_CONCURRENT_JOBS` in `.env`; one job per card at a time. |
 | Untrusted output | Claude's reply is posted as escaped text, never HTML, and a reply can't start with `@claude`, so it can't trigger another job. |
@@ -53,6 +54,11 @@ tar -C job -c . | sudo -u claude-jobs env DOCKER_HOST=$JOBS_DOCKER docker build 
 ```
 
 Rebuild after changing `job/` (for example to bump `CLAUDE_CODE_VERSION`).
+
+The egress proxy runs from this image too, and it's only recreated when its
+allowlist or `OTLP_UPSTREAM` changes. After changing `egress-proxy.js` alone,
+remove the `claude-egress-*` containers on the job daemon so the next job
+starts a new one.
 
 ### 3. Configure and start the dispatcher
 
@@ -121,9 +127,15 @@ profile, widening `egress` or `allowed_tools`, or mapping a new project are
 all changes to what Claude can do, so they go through review in git. See the
 comments in that file for each setting.
 
+## Telemetry
+
+Jobs send Claude Code's metrics to SigNoz, where they land alongside the
+personal machines' on the "Claude Code Metrics" dashboard. Each one carries
+`job.profile=<profile>`, so `job.profile EXISTS` picks out dispatcher jobs.
+A job killed at its time limit may not get to flush its last metrics.
+
 ## Not built yet
 
-- Telemetry to SigNoz (needs a filtering relay in front of Alloy).
 - Polling as a fallback for missed webhooks (Vikunja sends each one once).
 - The rest of the upgrade flow: approving from Discord and an applier.
   Cards are filed and their verdicts shown by the dashboard (`alpenglow_dashboard/app/backend/alpenglow_dashboard/upgrades`).

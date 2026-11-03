@@ -14,6 +14,8 @@ services:
       DOCKER_HOST: unix:///run/jobs-docker.sock
       PROFILES_PATH: /config/profiles.yaml
       VIKUNJA_API_URL: http://vikunja:3456/api/v1
+      # Where the egress proxy relays job metrics. Unset, jobs send no telemetry.
+      OTLP_UPSTREAM: https://otlp.acbc.house
     volumes:
       - ./profiles.yaml:/config/profiles.yaml:ro
       - /run/user/${JOBS_UID}/docker.sock:/run/jobs-docker.sock

@@ -110,6 +110,18 @@ def test_container_is_locked_down():
     assert cmd[:2] == ["-p", "hello"] and cmd[cmd.index("--allowedTools") + 1] == "Read,WebFetch"
 
 
+def test_telemetry_is_opt_in_and_tagged_with_the_profile():
+    p = Profile(name="test")
+    assert "CLAUDE_CODE_ENABLE_TELEMETRY" not in container_options(p, "tok")["environment"]
+    env = container_options(p, "tok", telemetry=True)["environment"]
+    assert env["CLAUDE_CODE_ENABLE_TELEMETRY"] == "1"
+    assert env["OTEL_RESOURCE_ATTRIBUTES"] == "job.profile=test"
+    assert env["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://claude-egress-test:3128"
+    assert env["NO_PROXY"] == "claude-egress-test"
+    # Metrics only: logs and traces would carry prompts, tool details and timings.
+    assert "OTEL_LOGS_EXPORTER" not in env and "OTEL_TRACES_EXPORTER" not in env
+
+
 def test_parse_output():
     out = "noise\n" + json.dumps({"result": "All good", "is_error": False, "num_turns": 3, "total_cost_usd": 0.12})
     assert parse_output(out) == JobResult("All good", False, 3, 0.12)

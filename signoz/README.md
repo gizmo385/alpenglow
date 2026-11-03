@@ -97,7 +97,9 @@ casting.yaml trims that (2026-09-28):
   personal machines sends to it (`gizmo.ai.telemetry` in ~/workspace/dotfiles;
   service.name `claude-code`, `host.name` = the machine), shown on the
   "Claude Code Metrics" dashboard. That telemetry includes prompt and
-  response text and tool commands/paths, but not tool output.
+  response text and tool commands/paths, but not tool output. Claude
+  dispatcher jobs send metrics only, tagged `job.profile=<profile>`, through
+  their egress proxy (see `../claude-dispatcher/README.md`).
 
 ## Dashboards
 

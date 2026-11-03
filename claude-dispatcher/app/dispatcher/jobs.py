@@ -11,6 +11,9 @@ A job container joins only its profile's internal network, so the proxy is
 its one way out. It runs as uid 1000 with no capabilities, a read-only root
 filesystem, tmpfs for $HOME and /work, no host mounts and no secrets other
 than the Claude token.
+
+With an OTLP upstream configured, jobs also send Claude Code's metrics, tagged
+``job.profile=<profile>``, through that proxy (see ``egress-proxy.js``).
 """
 
 from __future__ import annotations
@@ -63,7 +66,19 @@ def command(profile: Profile, prompt: str) -> list[str]:
     return cmd
 
 
-def container_options(profile: Profile, token: str) -> dict:
+def telemetry_env(profile: Profile, proxy: str) -> dict[str, str]:
+    return {
+        "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+        "OTEL_METRICS_EXPORTER": "otlp",
+        "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": proxy,
+        "OTEL_RESOURCE_ATTRIBUTES": f"job.profile={profile.name}",
+        # Otherwise the exporter asks the proxy to CONNECT to itself.
+        "NO_PROXY": proxy_name(profile),
+    }
+
+
+def container_options(profile: Profile, token: str, telemetry: bool = False) -> dict:
     proxy = f"http://{proxy_name(profile)}:{PROXY_PORT}"
     return dict(
         image=profile.image,
@@ -73,6 +88,7 @@ def container_options(profile: Profile, token: str) -> dict:
             "HTTPS_PROXY": proxy,
             "HTTP_PROXY": proxy,
             "NO_PROXY": "",
+            **(telemetry_env(profile, proxy) if telemetry else {}),
         },
         network=job_network(profile),
         read_only=True,
@@ -111,8 +127,9 @@ def parse_output(stdout: str) -> JobResult:
 
 
 class Runner:
-    def __init__(self, token: str, client: docker.DockerClient | None = None):
+    def __init__(self, token: str, client: docker.DockerClient | None = None, otlp_upstream: str | None = None):
         self.token = token
+        self.otlp_upstream = otlp_upstream
         self.client = client or docker.from_env()
 
     # ── egress ───────────────────────────────────────────────────────────
@@ -127,7 +144,8 @@ class Runner:
     def ensure_egress(self, profile: Profile) -> None:
         """Make sure the profile's network and proxy exist with its current allowlist."""
         allow = ",".join(profile.all_egress)
-        digest = hashlib.sha256(allow.encode()).hexdigest()[:12]
+        upstream = self.otlp_upstream or ""
+        digest = hashlib.sha256(f"{allow}|{upstream}".encode()).hexdigest()[:12]
         jobs_net = self._network(job_network(profile), internal=True)
         self._network(OUT_NETWORK, internal=False)
         name = proxy_name(profile)
@@ -143,7 +161,7 @@ class Runner:
             image=profile.image,
             name=name,
             entrypoint=["node", "/opt/egress-proxy.js"],
-            environment={"EGRESS_ALLOW": allow, "EGRESS_PORT": str(PROXY_PORT)},
+            environment={"EGRESS_ALLOW": allow, "EGRESS_PORT": str(PROXY_PORT), "OTLP_UPSTREAM": upstream},
             user="1000:1000",
             read_only=True,
             cap_drop=["ALL"],
@@ -161,7 +179,8 @@ class Runner:
 
     def run(self, profile: Profile, prompt: str) -> JobResult:
         self.ensure_egress(profile)
-        container = self.client.containers.run(command=command(profile, prompt), **container_options(profile, self.token))
+        options = container_options(profile, self.token, telemetry=bool(self.otlp_upstream))
+        container = self.client.containers.run(command=command(profile, prompt), **options)
         try:
             try:
                 container.wait(timeout=profile.timeout_minutes * 60)

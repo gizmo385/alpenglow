@@ -167,7 +167,7 @@ def create_app(dispatcher: Dispatcher | None = None, secret: str | None = None) 
             state["dispatcher"] = Dispatcher(
                 cfg,
                 Vikunja(os.environ["VIKUNJA_API_URL"], os.environ["VIKUNJA_API_TOKEN"]),
-                Runner(os.environ["CLAUDE_CODE_OAUTH_TOKEN"]),
+                Runner(os.environ["CLAUDE_CODE_OAUTH_TOKEN"], otlp_upstream=os.environ.get("OTLP_UPSTREAM")),
                 jobs_per_day=int(os.environ.get("JOBS_PER_DAY", "20")),
                 max_concurrent=int(os.environ.get("MAX_CONCURRENT_JOBS", "1")),
             )

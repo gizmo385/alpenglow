@@ -1218,7 +1218,8 @@ security = Dashboard(
 
 # --- Claude Code ---------------------------------------------------------------
 # Claude Code's own OpenTelemetry metrics (delta counters) and events (logs),
-# sent from the personal machines through otlp.acbc.house. Based on SigNoz's
+# sent from the personal machines through otlp.acbc.house, and from Claude
+# dispatcher jobs, which carry job.profile, through the same. Based on SigNoz's
 # library dashboard (SigNoz/dashboards@4cc626eec5 claude-code/). The counters
 # only report while Claude Code is in use, so per-step series use fillZero:
 # otherwise idle hours are missing buckets that the line is drawn straight
@@ -1228,6 +1229,8 @@ CC_TOKENS = "claude_code.token.usage"
 CC_COST = "claude_code.cost.usage"  # what the same usage would cost on the API, in USD
 CC_ACTIVE = "claude_code.active_time.total"
 CC_TOOL_RESULT = "body = 'claude_code.tool_result'"
+CC_JOB = "job.profile EXISTS"  # dispatcher jobs; interactive sessions don't have the tag
+CC_INTERACTIVE = "job.profile NOT EXISTS"
 # Monthly price of each subscription, US web prices (claude.com/pricing, 2026-10).
 CC_PLANS = {"Pro": 20, "Max 5x": 100, "Max 20x": 200}
 SECONDS_PER_MONTH = 365.25 / 12 * 86400
@@ -1268,7 +1271,7 @@ claude_code = Dashboard(
     name="Claude Code Metrics",
     description=(
         "Claude Code usage, tokens, API-equivalent cost and how it compares with the Pro and Max "
-        "subscriptions, from the personal machines' OpenTelemetry."
+        "subscriptions, from the OpenTelemetry of the personal machines and Claude dispatcher jobs."
     ),
     sections=[
         Section("Overview", [
@@ -1343,6 +1346,18 @@ claude_code = Dashboard(
             ],
         ]),
         Section("Cost Analysis (vs Claude plans)", [
+            [
+                Panel("Dispatcher Job Cost", "number", [Query("A", "metrics", cc_sum(CC_COST), [CC_JOB])],
+                      description="API-equivalent cost of Claude dispatcher jobs over the selected range",
+                      width=3, height=4),
+                Panel("Cost: Interactive vs Dispatcher Jobs", "timeseries", [
+                    Query("A", "metrics", cc_sum(CC_COST), [CC_INTERACTIVE], functions=["fillZero"],
+                          legend="Interactive"),
+                    Query("B", "metrics", cc_sum(CC_COST), [CC_JOB], by=[key("job.profile", "resource")],
+                          functions=["fillZero"], legend="{{job.profile}} jobs"),
+                ], description="API-equivalent cost per step, split by the job.profile tag on dispatcher jobs.",
+                    width=9, height=4),
+            ],
             [
                 Panel("API Cost (Total)", "number", [Query("A", "metrics", cc_sum(CC_COST))],
                       description="Total hypothetical API cost for selected window", width=3, height=3),
