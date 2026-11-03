@@ -31,6 +31,10 @@ overrides:
   mauriceboe/trek: liketrek/TREK
   # Locally built image; its OCI label points at caddy-docker, which has no releases
   caddy-caddy: caddyserver/caddy
+  # Docker Hub namespace differs from the GitHub owner; no OCI source label
+  ekofr/pihole-exporter: eko/pihole-exporter
+  signoz/signoz: SigNoz/signoz
+  signoz/signoz-otel-collector: SigNoz/signoz-otel-collector
 
 names:
   home-assistant/core: Home Assistant
