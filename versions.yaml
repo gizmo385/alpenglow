@@ -44,8 +44,8 @@ images:
     tag: 1.20.26
     digest: sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
   freikin/dawarich:
-    tag: 1.20.0
-    digest: sha256:18945f609942056e55fb24988229499be7bbe4703177fac662225dad465b021f
+    tag: 1.20.1
+    digest: sha256:0640f5adafd7acfcd8a3c79bb3bd0162d5df9108ebcde8734785f8925d2a01a4
   freshrss/freshrss:
     tag: 1.30.4
     digest: sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
