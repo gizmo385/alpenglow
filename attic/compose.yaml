@@ -1,6 +1,6 @@
 services:
   atticd:
-    image: ghcr.io/zhaofengli/attic:latest
+    image: ghcr.io/zhaofengli/attic:12cbeca141f46e1ade76728bce8adc447f2166c6@sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0
     container_name: atticd
     env_file: ./.env
     restart: unless-stopped

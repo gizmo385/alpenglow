@@ -157,11 +157,11 @@ images:
     policy: float
     reason: Not pinned yet
   nicolargo/glances:
-    policy: float
-    reason: Not pinned yet
+    tag: 4.5.8
+    digest: sha256:32ccbc559baa624bd41419c9a1daf2c32b391dfbee106434186a52bccd164ac7
   ghcr.io/zhaofengli/attic:
-    policy: float
-    reason: Not pinned yet
+    tag: 12cbeca141f46e1ade76728bce8adc447f2166c6
+    digest: sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0
   ghcr.io/klutchell/dnscrypt-proxy:
-    policy: float
-    reason: Not pinned yet
+    tag: v2.1.20
+    digest: sha256:9d4e4c1408f71f669ffdc34836d801442dddd7c176838c6d129938d2c1bd95b1

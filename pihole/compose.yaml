@@ -46,7 +46,7 @@ services:
       - otel    # scraped by SigNoz's Alloy
   dnscrypt-proxy:
     container_name: dnscrypt-proxy
-    image: ghcr.io/klutchell/dnscrypt-proxy:main
+    image: ghcr.io/klutchell/dnscrypt-proxy:v2.1.20@sha256:9d4e4c1408f71f669ffdc34836d801442dddd7c176838c6d129938d2c1bd95b1
     restart: unless-stopped
     expose:
       - "5053/udp"
