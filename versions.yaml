@@ -44,8 +44,8 @@ images:
     tag: 1.20.26
     digest: sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
   freikin/dawarich:
-    tag: 1.20.1
-    digest: sha256:0640f5adafd7acfcd8a3c79bb3bd0162d5df9108ebcde8734785f8925d2a01a4
+    tag: 1.21.0
+    digest: sha256:aae6cabd95c1dd5e5d4e2c920692a1b11524feec143d295a9bcc914df7ffdcdf
   freshrss/freshrss:
     tag: 1.30.4
     digest: sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
@@ -56,8 +56,8 @@ images:
     policy: float
     reason: Built from main with no release tags yet; pin once the repo publishes them
   ghcr.io/home-assistant/home-assistant:
-    tag: 2026.10.4
-    digest: sha256:23f4dfbb69ce76315dbc4de7915504f1c2dcecd7ca2648113a493a385972e133
+    tag: 2026.11.0
+    digest: sha256:c6c1ca9931036bf3a2c4cc088d8db25dfea3b33935a5ecc83c40349462e2f69e
   ghcr.io/immichframe/immichframe:
     tag: v1.0.37.0
     digest: sha256:edae2c0b9ab6e1384634582b2bab6246429e14bc209ff6ecc091fc9eedd4582c
@@ -83,8 +83,8 @@ images:
     tag: 5.1.0
     digest: sha256:23bf3fa6a134dc38a3b4f40ef8f7e8040abc96965105dffdcfcf5f202fb5d0b7
   otel/ebpf-instrument:
-    tag: v0.15.2
-    digest: sha256:101b5c773ac84545cac007ce3dbaf38bfb0e7091f26e813c08d649f35dca253e
+    tag: v1.0.0
+    digest: sha256:a68d70e934260f72540f157ccf4fb4adfa38f11de060d7d905696dad6a3fca02
   otel/opentelemetry-collector-contrib:
     tag: 0.164.0
     digest: sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
@@ -131,8 +131,8 @@ images:
     tag: 35.0.2
     digest: sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
   ollama/ollama:
-    tag: 0.40.13
-    digest: sha256:b2f0122c476bc9fe7ce679d8bb4bd555351e25e2554eefb156f61cb0a89cf429
+    tag: 0.40.14
+    digest: sha256:ebaef4f4c5d93660e1f25f8ad085a112f51ccfb0e8458073e71793959dba91c9
   redis:
     tag: 8.10.3-alpine
     digest: sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
@@ -143,12 +143,12 @@ images:
     tag: v2.54.0
     digest: sha256:e64479a4daa9211864eb45ffdf15ce7a44a3664850dab06213105027538fce1e
   ghcr.io/immich-app/immich-server:
-    tag: v3.3.5
-    digest: sha256:485d546a2e31d6a8b4db8423fcba5c109de8c218d93410af115fd1ccfc4352a6
+    tag: v3.3.6
+    digest: sha256:e1981983b1c13f6024b57d72e7ecae3342eed1581201ab09fb248932d86c593a
     group: immich
   ghcr.io/immich-app/immich-machine-learning:
-    tag: v3.3.5
-    digest: sha256:5b28c9352c8374b8a1ed96fbdd8d6755fea6e43510ec43fdf6538aa02ea40f56
+    tag: v3.3.6
+    digest: sha256:14367bfb374b8576ddf49abd67c5ca0190a4c7fcf6303cdad65d7f7bf1a50bc2
     group: immich
   ghcr.io/gizmo385/servo:
     policy: float
