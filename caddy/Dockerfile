@@ -1,11 +1,11 @@
-FROM caddy:2.11.8-builder AS builder
+FROM caddy:2.11.9-builder AS builder
 
 RUN xcaddy build \
     --with github.com/caddy-dns/cloudflare \
     --with github.com/lucaslorentz/caddy-docker-proxy/v2@v2.13.1 \
     --with github.com/mholt/caddy-l4@v0.1.2
 
-FROM caddy:2.11.8
+FROM caddy:2.11.9
 
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 
