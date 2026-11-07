@@ -10,7 +10,7 @@ silently point at a field or metric that doesn't exist.
     ./dashboards.py --check    # only check the queries
 
 SigNoz sits behind a Keycloak login and has no API keys (impersonation, see
-../casting.yaml), so run this from a container on signoz-network, pointed
+../compose.yaml), so run this from a container on signoz-network, pointed
 straight at SigNoz (see ../README.md). With SigNoz's own login back on, it
 runs from anywhere with a service-account key (Editor role) in ../.api_env
 (SIGNOZ_API_KEY=...). Dashboards edited in the UI are overwritten on the next

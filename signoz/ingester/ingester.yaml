@@ -44,6 +44,9 @@ processors:
   batch:
     send_batch_max_size: 55000
     send_batch_size: 50000
+    # SigNoz's default is 5s, which at our volume meant a new part in each of
+    # ~15 tables every 5s and ClickHouse busy merging them. 30s batches cut
+    # inserts ~6x; data shows up at most 30s later.
     timeout: 30s
   batch/meter:
     send_batch_max_size: 25000
