@@ -411,8 +411,9 @@ async def test_updates_matching_and_enrichment(monkeypatch, updates_env):
 
 
 @pytest.mark.asyncio
-async def test_updates_collision_prefers_repo_match(monkeypatch, updates_env):
-    """Two tracker entries → one dir: the one whose repo == dir id wins."""
+async def test_updates_one_dir_with_two_images(monkeypatch, updates_env):
+    """Two tracker entries → one dir: both are listed; the one whose repo ==
+    dir id is the dir's primary update (enrichment, listed first)."""
     payload = {
         "last_updated": 1.0, "refreshing": False,
         "services": [
@@ -430,8 +431,13 @@ async def test_updates_collision_prefers_repo_match(monkeypatch, updates_env):
                         _mock_client(_tracker_handler(payload)))
     enrich = await updates_mod.service_enrichment()
     assert set(enrich) == {"immich"}
-    # the immich-machine-learning entry (repo == "immich") wins, not the proxy
+    # the immich-machine-learning entry (repo == "immich") is primary, not the proxy
     assert enrich["immich"]["latestVersion"] == "v3.0.2"
+    result = await updates_mod.get_updates()
+    assert [(e.id, e.image, e.latestVersion) for e in result.services] == [
+        ("immich", "ghcr.io/immich-app/immich-machine-learning:release", "v3.0.2"),
+        ("immich", "alangrainger/immich-public-proxy:latest", "v3.0.1"),
+    ]
 
 
 @pytest.mark.asyncio

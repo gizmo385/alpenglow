@@ -6,6 +6,10 @@
  * status (useData().services): while a service's status is "updating" the row's
  * button shows a spinner + "Updating…" and is disabled.
  *
+ * One row per pending image. A service with several (signoz: signoz/signoz and
+ * its collector) has several rows sharing its id, and they select, update and
+ * show busy together, because Update works on the whole service.
+ *
  * Update (one row, or "Update selected" for the ticked rows) POSTs
  * /api/updates/apply: the backend repins every image listed in versions.yaml to
  * its new release, one at a time, then pulls & recreates each. The repin is left
@@ -40,6 +44,11 @@ const REFRESH_POLL_MS = 1_500;
 const REFRESH_TIMEOUT_MS = 90_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Service ids of these rows, once each, in order. */
+function uniqueIds(entries: UpdateEntry[]): string[] {
+  return [...new Set(entries.map((e) => e.id))];
+}
 
 /** Claude's verdict for an update (from upgrades-board), linking to its card. */
 function Verdict({ entry }: { entry: UpdateEntry }) {
@@ -87,7 +96,8 @@ export function Updates() {
 
   const trackerUnavailable = data?.trackerUnavailable ?? false;
   const entries = trackerUnavailable ? [] : (data?.services ?? []);
-  const count = entries.length;
+  const serviceIds = uniqueIds(entries);
+  const count = serviceIds.length;
 
   // Busy state comes from the polled /api/services data, not local timers.
   const statusById = new Map(services.map((s) => [s.id, s.status]));
@@ -98,6 +108,7 @@ export function Updates() {
   const selectable = entries.filter((e) => !isBusy(e.id));
   const chosen = selectable.filter((e) => selected.has(e.id));
   const allChosen = selectable.length > 0 && chosen.length === selectable.length;
+  const chosenCount = uniqueIds(chosen).length;
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -172,15 +183,19 @@ export function Updates() {
   /** Repin (when pinned) and pull & recreate these services. */
   async function update(targets: UpdateEntry[], confirm = false): Promise<void> {
     if (targets.length === 0) return;
-    const label =
-      targets.length === 1 ? targets[0].name : `${targets.length} services`;
+    const ids = uniqueIds(targets);
+    const label = ids.length === 1 ? targets[0].name : `${ids.length} services`;
+    // Every pending image of the service is updated, not just this row's.
+    const rows = entries.filter((e) => ids.includes(e.id));
     try {
-      const res = await api.applyUpdates({ services: targets.map((e) => e.id), confirm });
+      const res = await api.applyUpdates({ services: ids, confirm });
       if (res.jobs.length > 0) {
         toast(
-          res.jobs.length === 1 && targets.length === 1
-            ? `Updating ${targets[0].name} to ${targets[0].latestVersion}…`
-            : `Updating ${res.jobs.length} service${res.jobs.length === 1 ? "" : "s"}…`,
+          res.jobs.length === 1 && rows.length === 1
+            ? `Updating ${rows[0].name} to ${rows[0].latestVersion}…`
+            : res.jobs.length === 1
+              ? `Updating ${label}…`
+              : `Updating ${res.jobs.length} services…`,
         );
       }
       for (const r of res.rejected) {
@@ -209,7 +224,7 @@ export function Updates() {
   }
 
   async function copyAll() {
-    const text = entries.map((e) => updateCommand(e.id)).join("\n");
+    const text = serviceIds.map(updateCommand).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       toast(`Copied ${count} update command${count === 1 ? "" : "s"}`);
@@ -264,7 +279,7 @@ export function Updates() {
                 title="Repin and pull & recreate the ticked services"
               >
                 <Icon name="arrows-clockwise" size={15} /> Update selected
-                {chosen.length > 0 && ` (${chosen.length})`}
+                {chosenCount > 0 && ` (${chosenCount})`}
               </Button>
             </>
           )}
@@ -324,7 +339,7 @@ export function Updates() {
               {entries.map((e) => {
                 const busy = isBusy(e.id);
                 return (
-                  <tr key={e.id}>
+                  <tr key={`${e.id} ${e.image}`}>
                     <td className={styles.selectCol}>
                       <input
                         type="checkbox"

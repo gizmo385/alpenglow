@@ -150,18 +150,17 @@ def target_for(entry: dict, pins: dict[str, dict]) -> Target | None:
     return None if t.current_tag in t.tags() else t
 
 
-async def target(service_id: str) -> Target | None:
-    """The pending upgrade of this service's pinned image, if it has one."""
+async def targets(service_id: str) -> list[Target]:
+    """The pending upgrades of this service's pinned images (signoz has two)."""
     from .integrations import updates  # avoids an import cycle
 
     payload = await updates._tracker_cached()
     if not payload:
-        return None
+        return []
     matched, _ = updates._match_entries(payload)
-    entry = matched.get(service_id)
-    if entry is None:
-        return None
-    return target_for(entry, load_pins(repo_root()))
+    pins = load_pins(repo_root())
+    found = (target_for(entry, pins) for entry in matched.get(service_id, []))
+    return [t for t in found if t is not None]
 
 
 # ── running pin as the repo's owner ───────────────────────────────────

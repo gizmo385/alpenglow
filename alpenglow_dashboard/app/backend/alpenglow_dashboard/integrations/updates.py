@@ -13,15 +13,19 @@ Matching tracker entries → service dirs is by **image ref with the tag
 stripped**: e.g. tracker ``ghcr.io/immich-app/immich-machine-learning:release``
 and compose ``ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}``
 both normalise to ``ghcr.io/immich-app/immich-machine-learning``. A dir can own
-several images (immich also carries ``alangrainger/immich-public-proxy``), so
-each compose image maps to its dir. Unmatched tracker entries are logged, not
-served. Entries with ``has_updates=false`` are ignored.
+several images (immich also carries ``alangrainger/immich-public-proxy``, signoz
+both ``signoz/signoz`` and ``signoz/signoz-otel-collector``), so each compose
+image maps to its dir and a dir can have several pending updates. Unmatched
+tracker entries are logged, not served. Entries with ``has_updates=false`` are
+ignored.
 
-``GET /api/updates`` returns only *matched* pending updates (contract ``Updates``).
+``GET /api/updates`` returns only *matched* pending updates (contract ``Updates``),
+one entry per image: a dir with two pending images has two entries sharing its
+``id``, since Update works on the whole dir (see ``repin.targets``).
 Connection failure / 404 → empty list + ``trackerUnavailable=True``.
 ``service_enrichment()`` reuses the same cached fetch to hand inventory the
-``latestVersion``/``releasedAt``/``changelogUrl`` per dir (inventory calls it on
-every request — caching is required).
+``latestVersion``/``releasedAt``/``changelogUrl`` per dir, from its primary
+update (inventory calls it on every request — caching is required).
 
 Each entry also carries Claude's verdict when the Upgrades board has a card for
 it (see ``alpenglow_dashboard.upgrades``), matched by the tracker's
@@ -162,20 +166,19 @@ def _newest_release(entry: dict) -> Optional[dict]:
     return max(dated, key=key)
 
 
-def _match_entries(payload: dict) -> tuple[dict[str, dict], list[str]]:
-    """Return ``({dir_id: tracker_entry}, unmatched_names)`` for pending updates.
+def _match_entries(payload: dict) -> tuple[dict[str, list[dict]], list[str]]:
+    """Return ``({dir_id: [tracker_entry, ...]}, unmatched_names)`` for pending updates.
 
-    Only ``has_updates=true`` entries are considered. If several tracker entries
-    map to one dir (immich owns both ``immich-machine-learning`` and
-    ``immich-public-proxy``), the entry whose ``repo`` matches the dir id is
-    preferred as the "primary" update; otherwise the first-seen wins. The others
-    are reported as unmatched-to-a-distinct-dir so nothing is silently dropped.
+    Only ``has_updates=true`` entries are considered. A dir can have several
+    (signoz owns both ``signoz/signoz`` and ``signoz/signoz-otel-collector``);
+    the entry whose ``repo`` matches the dir id comes first, as the dir's
+    "primary" update, then the rest in tracker order.
     """
     services = payload.get("services")
     if not isinstance(services, list):
         return {}, []
     img_map = _image_to_dir()
-    matched: dict[str, dict] = {}
+    matched: dict[str, list[dict]] = {}
     unmatched: list[str] = []
     for entry in services:
         if not isinstance(entry, dict) or not entry.get("has_updates"):
@@ -185,16 +188,9 @@ def _match_entries(payload: dict) -> tuple[dict[str, dict], list[str]]:
         if sid is None:
             unmatched.append(f"{entry.get('name')} ({entry.get('image')})")
             continue
-        existing = matched.get(sid)
-        if existing is None:
-            matched[sid] = entry
-            continue
-        # collision: prefer the entry whose repo matches the dir id
-        if str(entry.get("repo") or "") == sid and str(existing.get("repo") or "") != sid:
-            unmatched.append(f"{existing.get('name')} ({existing.get('image')}) [also → {sid}]")
-            matched[sid] = entry
-        else:
-            unmatched.append(f"{entry.get('name')} ({entry.get('image')}) [also → {sid}]")
+        matched.setdefault(sid, []).append(entry)
+    for sid, entries in matched.items():
+        entries.sort(key=lambda e: str(e.get("repo") or "") != sid)  # stable
     return matched, unmatched
 
 
@@ -232,7 +228,7 @@ async def service_enrichment() -> dict[str, dict]:
     if unmatched:
         log.info("updates: %d tracker entries unmatched to a service dir: %s",
                  len(unmatched), ", ".join(unmatched))
-    return {sid: _entry_fields(entry) for sid, entry in matched.items()}
+    return {sid: _entry_fields(entries[0]) for sid, entries in matched.items()}
 
 
 # ── metadata for update entries ───────────────────────────────────────────────
@@ -252,26 +248,27 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.
         log.info("updates: %d tracker entries unmatched to a service dir: %s",
                  len(unmatched), ", ".join(unmatched))
     entries: list[models.UpdateEntry] = []
-    for sid, entry in sorted(matched.items()):
-        fields = _entry_fields(entry)
-        latest = fields["latestVersion"]
-        if not latest:
-            continue  # UpdateEntry.latestVersion is required
+    for sid, tracker_entries in sorted(matched.items()):
         name, icon = _meta_for(sid)
-        entries.append(
-            models.UpdateEntry(
-                id=sid,
-                name=name,
-                icon=icon,
-                # A pinned container's ref ends in @sha256:…, which is no use to read.
-                image=str(entry.get("image", "")).split("@", 1)[0],
-                currentVersion=str(entry.get("current_version") or "—"),
-                latestVersion=latest,
-                releasedAt=fields["releasedAt"],
-                changelogUrl=fields["changelogUrl"],
-                **_verdict_fields(entry, annotations or {}),
+        for entry in tracker_entries:
+            fields = _entry_fields(entry)
+            latest = fields["latestVersion"]
+            if not latest:
+                continue  # UpdateEntry.latestVersion is required
+            entries.append(
+                models.UpdateEntry(
+                    id=sid,
+                    name=name,
+                    icon=icon,
+                    # A pinned container's ref ends in @sha256:…, which is no use to read.
+                    image=str(entry.get("image", "")).split("@", 1)[0],
+                    currentVersion=str(entry.get("current_version") or "—"),
+                    latestVersion=latest,
+                    releasedAt=fields["releasedAt"],
+                    changelogUrl=fields["changelogUrl"],
+                    **_verdict_fields(entry, annotations or {}),
+                )
             )
-        )
     return models.Updates(
         services=entries,
         lastUpdated=_last_updated_iso(payload),

@@ -240,11 +240,12 @@ def job(repo: Path, monkeypatch, tmp_path: Path):
         await asyncio.sleep(0)
         return results.get((service_id, action), (True, ""))
 
-    async def fake_target(service_id):
-        return targets.get(service_id)
+    async def fake_targets(service_id):
+        t = targets.get(service_id)
+        return t if isinstance(t, list) else [t] if t else []
 
     monkeypatch.setattr(actions, "_run_commands", fake_commands)
-    monkeypatch.setattr(repin, "target", fake_target)
+    monkeypatch.setattr(repin, "targets", fake_targets)
     monkeypatch.setenv("AUDIT_PATH", str(tmp_path / "audit.jsonl"))
     actions._BUSY.clear()
     actions._SERVICE_LOCKS.clear()
@@ -296,6 +297,27 @@ def test_failed_repin_skips_that_pull(job, repo: Path):
     assert calls == [("jellyfin", "pull")]
     by = {a["service"]: a for a in audit_lines()}
     assert by["beszel"]["outcome"] == "failed" and "no image tag found" in by["beszel"]["stderr"]
+
+
+def test_update_repins_every_image_of_a_service(job, repo: Path):
+    """signoz has two pinned images (signoz/signoz and its collector)."""
+    calls, _, audit_lines, targets = job
+    targets["beszel"] = [BESZEL, JELLYFIN]
+    run_update("beszel")
+    assert pin_log(repo) == ["henrygd/beszel 0.22.0", "jellyfin/jellyfin 10.11.0"]
+    assert calls == [("beszel", "pull")]
+    assert [a["outcome"] for a in audit_lines() if a["outcome"] != "accepted"] == ["succeeded"]
+
+
+def test_one_failed_repin_of_a_service_skips_its_pull(job, repo: Path):
+    calls, _, audit_lines, targets = job
+    targets["beszel"] = [BESZEL, Target("jellyfin/jellyfin", "10.10.0", "v10.10.0", "vNOPE", "")]
+    run_update("beszel")
+    assert calls == []
+    by = {a["service"]: a for a in audit_lines()}
+    assert by["beszel"]["outcome"] == "failed"
+    assert "no image tag found for jellyfin/jellyfin" in by["beszel"]["stderr"]
+    assert "pins henrygd/beszel to 0.22.0 (was 0.21.1); not rolled back" in by["beszel"]["stderr"]
 
 
 def test_the_dashboard_updates_itself_last(job, repo: Path):

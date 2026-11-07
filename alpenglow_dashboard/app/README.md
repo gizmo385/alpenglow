@@ -88,8 +88,13 @@ The token needs the **Tasks** preset (tasks, comments and labels). Code is in
 
 ## Updating services
 
-In the Updates view, tick services and press **Update selected**, or press a
-row's **Update**. Either posts `POST /api/updates/apply` (admin, CSRF), which:
+The Updates view lists one row per pending image. A service with several
+(`signoz`: `signoz/signoz` and `signoz/signoz-otel-collector`) gets a row for
+each, and its rows select and update together: Update works on the whole
+service.
+
+Tick services and press **Update selected**, or press a row's **Update**.
+Either posts `POST /api/updates/apply` (admin, CSRF), which:
 
 1. repins every image among them that `versions.yaml` lists (not
    `policy: float`), one at a time (pin locks `versions.yaml` while it
@@ -97,7 +102,8 @@ row's **Update**. Either posts `POST /api/updates/apply` (admin, CSRF), which:
    tracker's new release, spelled like the current tag (`v` prefix and a
    suffix such as `-alpine` kept; the next spelling is tried if the registry
    has no such tag, and any other failure stops that service's update with the
-   reason, leaving its files as they were);
+   reason, leaving that image's files as they were; any of the service's
+   other images already repinned stay so, and the reason says which);
 2. then runs `docker compose pull` and `up -d` for each, two at a time. The
    dashboard's own service goes last.
 

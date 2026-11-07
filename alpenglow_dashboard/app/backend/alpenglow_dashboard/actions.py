@@ -195,27 +195,38 @@ async def _run_job(service_id: str, action: str, user: str, job_id: str) -> None
 # updated last, after everything else in the same request has finished.
 SELF_SERVICE = "alpenglow_dashboard"
 
-Repinned = dict[str, tuple[repin.Target, str]]
+Repinned = dict[str, list[tuple[repin.Target, str]]]
+
+
+def _pins_note(done: list[tuple[repin.Target, str]]) -> str:
+    return "; ".join(f"versions.yaml now pins {t.name} to {tag} (was {t.current_tag})"
+                     for t, tag in done)
 
 
 async def _repin_all(service_ids: list[str]) -> tuple[Repinned, dict[str, str]]:
-    """Repin each service's pending pinned image, one at a time (see :mod:`repin`).
+    """Repin each service's pending pinned images, one at a time (see :mod:`repin`).
 
-    Returns ``({service: (target, new tag)}, {service: why it can't update})``.
-    Services whose image floats appear in neither and are just pulled.
+    Returns ``({service: [(target, new tag)]}, {service: why it can't update})``.
+    Services whose images float appear in neither and are just pulled. When one
+    of a service's images fails to repin, the service isn't pulled, and any of
+    its images already repinned stay so (noted in the reason).
     """
     repinned: Repinned = {}
     failed: dict[str, str] = {}
     async with repin.repo_lock():
         for sid in service_ids:
+            done: list[tuple[repin.Target, str]] = []
             try:
-                t = await repin.target(sid)
-                if t is not None:
-                    repinned[sid] = (t, await repin.pin(t))
+                for t in await repin.targets(sid):
+                    done.append((t, await repin.pin(t)))
             except repin.RepinError as err:
                 failed[sid] = str(err)
             except Exception as exc:  # unreadable versions.yaml or tracker: don't guess
                 failed[sid] = f"couldn't work out the new version: {type(exc).__name__}: {exc}"
+            if sid in failed and done:
+                failed[sid] += f"\n[update] {_pins_note(done)}; not rolled back"
+            elif done:
+                repinned[sid] = done
     return repinned, failed
 
 
@@ -229,8 +240,7 @@ async def _deploy(service_id: str, repinned: Repinned) -> tuple[bool, str]:
     ok, stderr = await _run_commands(service_id, "pull")
     if ok or service_id not in repinned:
         return ok, stderr
-    t, tag = repinned[service_id]
-    return False, f"{stderr}\n[update] versions.yaml now pins {t.name} to {tag} (was {t.current_tag}); not rolled back"
+    return False, f"{stderr}\n[update] {_pins_note(repinned[service_id])}; not rolled back"
 
 
 async def _update_job(jobs: list[tuple[str, str]], user: str) -> None:
