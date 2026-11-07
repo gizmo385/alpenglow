@@ -1219,7 +1219,10 @@ security = Dashboard(
 # --- Claude Code ---------------------------------------------------------------
 # Claude Code's own OpenTelemetry metrics (delta counters) and events (logs),
 # sent from the personal machines through otlp.acbc.house, and from Claude
-# dispatcher jobs, which carry job.profile, through the same. Based on SigNoz's
+# dispatcher jobs, which carry job.profile, through the same. Four Nations agent
+# playtests (four-nations' `cargo xtask agent-run`, which sets
+# OTEL_RESOURCE_ATTRIBUTES) carry four_nations.run, .mode, .seed, .nation,
+# .difficulty and, on chunked runs, .chunk. Based on SigNoz's
 # library dashboard (SigNoz/dashboards@4cc626eec5 claude-code/). The counters
 # only report while Claude Code is in use, so per-step series use fillZero:
 # otherwise idle hours are missing buckets that the line is drawn straight
@@ -1230,7 +1233,8 @@ CC_COST = "claude_code.cost.usage"  # what the same usage would cost on the API,
 CC_ACTIVE = "claude_code.active_time.total"
 CC_TOOL_RESULT = "body = 'claude_code.tool_result'"
 CC_JOB = "job.profile EXISTS"  # dispatcher jobs; interactive sessions don't have the tag
-CC_INTERACTIVE = "job.profile NOT EXISTS"
+CC_FN = "four_nations.run EXISTS"  # Four Nations agent playtests
+CC_INTERACTIVE = "job.profile NOT EXISTS AND four_nations.run NOT EXISTS"
 # Monthly price of each subscription, US web prices (claude.com/pricing, 2026-10).
 CC_PLANS = {"Pro": 20, "Max 5x": 100, "Max 20x": 200}
 SECONDS_PER_MONTH = 365.25 / 12 * 86400
@@ -1271,7 +1275,8 @@ claude_code = Dashboard(
     name="Claude Code Metrics",
     description=(
         "Claude Code usage, tokens, API-equivalent cost and how it compares with the Pro and Max "
-        "subscriptions, from the OpenTelemetry of the personal machines and Claude dispatcher jobs."
+        "subscriptions, from the OpenTelemetry of the personal machines, Claude dispatcher jobs and "
+        "Four Nations agent playtests."
     ),
     sections=[
         Section("Overview", [
@@ -1350,13 +1355,17 @@ claude_code = Dashboard(
                 Panel("Dispatcher Job Cost", "number", [Query("A", "metrics", cc_sum(CC_COST), [CC_JOB])],
                       description="API-equivalent cost of Claude dispatcher jobs over the selected range",
                       width=3, height=4),
-                Panel("Cost: Interactive vs Dispatcher Jobs", "timeseries", [
+                Panel("Cost: Interactive vs Automated", "timeseries", [
                     Query("A", "metrics", cc_sum(CC_COST), [CC_INTERACTIVE], functions=["fillZero"],
                           legend="Interactive"),
                     Query("B", "metrics", cc_sum(CC_COST), [CC_JOB], by=[key("job.profile", "resource")],
                           functions=["fillZero"], legend="{{job.profile}} jobs"),
-                ], description="API-equivalent cost per step, split by the job.profile tag on dispatcher jobs.",
-                    width=9, height=4),
+                    Query("C", "metrics", cc_sum(CC_COST), [CC_FN], functions=["fillZero"],
+                          legend="Four Nations playtests"),
+                ], description=(
+                    "API-equivalent cost per step: interactive sessions, dispatcher jobs split by their "
+                    "job.profile tag, and Four Nations agent playtests (four_nations.run tag)."
+                ), width=9, height=4),
             ],
             [
                 Panel("API Cost (Total)", "number", [Query("A", "metrics", cc_sum(CC_COST))],
@@ -1374,6 +1383,37 @@ claude_code = Dashboard(
                         "API-equivalent spend in each 15 minutes (or each step, on long ranges) / each "
                         "plan's price prorated to the same time. 0 while idle."
                     )),
+            ],
+        ]),
+        Section("Four Nations Agent Playtests", [
+            [
+                Panel("Playtest Cost", "number", [Query("A", "metrics", cc_sum(CC_COST), [CC_FN])],
+                      description="API-equivalent cost of Four Nations agent playtests over the selected range",
+                      width=3, height=4),
+                Panel("Playtest Cost by Mode", "bar",
+                      [Query("A", "metrics", cc_sum(CC_COST), [CC_FN],
+                             by=[key("four_nations.mode", "resource")], legend="{{four_nations.mode}}")],
+                      description="mcp, mcp-chunked, scripts or interactive (agent-run's own modes)",
+                      stacked=False, width=5, height=4),
+                Panel("Playtest Cost by Model", "bar",
+                      [Query("A", "metrics", cc_sum(CC_COST), [CC_FN], by=[key("model", "attribute")],
+                             legend="{{model}}")],
+                      description="Which model tier the playtests ran on", stacked=False, width=4, height=4),
+            ],
+            [
+                Panel("Playtest Runs", "table", [
+                    Query("A", "metrics", cc_sum(CC_COST), [CC_FN],
+                          by=[key("four_nations.run", "resource"), key("four_nations.mode", "resource"),
+                              key("four_nations.nation", "resource"), key("four_nations.seed", "resource")],
+                          legend="cost (USD)"),
+                    Query("B", "metrics", cc_sum(CC_TOKENS), [CC_FN],
+                          by=[key("four_nations.run", "resource"), key("four_nations.mode", "resource"),
+                              key("four_nations.nation", "resource"), key("four_nations.seed", "resource")],
+                          legend="tokens"),
+                ], description=(
+                    "One row per run (four_nations.run is the run folder's name under ~/fn-agent-runs, "
+                    "so a row matches that folder's cost.json)."
+                ), column_units={"A": "currencyUSD"}, width=12, height=6),
             ],
         ]),
         Section("Log Insights (from Events)", [
