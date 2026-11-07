@@ -15,7 +15,7 @@ services:
   # back to SigNoz's own login, drop the four SIGNOZ_USER_ROOT/IDENTN entries;
   # users, dashboards and API keys are untouched.
   signoz-signoz-0:
-    image: signoz/signoz:v0.143.0@sha256:7da6b9c07db100cfcf7949966211b16543e3d6828df31f0f7a24110d734a811c
+    image: signoz/signoz:v0.149.0@sha256:dc31f487d69452b90da87cf7208b334963de776349b3c2b661bf88990edf9ca4
     container_name: signoz-signoz-0
     restart: unless-stopped
     # Shared Postgres DSN (SIGNOZ_SQLSTORE_POSTGRES_DSN) and the root user.
@@ -52,7 +52,7 @@ services:
   # OTLP into ClickHouse. Only Alloy talks to it, over signoz-network. Its
   # pipelines are nop until SigNoz pushes config over OpAMP (opamp.yaml).
   ingester:
-    image: signoz/signoz-otel-collector:v0.144.12@sha256:deb566a7a3c0ba544ee58ccc92ee1f0e6da827bc40383e52f3c824705e100a3d
+    image: signoz/signoz-otel-collector:v0.144.15@sha256:3996e0ffc58bc86d433062a45ef7ff960a4768da0619944f651a17254d634daf
     restart: unless-stopped
     entrypoint: ["/bin/sh"]
     command:
@@ -74,7 +74,7 @@ services:
   # One-shot: creates and migrates the ClickHouse schema, then exits. Runs on
   # every `up`, so a SigNoz upgrade's migrations happen here.
   signoz-telemetrystore-migrator:
-    image: signoz/signoz-otel-collector:v0.144.12@sha256:deb566a7a3c0ba544ee58ccc92ee1f0e6da827bc40383e52f3c824705e100a3d
+    image: signoz/signoz-otel-collector:v0.144.15@sha256:3996e0ffc58bc86d433062a45ef7ff960a4768da0619944f651a17254d634daf
     container_name: signoz-telemetrystore-migrator
     restart: on-failure
     entrypoint: ["/bin/sh"]
@@ -164,7 +164,7 @@ services:
   # of its own (impersonation, see signoz-signoz-0), so this proxy lets in
   # Keycloak's Admin group and nobody else (.proxy_env).
   oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5@sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.6@sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
     container_name: signoz-oauth2-proxy
     restart: unless-stopped
     env_file:
@@ -238,7 +238,7 @@ services:
   # host-metrics/config.yaml). On the host network so network counters are
   # the host's rather than a container's.
   host-metrics:
-    image: otel/opentelemetry-collector-contrib:0.164.0@sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
+    image: otel/opentelemetry-collector-contrib:0.165.0@sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea
     container_name: signoz-host-metrics
     restart: unless-stopped
     network_mode: host

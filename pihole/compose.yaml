@@ -28,7 +28,7 @@ services:
   # (.exporter-env) and reusing one session until it expires.
   pihole-exporter:
     container_name: pihole-exporter
-    image: ekofr/pihole-exporter:v1.2.0@sha256:242c53ef3c24b88fcbe8184390b456d05604bd50de5732ca3fd3eb24395585b3
+    image: ekofr/pihole-exporter:v1.3.1@sha256:4233c06fcd2d62c37b9345228bc9f798b3a66d052b4955ec6a0e5b8825e20827
     restart: unless-stopped
     env_file:
       - path: .exporter-env

@@ -81,8 +81,8 @@ images:
     tag: v1.0.0
     digest: sha256:a68d70e934260f72540f157ccf4fb4adfa38f11de060d7d905696dad6a3fca02
   otel/opentelemetry-collector-contrib:
-    tag: 0.164.0
-    digest: sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
+    tag: 0.165.0
+    digest: sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea
   pihole/pihole:
     tag: 2026.10.1
     digest: sha256:30f803ad5dd60ff96cc0a63008a2e9271af481c1b0399a182192b2e91152c1f9
@@ -90,20 +90,20 @@ images:
     tag: 26.8.1
     digest: sha256:3f3c5f8e03c614774b4bd9173b88391fefa4153bfc010d8012d59ad825377332
   quay.io/oauth2-proxy/oauth2-proxy:
-    tag: v7.15.5
-    digest: sha256:8498b0d0ef0a7b29686414000a08aee467f02d0299c9ed1e006a8f33fc017916
+    tag: v7.15.6
+    digest: sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
   vabene1111/recipes:
     tag: 2.7.2
     digest: sha256:1b6d43c3c0f5d2888aa564d9daf29883212b79ad496f59f3c684c099eb1a57b9
   vikunja/vikunja:
-    tag: 2.7.1
-    digest: sha256:f7dc8428d10aef17f3075886d3c1c022f566ec456f88985f02c137f4fc534576
+    tag: 2.8.0
+    digest: sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3
   crowdsecurity/crowdsec:
     tag: v1.8.2
     digest: sha256:65b74942f7e7ed5c60fde4ac15fc4ba715904c398c8b16dd451f4907d90347d4
   ekofr/pihole-exporter:
-    tag: v1.2.0
-    digest: sha256:242c53ef3c24b88fcbe8184390b456d05604bd50de5732ca3fd3eb24395585b3
+    tag: v1.3.1
+    digest: sha256:4233c06fcd2d62c37b9345228bc9f798b3a66d052b4955ec6a0e5b8825e20827
   fmtr/amniotic:
     tag: v1.10.2
     digest: sha256:8de4b03f79de0971fe61b4aab43c5de0e5d9e5d7784c8b7a7bf60306e6f0a04c
@@ -126,8 +126,8 @@ images:
     tag: 35.0.2
     digest: sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
   ollama/ollama:
-    tag: 0.40.14
-    digest: sha256:ebaef4f4c5d93660e1f25f8ad085a112f51ccfb0e8458073e71793959dba91c9
+    tag: 0.40.15
+    digest: sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761
   redis:
     tag: 8.10.3-alpine
     digest: sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
@@ -161,14 +161,14 @@ images:
     tag: v2.1.20
     digest: sha256:9d4e4c1408f71f669ffdc34836d801442dddd7c176838c6d129938d2c1bd95b1
   signoz/signoz:
-    tag: v0.143.0
-    digest: sha256:7da6b9c07db100cfcf7949966211b16543e3d6828df31f0f7a24110d734a811c
+    tag: v0.149.0
+    digest: sha256:dc31f487d69452b90da87cf7208b334963de776349b3c2b661bf88990edf9ca4
     compatibility:
       - signoz/signoz-otel-collector (versioned separately; check the release notes for the collector version SigNoz expects)
       - signoz/ingester/ingester.yaml and signoz/clickhouse/ (config is hand-maintained since leaving Foundry)
   signoz/signoz-otel-collector:
-    tag: v0.144.12
-    digest: sha256:deb566a7a3c0ba544ee58ccc92ee1f0e6da827bc40383e52f3c824705e100a3d
+    tag: v0.144.15
+    digest: sha256:3996e0ffc58bc86d433062a45ef7ff960a4768da0619944f651a17254d634daf
     compatibility:
       - signoz/signoz (versioned separately)
       - signoz/ingester/ingester.yaml
