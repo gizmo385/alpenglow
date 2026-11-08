@@ -1293,7 +1293,7 @@ claude_code = Dashboard(
                 Panel("Token Usage Over Time", "timeseries",
                       [Query("A", "metrics", cc_sum(CC_TOKENS), functions=["fillZero"], legend="Tokens")],
                       description="Tokens per step, all types (input, output, cache read and creation).",
-                      height=5),
+                      unit="short", height=5),
                 Panel("Cost Over Time (USD)", "timeseries",
                       [Query("A", "metrics", cc_sum(CC_COST), functions=["fillZero"], legend="Cost (USD)")],
                       description="API-equivalent cost per step.", height=5),
@@ -1302,7 +1302,7 @@ claude_code = Dashboard(
                 Panel("Cumulative Tokens", "timeseries",
                       [Query("A", "metrics", cc_sum(CC_TOKENS), functions=["fillZero", "cumulativeSum"],
                              legend="Tokens")],
-                      description="Running total since the start of the selected range.", height=5),
+                      description="Running total since the start of the selected range.", unit="short", height=5),
                 Panel("Cumulative Cost (USD)", "timeseries",
                       [Query("A", "metrics", cc_sum(CC_COST), functions=["fillZero", "cumulativeSum"],
                              legend="Cost (USD)")],
@@ -1315,11 +1315,12 @@ claude_code = Dashboard(
                 Panel("Tokens by Model", "bar",
                       [Query("A", "metrics", cc_sum(CC_TOKENS), by=[key("model", "attribute")],
                              legend="{{model}}")],
-                      description="Token consumption by model", stacked=False, height=4),
+                      description="Token consumption by model", unit="short", stacked=False, height=4),
                 Panel("Tokens by Type", "bar",
                       [Query("A", "metrics", cc_sum(CC_TOKENS), by=[key("type", "attribute")],
                              legend="{{type}}")],
-                      description="Input, output, cache read, cache creation", stacked=False, height=4),
+                      description="Input, output, cache read, cache creation", unit="short", stacked=False,
+                      height=4),
             ],
         ]),
         Section("Cost & Productivity", [
@@ -1413,7 +1414,7 @@ claude_code = Dashboard(
                 ], description=(
                     "One row per run (four_nations.run is the run folder's name under ~/fn-agent-runs, "
                     "so a row matches that folder's cost.json)."
-                ), column_units={"A": "currencyUSD"}, width=12, height=6),
+                ), column_units={"A": "currencyUSD", "B": "short"}, width=12, height=6),
             ],
         ]),
         Section("Log Insights (from Events)", [
