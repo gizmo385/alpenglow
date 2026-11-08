@@ -39,8 +39,8 @@ images:
     tag: 1.20.26
     digest: sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
   freikin/dawarich:
-    tag: 1.21.0
-    digest: sha256:aae6cabd95c1dd5e5d4e2c920692a1b11524feec143d295a9bcc914df7ffdcdf
+    tag: 1.22.0
+    digest: sha256:b8ee8d9fdff92a9d6ca570f98e0e875624f4bfb24b61363f8246bba124d5849d
   freshrss/freshrss:
     tag: 1.30.4
     digest: sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
@@ -75,8 +75,8 @@ images:
     tag: v4.0.0-ls237
     digest: sha256:f94b9a1c19a34e3b5500cfbfbfdee1fed7e6636fbbf7519519b0e92424223f11
   mauriceboe/trek:
-    tag: 5.1.0
-    digest: sha256:23bf3fa6a134dc38a3b4f40ef8f7e8040abc96965105dffdcfcf5f202fb5d0b7
+    tag: 5.1.1
+    digest: sha256:7068cc86c0d4d5aa9b55aeffd03966f7458352bcb3e010721e3d7d6899ac60bd
   otel/ebpf-instrument:
     tag: v1.0.0
     digest: sha256:a68d70e934260f72540f157ccf4fb4adfa38f11de060d7d905696dad6a3fca02
@@ -152,8 +152,8 @@ images:
     policy: float
     reason: Not pinned yet
   nicolargo/glances:
-    tag: 4.5.8
-    digest: sha256:32ccbc559baa624bd41419c9a1daf2c32b391dfbee106434186a52bccd164ac7
+    tag: 4.5.9
+    digest: sha256:1d994d181732cfbf68b7c5826a1f71b89624e3eaaa2fe28b28048b2f61b200d7
   ghcr.io/zhaofengli/attic:
     tag: 12cbeca141f46e1ade76728bce8adc447f2166c6
     digest: sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0
