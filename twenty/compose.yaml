@@ -2,7 +2,7 @@ name: twenty
 
 services:
   server:
-    image: twentycrm/twenty:v2.54.0@sha256:e64479a4daa9211864eb45ffdf15ce7a44a3664850dab06213105027538fce1e
+    image: twentycrm/twenty:v2.56.1@sha256:c90565b8a0ea70eb0c0446dcf9491a084140e7f90d8b634e10aa7db381b42f0c
     volumes:
       - server-local-data:/app/packages/twenty-server/.local-storage
     env_file:
@@ -25,7 +25,7 @@ services:
       caddy.reverse_proxy: "@crm {{upstreams http 3000}}"
 
   worker:
-    image: twentycrm/twenty:v2.54.0@sha256:e64479a4daa9211864eb45ffdf15ce7a44a3664850dab06213105027538fce1e
+    image: twentycrm/twenty:v2.56.1@sha256:c90565b8a0ea70eb0c0446dcf9491a084140e7f90d8b634e10aa7db381b42f0c
     volumes:
       - server-local-data:/app/packages/twenty-server/.local-storage
     command: ["yarn", "worker:prod"]

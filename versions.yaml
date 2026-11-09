@@ -135,8 +135,8 @@ images:
     tag: 2.1.2-alpine
     digest: sha256:860aeb5d63ce509508f6dcfb2bc8a1c1dd2bc60555b562b45ce90e52d8dabb0f
   twentycrm/twenty:
-    tag: v2.54.0
-    digest: sha256:e64479a4daa9211864eb45ffdf15ce7a44a3664850dab06213105027538fce1e
+    tag: v2.56.1
+    digest: sha256:c90565b8a0ea70eb0c0446dcf9491a084140e7f90d8b634e10aa7db381b42f0c
   ghcr.io/immich-app/immich-server:
     tag: v3.3.6
     digest: sha256:e1981983b1c13f6024b57d72e7ecae3342eed1581201ab09fb248932d86c593a
