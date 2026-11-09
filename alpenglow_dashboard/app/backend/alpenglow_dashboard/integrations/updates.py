@@ -35,7 +35,9 @@ renders.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from typing import Any, Optional
 
 import httpx
@@ -50,6 +52,11 @@ log = logging.getLogger("alpenglow.updates")
 # Cache the raw tracker payload; both the route and service_enrichment() (called
 # per inventory request) read through it.
 _CACHE = AsyncTTLCache(ttl=30.0)
+
+# How often rescan() checks on the tracker, and how long it waits (a scan
+# normally takes ~8s, and one already running has to finish first).
+_RESCAN_POLL = 2.0
+_RESCAN_TIMEOUT = 120.0
 
 _ICON_DEFAULT = "ph-cube"
 
@@ -243,6 +250,8 @@ def _meta_for(sid: str) -> tuple[str, str]:
 
 
 def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.Updates:
+    from .. import actions  # avoids an import cycle
+
     matched, unmatched = _match_entries(payload)
     if unmatched:
         log.info("updates: %d tracker entries unmatched to a service dir: %s",
@@ -250,6 +259,7 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.
     entries: list[models.UpdateEntry] = []
     for sid, tracker_entries in sorted(matched.items()):
         name, icon = _meta_for(sid)
+        updated, update_error = actions.update_outcome(sid)
         for entry in tracker_entries:
             fields = _entry_fields(entry)
             latest = fields["latestVersion"]
@@ -266,6 +276,8 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.
                     latestVersion=latest,
                     releasedAt=fields["releasedAt"],
                     changelogUrl=fields["changelogUrl"],
+                    updated=updated,
+                    updateError=update_error,
                     **_verdict_fields(entry, annotations or {}),
                 )
             )
@@ -306,6 +318,35 @@ async def _proxy_refresh() -> Optional[dict]:
         return None
     _CACHE.invalidate()
     return await _fetch_tracker()
+
+
+async def rescan() -> None:
+    """Start a tracker scan and wait for it to finish.
+
+    The tracker refuses ``/refresh`` while a scan is running, and that scan may
+    have read the old versions, so keep asking until a new one starts.
+    """
+    base = _base_url()
+    deadline = time.monotonic() + _RESCAN_TIMEOUT
+    started = False
+    try:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+            while time.monotonic() < deadline:
+                if started:
+                    resp = await client.get(f"{base}/status")
+                    resp.raise_for_status()
+                    if not resp.json().get("refreshing"):
+                        return
+                else:
+                    resp = await client.post(f"{base}/refresh")
+                    resp.raise_for_status()
+                    started = bool(resp.json().get("started"))
+                await asyncio.sleep(_RESCAN_POLL)
+            log.warning("tracker rescan still not finished after %.0fs", _RESCAN_TIMEOUT)
+    except (httpx.HTTPError, ValueError) as err:
+        log.warning("tracker rescan failed: %s", err)
+    finally:
+        _CACHE.invalidate()
 
 
 @router.post("/updates/refresh")

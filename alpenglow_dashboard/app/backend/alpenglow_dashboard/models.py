@@ -388,6 +388,10 @@ class UpdateEntry(BaseModel):
     verdictNote: Optional[str] = None
     verdictColor: Optional[str] = None
     cardUrl: Optional[str] = None
+    # The service's Update has finished and the tracker hasn't rescanned yet.
+    updated: bool = False
+    # Why the service's last Update failed, until its next one.
+    updateError: Optional[str] = None
 
 
 class Updates(BaseModel):

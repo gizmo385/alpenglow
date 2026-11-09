@@ -282,6 +282,10 @@ export interface UpdateEntry {
   verdictNote?: string | null;
   verdictColor?: string | null;
   cardUrl?: string | null;
+  /** The service's Update has finished and the tracker hasn't rescanned yet. */
+  updated?: boolean;
+  /** Why the service's last Update failed, until its next one. */
+  updateError?: string | null;
 }
 
 export interface Updates {

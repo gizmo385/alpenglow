@@ -18,6 +18,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from alpenglow_dashboard import actions as actions_mod
 from alpenglow_dashboard import models
 from alpenglow_dashboard.integrations import (
     _common,
@@ -502,6 +503,56 @@ async def test_updates_tracker_unavailable(monkeypatch, updates_env):
     result = await updates_mod.get_updates()
     assert result.services == []
     assert result.trackerUnavailable is True
+
+
+@pytest.mark.asyncio
+async def test_updates_carry_each_services_update_outcome(monkeypatch, updates_env):
+    monkeypatch.setattr(httpx.AsyncClient, "__init__",
+                        _mock_client(_tracker_handler(TRACKER_PAYLOAD)))
+    monkeypatch.setattr(actions_mod, "_UPDATED", {"immich"})
+    monkeypatch.setattr(actions_mod, "_UPDATE_ERRORS", {"ollama": "pull failed"})
+    by_id = {e.id: e for e in (await updates_mod.get_updates()).services}
+    assert by_id["immich"].updated is True and by_id["immich"].updateError is None
+    assert by_id["ollama"].updated is False and by_id["ollama"].updateError == "pull failed"
+    assert by_id["twenty"].updated is False and by_id["twenty"].updateError is None
+
+
+def _rescan_handler(started: list[bool], refreshing: list[bool], log: list[str]):
+    def handler(request):
+        log.append(request.url.path)
+        if request.url.path.endswith("/refresh"):
+            return httpx.Response(200, json={"started": started.pop(0)})
+        return httpx.Response(200, json={"refreshing": refreshing.pop(0)})
+
+    return handler
+
+
+@pytest.mark.asyncio
+async def test_rescan_waits_out_a_running_scan_then_for_its_own(monkeypatch, updates_env):
+    log: list[str] = []
+    monkeypatch.setattr(updates_mod, "_RESCAN_POLL", 0)
+    monkeypatch.setattr(httpx.AsyncClient, "__init__",
+                        _mock_client(_rescan_handler([False, True], [True, False], log)))
+    await updates_mod.rescan()
+    assert log == ["/refresh", "/refresh", "/status", "/status"]
+
+
+@pytest.mark.asyncio
+async def test_rescan_gives_up_at_the_deadline(monkeypatch, updates_env):
+    monkeypatch.setattr(updates_mod, "_RESCAN_POLL", 0)
+    monkeypatch.setattr(updates_mod, "_RESCAN_TIMEOUT", 0)
+    log: list[str] = []
+    monkeypatch.setattr(httpx.AsyncClient, "__init__",
+                        _mock_client(_rescan_handler([], [], log)))
+    await updates_mod.rescan()
+    assert log == []
+
+
+@pytest.mark.asyncio
+async def test_rescan_survives_the_tracker_being_down(monkeypatch, updates_env):
+    monkeypatch.setattr(httpx.AsyncClient, "__init__",
+                        _mock_client(lambda request: httpx.Response(503)))
+    await updates_mod.rescan()
 
 
 @pytest.mark.asyncio

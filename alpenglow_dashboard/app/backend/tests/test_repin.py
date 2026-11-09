@@ -17,6 +17,7 @@ import pytest
 import uvloop
 
 from alpenglow_dashboard import actions, audit, repin
+from alpenglow_dashboard.integrations import updates
 from alpenglow_dashboard.repin import Target, candidate_tags, target_for
 
 # ── which tag ─────────────────────────────────────────────────────────────────
@@ -247,6 +248,14 @@ def job(repo: Path, monkeypatch, tmp_path: Path):
     monkeypatch.setattr(actions, "_run_commands", fake_commands)
     monkeypatch.setattr(repin, "targets", fake_targets)
     monkeypatch.setenv("AUDIT_PATH", str(tmp_path / "audit.jsonl"))
+    rescans.clear()
+
+    async def fake_rescan():
+        rescans.append(sorted(actions._UPDATED))
+
+    monkeypatch.setattr(updates, "rescan", fake_rescan)
+    actions._UPDATED.clear()
+    actions._UPDATE_ERRORS.clear()
     actions._BUSY.clear()
     actions._SERVICE_LOCKS.clear()
     actions._semaphore = None
@@ -257,7 +266,13 @@ def job(repo: Path, monkeypatch, tmp_path: Path):
 
     yield calls, results, audit_lines, targets
     actions._BUSY.clear()
+    actions._UPDATED.clear()
+    actions._UPDATE_ERRORS.clear()
     actions._semaphore = None
+
+
+# What was awaiting the tracker at each rescan.
+rescans: list[list[str]] = []
 
 
 def run_update(*sids: str):
@@ -324,6 +339,77 @@ def test_the_dashboard_updates_itself_last(job, repo: Path):
     calls, *_ = job
     run_update("alpenglow_dashboard", "beszel", "jellyfin")
     assert calls[-1] == ("alpenglow_dashboard", "pull")
+
+
+def test_one_rescan_after_every_service_in_a_batch(job):
+    run_update("beszel", "jellyfin", "ollama")
+    assert rescans == [["beszel", "jellyfin", "ollama"]]
+    assert actions._UPDATED == set()
+
+
+def test_two_requests_in_flight_share_one_rescan(job):
+    for sid in ("beszel", "jellyfin"):
+        actions._BUSY[sid] = "updating"
+
+    async def two_clicks():
+        await asyncio.gather(
+            actions._update_job([("beszel", "job-a")], "chris"),
+            actions._update_job([("jellyfin", "job-b")], "chris"),
+        )
+
+    asyncio.run(two_clicks())
+    assert rescans == [["beszel", "jellyfin"]]
+
+
+def test_no_rescan_when_nothing_updated_and_the_error_is_kept(job):
+    _, results, _, _ = job
+    results[("ollama", "pull")] = (False, "pull failed")
+    run_update("ollama")
+    assert rescans == []
+    assert actions.update_outcome("ollama") == (False, "pull failed")
+
+
+def test_a_failure_doesnt_stop_the_rescan_for_the_rest(job):
+    _, results, _, _ = job
+    results[("jellyfin", "pull")] = (False, "pull failed")
+    run_update("beszel", "jellyfin")
+    assert rescans == [["beszel"]]
+    updated, error = actions.update_outcome("jellyfin")
+    assert updated is False and "pull failed" in error and "not rolled back" in error
+
+
+def test_a_new_update_clears_the_last_error(job):
+    _, results, _, _ = job
+    results[("ollama", "pull")] = (False, "pull failed")
+    run_update("ollama")
+    results.clear()
+    run_update("ollama")
+    assert actions.update_outcome("ollama") == (False, None)
+
+
+def test_rescan_comes_before_the_dashboard_recreates_itself(job, monkeypatch):
+    calls, _, _, _ = job
+    seen_at_rescan: list = []
+
+    async def fake_rescan():
+        seen_at_rescan.append(list(calls))
+
+    monkeypatch.setattr(updates, "rescan", fake_rescan)
+    run_update("alpenglow_dashboard", "ollama")
+    assert ("alpenglow_dashboard", "pull") not in seen_at_rescan[0]
+    assert ("ollama", "pull") in seen_at_rescan[0]
+
+
+def test_a_failed_rescan_doesnt_stop_the_dashboards_update(job, monkeypatch):
+    calls, _, _, _ = job
+
+    async def broken_rescan():
+        raise RuntimeError("tracker exploded")
+
+    monkeypatch.setattr(updates, "rescan", broken_rescan)
+    run_update("alpenglow_dashboard", "ollama")
+    assert calls[-1] == ("alpenglow_dashboard", "pull")
+    assert actions._UPDATED == set()
 
 
 def test_back_to_back_clicks_queue_on_the_lock(job, repo: Path):

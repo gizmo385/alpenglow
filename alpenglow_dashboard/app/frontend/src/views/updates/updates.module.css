@@ -94,6 +94,18 @@
   padding: 4px 10px;
   font-size: 12px;
 }
+/* Why a row's last Update failed; the full text is in its title. */
+.updateError {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  max-width: 280px;
+  margin: 6px 0 0 auto;
+  font-size: 12px;
+  color: var(--color-down);
+  overflow-wrap: anywhere;
+}
 /* Changelog icon-link renders as a ghost button; keep it icon-sized. */
 .changelog {
   padding: 5px;

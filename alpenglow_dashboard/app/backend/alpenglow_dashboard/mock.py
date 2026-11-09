@@ -525,6 +525,7 @@ def mock_updates() -> models.Updates:
             image=s["image"],
             currentVersion=s["version"],
             latestVersion=s["latest"],
+            updated=s.get("updated", False),
             releasedAt=_ago(days=s["released"]) if s.get("released") is not None else None,
             changelogUrl=s["changelog"],
             **verdict,

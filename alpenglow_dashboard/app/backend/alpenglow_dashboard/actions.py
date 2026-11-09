@@ -202,6 +202,38 @@ SELF_SERVICE = "alpenglow_dashboard"
 
 Repinned = dict[str, list[tuple[repin.Target, str]]]
 
+# What the Updates view shows for a service whose Update has ended. A service
+# stays in _UPDATED until the tracker has rescanned and can say for itself; an
+# error stays until that service's next Update.
+_UPDATED: set[str] = set()
+_UPDATE_ERRORS: dict[str, str] = {}
+# Update requests still deploying. The last one to finish asks for the rescan.
+_updates_in_flight = 0
+
+
+def update_outcome(service_id: str) -> tuple[bool, Optional[str]]:
+    """(finished and awaiting the tracker's rescan, why the last Update failed)."""
+    return service_id in _UPDATED, _UPDATE_ERRORS.get(service_id)
+
+
+async def _rescan_if_idle() -> None:
+    """Rescan once nothing is deploying and something has been updated.
+
+    A rescan reports whatever is running by the time it reads it, so one at the
+    end covers every update before it, however many requests they came from.
+    """
+    if _updates_in_flight or not _UPDATED:
+        return
+    from .integrations import updates  # avoids an import cycle
+
+    done = set(_UPDATED)
+    try:
+        await updates.rescan()
+    except Exception:  # noqa: BLE001 - must not stop the dashboard's own update after this
+        log.exception("rescan after update failed")
+    finally:
+        _UPDATED.difference_update(done)
+
 
 def _pins_note(done: list[tuple[repin.Target, str]]) -> str:
     return "; ".join(f"versions.yaml now pins {t.name} to {tag} (was {t.current_tag})"
@@ -257,8 +289,14 @@ async def _update_job(jobs: list[tuple[str, str]], user: str) -> None:
        affects its own service, and is not rolled back (see :func:`_deploy`).
 
     Each service gets its own audit line and leaves the busy registry when its
-    own deploy ends.
+    own deploy ends. When the last request in flight has finished, the tracker
+    rescans, so the updated rows clear together.
     """
+    global _updates_in_flight
+    _updates_in_flight += 1
+    for sid, _ in jobs:
+        _UPDATED.discard(sid)
+        _UPDATE_ERRORS.pop(sid, None)
     try:
         repinned, failed = await _repin_all([sid for sid, _ in jobs])
     except Exception as exc:  # noqa: BLE001 - audit every job whatever happens
@@ -273,12 +311,20 @@ async def _update_job(jobs: list[tuple[str, str]], user: str) -> None:
         except Exception as exc:  # never let the background task die unaudited
             detail = f"{type(exc).__name__}: {exc}"
         finally:
+            if ok:
+                _UPDATED.add(sid)
+            else:
+                _UPDATE_ERRORS[sid] = detail[-500:] or "Update failed"
             await _finish(sid, "pull", user, job_id, ok, detail)
 
     await asyncio.gather(*(one(sid, job) for sid, job in jobs if sid != SELF_SERVICE))
+    _updates_in_flight -= 1
+    # Before recreating ourselves, which usually ends this process.
+    await _rescan_if_idle()
     for sid, job in jobs:
         if sid == SELF_SERVICE:
             await one(sid, job)
+            await _rescan_if_idle()
 
 
 # ── mock transition (unchanged from A1) ───────────────────────────────────────
@@ -297,12 +343,15 @@ async def _mock_transition(service_id: str, action: str) -> None:
         return
     svc["status"] = "restarting" if action == "restart" else "updating"
     await asyncio.sleep(2.0)
+    svc["status"] = "up"
+    svc["uptime"] = 60
     if action == "pull" and svc.get("latest"):
+        svc["updated"] = True  # as the real tracker's rescan takes a few seconds
+        await asyncio.sleep(3.0)
+        svc["updated"] = False
         svc["version"] = svc["latest"]
         svc["latest"] = None
         svc["released"] = None
-    svc["status"] = "up"
-    svc["uptime"] = 60
 
 
 # ── route ─────────────────────────────────────────────────────────────────────

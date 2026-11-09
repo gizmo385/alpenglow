@@ -4,7 +4,9 @@
  * Latest · Released · Assessment · Action (changelog link + Update). Busy state
  * for each row is NOT faked locally — it is read from the polled /api/services
  * status (useData().services): while a service's status is "updating" the row's
- * button shows a spinner + "Updating…" and is disabled.
+ * button shows a spinner + "Updating…" and is disabled. Each row's result comes
+ * from /api/updates: `updated` shows "Updated" until the tracker's rescan clears
+ * the row, and `updateError` says why its last Update failed.
  *
  * One row per pending image. A service with several (signoz: signoz/signoz and
  * its collector) has several rows sharing its id, and they select, update and
@@ -14,7 +16,8 @@
  * /api/updates/apply: the backend repins every image listed in versions.yaml to
  * its new release, one at a time, then pulls & recreates each. The repin is left
  * uncommitted in the server's checkout. It toasts, then nudges the services
- * poll so the busy state appears/clears promptly.
+ * poll so the busy state appears/clears promptly. The backend rescans once, when
+ * the last Update in flight has finished, however many were started.
  *
  * Copy commands use the exact repo path format:
  *   cd /services/{id} && sudo docker compose pull && sudo docker compose up -d
@@ -96,16 +99,18 @@ export function Updates() {
 
   const trackerUnavailable = data?.trackerUnavailable ?? false;
   const entries = trackerUnavailable ? [] : (data?.services ?? []);
-  const serviceIds = uniqueIds(entries);
+  const pending = entries.filter((e) => !e.updated);
+  const serviceIds = uniqueIds(pending);
   const count = serviceIds.length;
 
   // Busy state comes from the polled /api/services data, not local timers.
   const statusById = new Map(services.map((s) => [s.id, s.status]));
   const isBusy = (id: string) => statusById.get(id) === "updating";
   const anyBusy = entries.some((e) => isBusy(e.id));
+  const awaitingRescan = entries.some((e) => e.updated);
 
-  // Selection only ever holds rows that are listed and idle.
-  const selectable = entries.filter((e) => !isBusy(e.id));
+  // Selection only ever holds rows that are listed, idle and not yet updated.
+  const selectable = pending.filter((e) => !isBusy(e.id));
   const chosen = selectable.filter((e) => selected.has(e.id));
   const allChosen = selectable.length > 0 && chosen.length === selectable.length;
   const chosenCount = uniqueIds(chosen).length;
@@ -123,14 +128,25 @@ export function Updates() {
     setSelected(allChosen ? new Set() : new Set(selectable.map((e) => e.id)));
   }
 
-  // While any row is updating, poll /api/services faster so the button flips
-  // to "Pulling…" and back promptly (mock settles in ~2s; the 10s base poll is
-  // too coarse to see it). Cleared automatically once nothing is busy.
+  // While any row is updating or awaiting the rescan, poll both faster so the
+  // button flips promptly (mock settles in ~2s; the base polls are too coarse to
+  // see it). Cleared automatically once nothing is left to wait for.
   useEffect(() => {
-    if (!anyBusy) return;
-    const timer = setInterval(refreshServices, 1500);
+    if (!anyBusy && !awaitingRescan) return;
+    const timer = setInterval(() => {
+      refreshServices();
+      refresh();
+    }, 1500);
     return () => clearInterval(timer);
-  }, [anyBusy, refreshServices]);
+  }, [anyBusy, awaitingRescan, refreshServices, refresh]);
+
+  // A job's result lands as its busy state clears: read it right away, as the
+  // poll above may stop here if the job failed.
+  const wasBusy = useRef(false);
+  useEffect(() => {
+    if (wasBusy.current && !anyBusy) refresh();
+    wasBusy.current = anyBusy;
+  }, [anyBusy, refresh]);
 
   /** Ask the tracker to re-scan every image, then wait for the result. */
   async function checkForUpdates() {
@@ -306,7 +322,7 @@ export function Updates() {
             image-updates-tracker is unreachable — pending updates can't be listed right now.
           </p>
         </Card>
-      ) : count === 0 ? (
+      ) : entries.length === 0 ? (
         <Card className={styles.fillCard}>
           <Icon name="check-circle" size={38} weight="fill" color="var(--color-ok)" />
           <div className={styles.fillTitle}>Everything is up to date</div>
@@ -343,8 +359,8 @@ export function Updates() {
                     <td className={styles.selectCol}>
                       <input
                         type="checkbox"
-                        checked={!busy && selected.has(e.id)}
-                        disabled={busy}
+                        checked={!busy && !e.updated && selected.has(e.id)}
+                        disabled={busy || e.updated}
                         onChange={() => toggle(e.id)}
                         aria-label={`Select ${e.name}`}
                       />
@@ -379,19 +395,25 @@ export function Updates() {
                         <Button
                           variant="primary"
                           className={styles.pullBtn}
-                          disabled={busy}
+                          disabled={busy || e.updated}
                           onClick={() => update([e])}
                           onContextMenu={(ev) => {
                             ev.preventDefault();
                             void copyOne(e);
                           }}
                           title={
-                            busy ? undefined : "Repin and pull & recreate (right-click to copy command)"
+                            busy || e.updated
+                              ? undefined
+                              : "Repin and pull & recreate (right-click to copy command)"
                           }
                         >
                           {busy ? (
                             <>
                               <Icon name="spinner" size={13} className={styles.spin} /> Updating…
+                            </>
+                          ) : e.updated ? (
+                            <>
+                              <Icon name="check-circle" size={13} /> Updated
                             </>
                           ) : (
                             <>
@@ -400,6 +422,11 @@ export function Updates() {
                           )}
                         </Button>
                       </div>
+                      {!busy && e.updateError && (
+                        <div className={styles.updateError} title={e.updateError}>
+                          <Icon name="warning" size={13} /> Update failed: {e.updateError}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
