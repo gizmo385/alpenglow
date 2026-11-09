@@ -204,7 +204,7 @@ def test_run_as_the_repo_owner_on_uvloop(repo: Path, monkeypatch):
     monkeypatch.setattr(repin, "_env", lambda owner: {})
     monkeypatch.setattr(repin.subprocess, "run", fake_run)
     assert on_uvloop(repin._run(["./pin", "set"], repo, 5)) == (0, "done")
-    assert (seen["user"], seen["group"], seen["extra_groups"]) == (1002, 1003, [])
+    assert (seen["user"], seen["group"], seen["extra_groups"]) == (1002, 1003, [repo.stat().st_gid])
     assert seen["cwd"] == str(repo)
 
 

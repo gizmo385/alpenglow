@@ -174,6 +174,17 @@ async def test_run_job_stops_at_first_failure(monkeypatch, real_env):
     assert "pull failed" in lines[-1]["stderr"]
 
 
+async def test_failed_job_is_logged(monkeypatch, real_env, caplog):
+    monkeypatch.setattr(
+        asyncio, "create_subprocess_exec",
+        _fake_exec_factory([], returncode=1, stderr=b"pull failed"),
+    )
+    with caplog.at_level("ERROR", logger="alpenglow.actions"):
+        await actions._run_job("glances", "pull", "chris", "job-3")
+    assert "pull of glances failed (job job-3)" in caplog.text
+    assert "pull failed" in caplog.text
+
+
 # ── busy registry / overlay ───────────────────────────────────────────────────
 
 

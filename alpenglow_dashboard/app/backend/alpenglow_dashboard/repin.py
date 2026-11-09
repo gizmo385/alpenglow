@@ -208,7 +208,10 @@ async def _run(argv: list[str], root: Path, timeout: float) -> tuple[int, str]:
     uvloop, whose ``create_subprocess_exec`` refuses user, group and extra_groups.
     """
     owner = _owner(root)
-    kw = {"user": owner[0], "group": owner[1], "extra_groups": []} if owner else {}
+    # Keep the repo directory's group (service-owners), which lets a person write
+    # compose files another member owns. The container can't look up the owner's
+    # host groups by name.
+    kw = {"user": owner[0], "group": owner[1], "extra_groups": [root.stat().st_gid]} if owner else {}
     try:
         proc = await asyncio.to_thread(
             subprocess.run,

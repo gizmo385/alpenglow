@@ -31,6 +31,7 @@ Mock mode (unchanged from A1)
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import uuid
 from typing import Optional
@@ -38,6 +39,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 
 from . import audit, auth, inventory, mock, models, repin
+
+log = logging.getLogger("alpenglow.actions")
 
 router = APIRouter(prefix="/api", tags=["actions"])
 
@@ -171,6 +174,8 @@ async def _run_commands(service_id: str, action: str) -> tuple[bool, str]:
 async def _finish(service_id: str, action: str, user: str, job_id: str, ok: bool, detail: str) -> None:
     async with _BUSY_LOCK:
         _BUSY.pop(service_id, None)
+    if not ok:
+        log.error("%s of %s failed (job %s): %s", action, service_id, job_id, detail)
     await audit.record(
         user, service_id, action, "succeeded" if ok else "failed",
         stderr_tail="" if ok else detail, job_id=job_id,
