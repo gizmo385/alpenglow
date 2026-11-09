@@ -39,6 +39,12 @@ def test_candidate_tags_follow_the_current_spelling(current_tag, current, latest
     assert len(tags) == len(set(tags))
 
 
+def test_candidate_tags_drop_a_monorepo_component():
+    tags = candidate_tags("v2.54.0", "v2.54", "twenty/v2.56.1")
+    assert "v2.56.1" in tags
+    assert not any("/" in tag for tag in tags)
+
+
 def test_candidate_tags_fall_back_to_both_spellings():
     assert candidate_tags("release-7", "7", "v8") == ["8", "v8"]
 

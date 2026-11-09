@@ -83,7 +83,14 @@ class Target:
         return candidate_tags(self.current_tag, self.current_version, self.latest_version)
 
 
+def _release(version: str) -> str:
+    """A release name without its monorepo component (``twenty/v2.56.1``), which
+    image tags don't carry: they can't contain a slash."""
+    return version.rsplit("/", 1)[-1]
+
+
 def _bare(version: str) -> str:
+    version = _release(version)
     return version[1:] if version[:1] in ("v", "V") and version[1:2].isdigit() else version
 
 
@@ -107,7 +114,7 @@ def candidate_tags(current_tag: str, current_version: str, latest_version: str) 
         out += [f"v{bare}", bare]
     else:
         out += [bare, f"v{bare}"]
-    out.append(latest_version)
+    out.append(_release(latest_version))
     return list(dict.fromkeys(t for t in out if t))
 
 
