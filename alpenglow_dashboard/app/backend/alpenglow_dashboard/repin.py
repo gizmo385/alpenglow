@@ -175,7 +175,7 @@ def _owner(root: Path) -> tuple[int, int] | None:
 
 
 def _secret(key: str) -> bool:
-    return any(word in key.upper() for word in ("TOKEN", "SECRET", "PASSWORD", "KEY"))
+    return any(word in key.upper() for word in ("TOKEN", "SECRET", "PASSWORD", "KEY", "WEBHOOK"))
 
 
 def _env(owner: tuple[int, int] | None) -> dict[str, str]:

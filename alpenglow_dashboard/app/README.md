@@ -117,6 +117,14 @@ cache under `/tmp/alpenglow-repin`. This is why `/services` is mounted
 read-write. Code is in `backend/alpenglow_dashboard/repin.py` and
 `actions.py`.
 
+While a row waits it shows **Updated**, or why its update failed. When the last
+update in flight has finished, the tracker rescans once, which clears the updated
+rows, and a summary of the results goes to Discord if
+`UPDATE_SUMMARY_WEBHOOK_URL` is set in `.env` (a webhook of the digest's channel:
+the dashboard shouldn't hold the bot's token). The dashboard's own successful
+update ends the process first, so it isn't in a summary, and its row clears at the
+tracker's next scan. Failure reasons are posted, so mind who can read the channel.
+
 ## Layout
 
 ```

@@ -320,6 +320,34 @@ async def _proxy_refresh() -> Optional[dict]:
     return await _fetch_tracker()
 
 
+def display_name(sid: str) -> str:
+    """A service's name for people to read, or its id if that can't be read."""
+    try:
+        return _meta_for(sid)[0]
+    except Exception:  # noqa: BLE001 - only a label
+        return sid
+
+
+async def pending_versions() -> dict[str, list[str]]:
+    """Each service's pending updates as ``current → latest``, for the summary."""
+    payload = await _tracker_cached()
+    if not payload:
+        return {}
+    versions = {}
+    for sid, entries in _match_entries(payload)[0].items():
+        labels = [
+            f"{entry.get('current_version') or '?'} → {_entry_fields(entry)['latestVersion']}"
+            for entry in entries
+        ]
+        if len(entries) > 1:  # say which image is which
+            labels = [
+                f"{str(entry.get('image', '')).split('@')[0].split(':')[0].rsplit('/', 1)[-1]} {label}"
+                for entry, label in zip(entries, labels)
+            ]
+        versions[sid] = labels
+    return versions
+
+
 async def rescan() -> None:
     """Start a tracker scan and wait for it to finish.
 

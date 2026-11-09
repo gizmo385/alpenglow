@@ -17,7 +17,7 @@ import pytest
 import uvloop
 
 from alpenglow_dashboard import actions, audit, repin
-from alpenglow_dashboard.integrations import updates
+from alpenglow_dashboard.integrations import update_summary, updates
 from alpenglow_dashboard.repin import Target, candidate_tags, target_for
 
 # ── which tag ─────────────────────────────────────────────────────────────────
@@ -254,6 +254,18 @@ def job(repo: Path, monkeypatch, tmp_path: Path):
         rescans.append(sorted(actions._UPDATED))
 
     monkeypatch.setattr(updates, "rescan", fake_rescan)
+    summaries.clear()
+
+    async def fake_post(results):
+        if results:
+            summaries.append([(r.service, r.ok) for r in results])
+
+    async def fake_versions():
+        return {"beszel": ["0.21.1 → 0.22.0"]}
+
+    monkeypatch.setattr(update_summary, "post", fake_post)
+    monkeypatch.setattr(updates, "pending_versions", fake_versions)
+    actions._UPDATE_RESULTS.clear()
     actions._UPDATED.clear()
     actions._UPDATE_ERRORS.clear()
     actions._BUSY.clear()
@@ -273,6 +285,8 @@ def job(repo: Path, monkeypatch, tmp_path: Path):
 
 # What was awaiting the tracker at each rescan.
 rescans: list[list[str]] = []
+# The (service, ok) results in each posted summary.
+summaries: list[list[tuple[str, bool]]] = []
 
 
 def run_update(*sids: str):
@@ -359,6 +373,51 @@ def test_two_requests_in_flight_share_one_rescan(job):
 
     asyncio.run(two_clicks())
     assert rescans == [["beszel", "jellyfin"]]
+
+
+def test_one_summary_covers_a_batch_and_its_failures(job):
+    _, results, _, _ = job
+    results[("jellyfin", "pull")] = (False, "pull failed")
+    run_update("beszel", "jellyfin")
+    assert len(summaries) == 1
+    assert sorted(summaries[0]) == [("beszel", True), ("jellyfin", False)]
+
+
+def test_two_requests_in_flight_share_one_summary(job):
+    for sid in ("beszel", "jellyfin"):
+        actions._BUSY[sid] = "updating"
+
+    async def two_clicks():
+        await asyncio.gather(
+            actions._update_job([("beszel", "job-a")], "chris"),
+            actions._update_job([("jellyfin", "job-b")], "chris"),
+        )
+
+    asyncio.run(two_clicks())
+    assert len(summaries) == 1 and len(summaries[0]) == 2
+
+
+def test_a_batch_that_all_failed_still_gets_a_summary(job):
+    _, results, _, _ = job
+    results[("ollama", "pull")] = (False, "pull failed")
+    run_update("ollama")
+    assert summaries == [[("ollama", False)]]
+
+
+def test_a_failed_summary_doesnt_stop_the_rescan(job, monkeypatch):
+    async def broken_post(results):
+        raise RuntimeError("discord exploded")
+
+    monkeypatch.setattr(update_summary, "post", broken_post)
+    run_update("beszel")
+    assert rescans == [["beszel"]]
+
+
+def test_the_summary_goes_out_before_the_dashboard_recreates_itself(job):
+    calls, _, _, _ = job
+    run_update("alpenglow_dashboard", "ollama")
+    assert summaries[0] == [("ollama", True)]
+    assert calls[-1] == ("alpenglow_dashboard", "pull")
 
 
 def test_no_rescan_when_nothing_updated_and_the_error_is_kept(job):
