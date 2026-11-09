@@ -14,8 +14,9 @@ git tracks, plus any at the top of a service directory that isn't committed
 yet, so it never walks service data directories. Outside git it walks the tree
 and skips the `exclude` directories.
 
-Run it from anywhere in the repo with the `./pin` wrapper (needs
-[uv](https://docs.astral.sh/uv/)).
+Run it from anywhere in the repo with the `./pin` wrapper. It uses
+[uv](https://docs.astral.sh/uv/) from `PATH`, or downloads the version it pins
+into `~/.cache/pin` if there isn't one. Each user's environment lives there too.
 
 ## Commands
 

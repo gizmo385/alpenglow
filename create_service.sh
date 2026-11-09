@@ -187,12 +187,7 @@ mkdir -p "$SERVICE_DIR"
 # A release tag is pinned with its digest; latest or no tag gets a float entry.
 if [[ -n "$IMAGE" ]]; then
     echo ""
-    if command -v uv >/dev/null 2>&1; then
-        "${SCRIPT_DIR}/pin" add "$IMAGE" || echo "Warning: couldn't add ${IMAGE} to versions.yaml; run ./pin add ${IMAGE}"
-    else
-        echo "Warning: uv isn't installed, so ${IMAGE} wasn't added to versions.yaml."
-        echo "Run ./pin add ${IMAGE} to manage its version."
-    fi
+    "${SCRIPT_DIR}/pin" add "$IMAGE" || echo "Warning: couldn't add ${IMAGE} to versions.yaml; run ./pin add ${IMAGE}"
 fi
 
 # --- Create .env and .gitignore ---

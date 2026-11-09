@@ -3,4 +3,21 @@
 #   ./pin check | sync | set NAME TAG | plugin NAME MODULE VERSION | digests | adopt NAME|--all | list
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec uv run --quiet --project "$ROOT/tools/pin" pin --root "$ROOT" "$@"
+UV_VERSION=0.13.7
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/pin"
+
+# Use uv from PATH, or fetch a private copy for a user who doesn't have it.
+if command -v uv >/dev/null 2>&1; then
+    UV=uv
+else
+    UV="$CACHE/uv-$UV_VERSION/uv"
+    if [[ ! -x "$UV" ]]; then
+        echo "pin: uv not found, installing $UV_VERSION to $(dirname "$UV")" >&2
+        curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" \
+            | UV_UNMANAGED_INSTALL="$(dirname "$UV")" sh >&2
+    fi
+fi
+
+# tools/pin belongs to one user, so each user keeps their own environment.
+export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-$CACHE/venv}"
+exec "$UV" run --quiet --project "$ROOT/tools/pin" pin --root "$ROOT" "$@"
