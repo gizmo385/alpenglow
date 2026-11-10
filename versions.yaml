@@ -51,8 +51,8 @@ images:
     policy: float
     reason: Built from main with no release tags yet; pin once the repo publishes them
   ghcr.io/home-assistant/home-assistant:
-    tag: 2026.11.0
-    digest: sha256:c6c1ca9931036bf3a2c4cc088d8db25dfea3b33935a5ecc83c40349462e2f69e
+    tag: 2026.11.1
+    digest: sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82
   ghcr.io/immichframe/immichframe:
     tag: v1.0.37.0
     digest: sha256:edae2c0b9ab6e1384634582b2bab6246429e14bc209ff6ecc091fc9eedd4582c
@@ -75,8 +75,8 @@ images:
     tag: v4.0.0-ls237
     digest: sha256:f94b9a1c19a34e3b5500cfbfbfdee1fed7e6636fbbf7519519b0e92424223f11
   mauriceboe/trek:
-    tag: 5.1.1
-    digest: sha256:7068cc86c0d4d5aa9b55aeffd03966f7458352bcb3e010721e3d7d6899ac60bd
+    tag: 5.1.2
+    digest: sha256:6ee086badda34c62f692a74f606c4a52f3d8226427c7ec62881a709350f52546
   otel/ebpf-instrument:
     tag: v1.0.0
     digest: sha256:a68d70e934260f72540f157ccf4fb4adfa38f11de060d7d905696dad6a3fca02
@@ -126,8 +126,8 @@ images:
     tag: 35.0.2
     digest: sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
   ollama/ollama:
-    tag: 0.40.15
-    digest: sha256:0e59999e0e8f9fd4e704bd788a89b7e4cad399367fb1365f8c102ac662288761
+    tag: 0.40.16
+    digest: sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
   redis:
     tag: 8.10.3-alpine
     digest: sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
