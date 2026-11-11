@@ -2,6 +2,14 @@ services:
   ollama:
     image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
     container_name: ollama
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+      - /dev/dri/card0:/dev/dri/card0
+    group_add:
+    - "992"
+    environment:
+      OLLAMA_VULKAN: "1"
+      OLLAMA_IGPU_ENABLE: "1"
     volumes:
       - ollama_data:/root/.ollama
     networks:

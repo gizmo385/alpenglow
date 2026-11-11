@@ -39,6 +39,7 @@ services:
       - default
       - redis
       - postgres
+      - ai
     depends_on:
       server:
         condition: service_healthy
@@ -53,6 +54,8 @@ networks:
   postgres:
     external: true
   redis:
+    external: true
+  ai:
     external: true
   default:
     driver: bridge
