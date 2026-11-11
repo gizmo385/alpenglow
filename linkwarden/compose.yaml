@@ -5,7 +5,7 @@ services:
       - DATABASE_URL=postgresql://linkwarden:${POSTGRES_PASSWORD}@postgres.postgres:5432/linkwarden
     restart: always
     # build: . # uncomment this line to build from source
-    image: ghcr.io/linkwarden/linkwarden:v2.16.3@sha256:0664c28a039bda8ffa6663389e8536b2fc717219e329f85b83faca7efed3b144 # comment this line to build from source
+    image: ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46 # comment this line to build from source
     volumes:
       - ./data:/data/data
     networks:

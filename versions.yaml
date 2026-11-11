@@ -57,8 +57,8 @@ images:
     tag: v1.0.37.0
     digest: sha256:edae2c0b9ab6e1384634582b2bab6246429e14bc209ff6ecc091fc9eedd4582c
   ghcr.io/linkwarden/linkwarden:
-    tag: v2.16.3
-    digest: sha256:0664c28a039bda8ffa6663389e8536b2fc717219e329f85b83faca7efed3b144
+    tag: v2.17.0
+    digest: sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46
   ghcr.io/motioneye-project/motioneye:
     tag: 0.44.0
     digest: sha256:7da31d62e6c46ee8b61280f872801e429ec6f3db81bb23aca11c83863939cade
@@ -72,11 +72,11 @@ images:
     tag: '12.4'
     digest: sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771
   lscr.io/linuxserver/ddclient:
-    tag: v4.0.0-ls237
-    digest: sha256:f94b9a1c19a34e3b5500cfbfbfdee1fed7e6636fbbf7519519b0e92424223f11
+    tag: v4.0.0-ls238
+    digest: sha256:8daff71cbdc8ef9b9e2db35617dcff250f3f219fe3f8110940107ceed0f9eb7b
   mauriceboe/trek:
-    tag: 5.1.2
-    digest: sha256:6ee086badda34c62f692a74f606c4a52f3d8226427c7ec62881a709350f52546
+    tag: 5.1.3
+    digest: sha256:6a6bb48bdf5c71314717ef3f1de8da51855d55f68e911ab68fd963644c7416d9
   otel/ebpf-instrument:
     tag: v1.0.0
     digest: sha256:a68d70e934260f72540f157ccf4fb4adfa38f11de060d7d905696dad6a3fca02
@@ -135,15 +135,15 @@ images:
     tag: 2.1.2-alpine
     digest: sha256:860aeb5d63ce509508f6dcfb2bc8a1c1dd2bc60555b562b45ce90e52d8dabb0f
   twentycrm/twenty:
-    tag: v2.56.1
-    digest: sha256:c90565b8a0ea70eb0c0446dcf9491a084140e7f90d8b634e10aa7db381b42f0c
+    tag: v2.57.1
+    digest: sha256:c18a4fb9d3cb6cb12d0ed580203c0eff1bd6500d11127b4df55ec47d4a7e24ba
   ghcr.io/immich-app/immich-server:
-    tag: v3.3.6
-    digest: sha256:e1981983b1c13f6024b57d72e7ecae3342eed1581201ab09fb248932d86c593a
+    tag: v3.4.0
+    digest: sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5
     group: immich
   ghcr.io/immich-app/immich-machine-learning:
-    tag: v3.3.6
-    digest: sha256:14367bfb374b8576ddf49abd67c5ca0190a4c7fcf6303cdad65d7f7bf1a50bc2
+    tag: v3.4.0
+    digest: sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454
     group: immich
   ghcr.io/gizmo385/servo:
     policy: float
