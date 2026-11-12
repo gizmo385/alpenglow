@@ -84,8 +84,8 @@ images:
     tag: 0.165.0
     digest: sha256:e40d61f10c9a617cca1ffd1be4d7e2b3a4b0f0001798ff07e58cabe82e618cea
   pihole/pihole:
-    tag: 2026.10.1
-    digest: sha256:30f803ad5dd60ff96cc0a63008a2e9271af481c1b0399a182192b2e91152c1f9
+    tag: 2026.11.0
+    digest: sha256:66c798d79a95c2691f280329c3611dba1746117c61c9f331907ca35a06a52778
   quay.io/keycloak/keycloak:
     tag: 26.8.2
     digest: sha256:3879c623248408de29a5303178b5816c77e8dfef3890c361f8c0bbeaa979ba3b
@@ -120,8 +120,8 @@ images:
     tag: 0.23.1
     digest: sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
   louislam/uptime-kuma:
-    tag: 2.5.9
-    digest: sha256:e88415a90dd2f7efecdbc18de0490aff292764a3ac471531bf1d0481725591bd
+    tag: 2.5.11
+    digest: sha256:7554dba313c84e44fee921ef3b5626ba1c711e412e82815e8c957517026112a9
   nextcloud:
     tag: 35.0.2
     digest: sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
@@ -138,12 +138,12 @@ images:
     tag: v2.57.1
     digest: sha256:c18a4fb9d3cb6cb12d0ed580203c0eff1bd6500d11127b4df55ec47d4a7e24ba
   ghcr.io/immich-app/immich-server:
-    tag: v3.4.0
-    digest: sha256:7b7b575029168bfb9eb901d868ce7dbfda0d7818e78aaace29b7b8a08cd4e7d5
+    tag: v3.4.1
+    digest: sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b
     group: immich
   ghcr.io/immich-app/immich-machine-learning:
-    tag: v3.4.0
-    digest: sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454
+    tag: v3.4.1
+    digest: sha256:8adebf414256f6e4f837bfbb66fa94f14f4da7260e3a1d65cbba49e4e35d8764
     group: immich
   ghcr.io/gizmo385/servo:
     policy: float
