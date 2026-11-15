@@ -185,3 +185,6 @@ images:
     digest: sha256:525b8b0f93ccb371131c46f22a066ea43d33d74aba314203e8044609945d8524
     group: clickhouse
     reason: Moves with clickhouse/clickhouse-server
+  johly/airtrail:
+    tag: v3.14.0
+    digest: sha256:69ef0a421d6a5f99c06d04ea6b66445a5d1261dd533d6efe3bd8bc3e2dfd018f

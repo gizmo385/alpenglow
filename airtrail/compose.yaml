@@ -1,0 +1,24 @@
+services:
+  airtrail:
+    container_name: airtrail
+    image: johly/airtrail:v3.14.0@sha256:69ef0a421d6a5f99c06d04ea6b66445a5d1261dd533d6efe3bd8bc3e2dfd018f
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - caddy
+      - postgres
+    user: "121:124"
+    labels:
+      caddy: "*.acbc.house"
+      caddy.@airtrail.host: "airtrail.acbc.house"
+      caddy.request_body: "@airtrail"
+      caddy.request_body.max_size: 20MB
+      caddy.reverse_proxy: "@airtrail {{upstreams http 3000}}"
+    volumes: 
+      - ./data/uploads:/app/uploads
+networks:
+  caddy:
+    external: true
+  postgres:
+    external: true
