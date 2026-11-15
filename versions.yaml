@@ -39,8 +39,8 @@ images:
     tag: 1.20.26
     digest: sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
   freikin/dawarich:
-    tag: 1.22.0
-    digest: sha256:b8ee8d9fdff92a9d6ca570f98e0e875624f4bfb24b61363f8246bba124d5849d
+    tag: 1.23.0
+    digest: sha256:c9c6a9c04fa2ad11c438fc0b0ea3b7d95fc7e6d8c7a3cfa98bf1fc5aef2dbfd4
   freshrss/freshrss:
     tag: 1.30.4
     digest: sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
@@ -63,8 +63,8 @@ images:
     tag: 0.44.0
     digest: sha256:7da31d62e6c46ee8b61280f872801e429ec6f3db81bb23aca11c83863939cade
   ghcr.io/music-assistant/server:
-    tag: 2.10.9
-    digest: sha256:4ac0d5844363fbbefd6a61251df09d96cd546e05e01b8c1cc1a28803f0935e07
+    tag: 2.10.12
+    digest: sha256:7eb272e2e13da9a5d61dcbc4e1fcfc734776222b23f2825a9b5690d4427cfafb
   ghcr.io/sergi0g/cup:
     tag: v3.6.0
     digest: sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
@@ -93,8 +93,8 @@ images:
     tag: v7.15.6
     digest: sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
   vabene1111/recipes:
-    tag: 2.7.2
-    digest: sha256:1b6d43c3c0f5d2888aa564d9daf29883212b79ad496f59f3c684c099eb1a57b9
+    tag: 2.7.3
+    digest: sha256:73bb55c3096b9badd901717e298e025015ae3a264fecfb21a2a9fff72109f4f6
   vikunja/vikunja:
     tag: 2.8.0
     digest: sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3
@@ -105,8 +105,8 @@ images:
     tag: v1.3.1
     digest: sha256:4233c06fcd2d62c37b9345228bc9f798b3a66d052b4955ec6a0e5b8825e20827
   fmtr/amniotic:
-    tag: v1.10.2
-    digest: sha256:8de4b03f79de0971fe61b4aab43c5de0e5d9e5d7784c8b7a7bf60306e6f0a04c
+    tag: v1.10.3
+    digest: sha256:12ff3c67ff2b29d0058bcfceaf687a2dbeaec754028b5a10b33750a9ff63347f
   grafana/alloy:
     tag: v1.21.3
     digest: sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
@@ -123,8 +123,8 @@ images:
     tag: 2.5.11
     digest: sha256:7554dba313c84e44fee921ef3b5626ba1c711e412e82815e8c957517026112a9
   nextcloud:
-    tag: 35.0.2
-    digest: sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
+    tag: 35.0.3
+    digest: sha256:8a7a65b8bae82a79568fec2ed9cf3e374a1944eda2a22ebe130d79463336fee3
   ollama/ollama:
     tag: 0.40.16
     digest: sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
@@ -135,8 +135,8 @@ images:
     tag: 2.1.2-alpine
     digest: sha256:860aeb5d63ce509508f6dcfb2bc8a1c1dd2bc60555b562b45ce90e52d8dabb0f
   twentycrm/twenty:
-    tag: v2.57.1
-    digest: sha256:c18a4fb9d3cb6cb12d0ed580203c0eff1bd6500d11127b4df55ec47d4a7e24ba
+    tag: v2.58.0
+    digest: sha256:3f1b5140a2d0ce590462c7636c109ec30fd4008d6f31dd5e7f3149b4f8a0dbb4
   ghcr.io/immich-app/immich-server:
     tag: v3.4.1
     digest: sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b

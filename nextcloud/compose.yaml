@@ -1,6 +1,6 @@
 services:
   app:
-    image: nextcloud:35.0.2@sha256:e0b1a2af52c82c07b7a0e8e59878bd8769e704447734d5d238a836982f51b9c8
+    image: nextcloud:35.0.3@sha256:8a7a65b8bae82a79568fec2ed9cf3e374a1944eda2a22ebe130d79463336fee3
     restart: unless-stopped
     volumes:
       - ./data:/var/www/html
