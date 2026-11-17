@@ -15,7 +15,7 @@ services:
   # back to SigNoz's own login, drop the four SIGNOZ_USER_ROOT/IDENTN entries;
   # users, dashboards and API keys are untouched.
   signoz-signoz-0:
-    image: signoz/signoz:v0.149.0@sha256:dc31f487d69452b90da87cf7208b334963de776349b3c2b661bf88990edf9ca4
+    image: signoz/signoz:v0.150.0@sha256:f47f90603c34667667bfdc17c58fcc7dd6986256a3164d288192e076aa84e3a6
     container_name: signoz-signoz-0
     restart: unless-stopped
     # Shared Postgres DSN (SIGNOZ_SQLSTORE_POSTGRES_DSN) and the root user.
@@ -183,7 +183,7 @@ services:
       caddy_1.redir: "@signoz_old https://monitoring.acbc.house{uri} permanent"
 
   alloy:
-    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    image: grafana/alloy:v1.22.0@sha256:9acc2529bc1edb7f5b2bd801dd8334ebc80c158e3a9e5526ecd7c9a273d43189
     container_name: signoz-alloy
     # Container list and logs via /services/docker-proxy (read-only).
     extends:
