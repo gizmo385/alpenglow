@@ -373,9 +373,9 @@ def hold(p: Pending, cfg: AutoConfig, now: datetime) -> Optional[Hold]:
         return Hold("unknown", f"can't tell how big {p.current} → {p.latest} is")
     if BUMPS.index(size) > BUMPS.index(cfg.max_bump):
         return Hold("bump", f"{p.current} → {p.latest} is a {size} update; only {cfg.max_bump} updates are automatic")
-    if p.published_at is None:
+    if cfg.soak and p.published_at is None:
         return Hold("unknown", f"no release date for {p.latest}, so its soak time can't be checked")
-    ready = p.published_at + cfg.soak
+    ready = p.published_at + cfg.soak if cfg.soak else now
     if now < ready:
         return Hold("soak", f"{p.latest} has been out less than {_fmt(cfg.soak)} "
                             f"(ready {ready.strftime('%Y-%m-%d %H:%M UTC')})", ready)

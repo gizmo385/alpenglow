@@ -94,6 +94,8 @@ def pending(**kw):
     (pending(latest="1.31.0", verdict_target="1.31.0"), cfg(max_bump="minor"), None),
     (pending(published_at=NOW - timedelta(days=1)), cfg(), "has been out less than 2 days"),
     (pending(published_at=None), cfg(), "no release date"),
+    (pending(published_at=None), cfg(soak=timedelta(0)), None),
+    (pending(published_at=NOW), cfg(soak=timedelta(0)), None),
     (pending(verdict=None), cfg(), "waiting for Claude's assessment of 1.30.5"),
     (pending(verdict_target="1.30.4"), cfg(), "waiting for Claude's assessment"),
     (pending(verdict="Needs care"), cfg(), "Claude rated 1.30.5 Needs care"),

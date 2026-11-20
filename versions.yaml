@@ -35,7 +35,11 @@ images:
     tag: 0.21.2
     digest: sha256:b0be90bd4aee2993fde763032a5098ce4386fba43cfe5031ec017b8d9e8c97a2
     group: beszel
-    policy: approve
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
     reason: First service on the lock, to try the upgrade flow
     compatibility:
       - henrygd/beszel-agent (keep it on the same version as the hub)
@@ -43,7 +47,11 @@ images:
     tag: 0.21.2-alpine
     digest: sha256:2ea69d4c9a6690d07368d50762cf606281d96b447cdd411855c87ff4027465d9
     group: beszel
-    policy: approve
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
     reason: Moves with henrygd/beszel
   alangrainger/immich-public-proxy:
     tag: 4.2.0
@@ -163,10 +171,17 @@ images:
     reason: Not pinned yet
   ghcr.io/gizmo385/youtube-rss-manager:
     policy: float
-    reason: Not pinned yet
+    reason: Only latest and sha-* tags, so it follows latest
+    auto:
+      follow: true
   nicolargo/glances:
     tag: 4.5.9
     digest: sha256:1d994d181732cfbf68b7c5826a1f71b89624e3eaaa2fe28b28048b2f61b200d7
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
   ghcr.io/zhaofengli/attic:
     tag: 12cbeca141f46e1ade76728bce8adc447f2166c6
     digest: sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0

@@ -92,6 +92,7 @@ function schedule(every: string): string {
 
 function short(span: string | null): string {
   const m = span && /^(\d+) (\w)/.exec(span);
+  if (m && m[1] === "0") return "None";
   return m ? `${m[1]}${m[2]}` : "—";
 }
 
