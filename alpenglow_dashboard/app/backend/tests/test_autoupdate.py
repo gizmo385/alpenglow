@@ -588,6 +588,28 @@ def test_status_route(client, env):
     assert units["follow:ghcr.io/gizmo385/image-updates-tracker"]["maxBump"] is None
 
 
+def test_status_route_says_where_each_pending_release_stands(client, env, monkeypatch):
+    monkeypatch.setattr(updates, "_tracker_cached", lambda: _ret(env["tracker"]))
+    s = state()
+    s.unit("image:freshrss/freshrss")["last_run"] = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
+    s.save()
+    fresh = {u["id"]: u for u in client.get("/api/autoupdate").json()["units"]}["image:freshrss/freshrss"]
+    assert fresh["pending"] == [{"image": "freshrss/freshrss", "current": "1.30.4", "latest": "1.30.5"}]
+    assert fresh["hold"] is None and fresh["eta"] == fresh["nextRun"]
+
+    # Still soaking: it goes out at the first scheduled check after the soak ends.
+    out = datetime.now(timezone.utc) - timedelta(days=1)
+    env["tracker"]["services"][0]["releases"] = [{"tag": "1.30.5", "url": "", "published_at": out.isoformat()}]
+    fresh = {u["id"]: u for u in client.get("/api/autoupdate").json()["units"]}["image:freshrss/freshrss"]
+    assert fresh["hold"]["kind"] == "soak"
+    assert datetime.fromisoformat(fresh["eta"]) >= datetime.fromisoformat(fresh["hold"]["until"])
+
+    env["annotations"]["freshrss/freshrss"] = Annotation("FreshRSS/FreshRSS", "t", "Hold", target="1.30.5")
+    env["tracker"]["services"][0]["releases"] = [release("1.30.5", 30)]
+    fresh = {u["id"]: u for u in client.get("/api/autoupdate").json()["units"]}["image:freshrss/freshrss"]
+    assert (fresh["hold"]["kind"], fresh["eta"]) == ("verdict", None)
+
+
 def test_resume_route(client):
     s = state()
     s.pause("image:freshrss/freshrss", "x", "broke", NOW)

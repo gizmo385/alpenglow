@@ -158,8 +158,12 @@ the tracker and the Upgrades board. The newest release goes out only if:
   Claude answers again;
 - nobody is updating that service already, and it isn't paused.
 
-Otherwise the reason shows in the Updates view under **Automatic updates**,
-and it's checked again next time. A service's first check is one full
+In the Updates view, a pending row that will go out by itself says when
+("Auto-updates in 19h", or "after Claude's review"); hover it for the
+reason. Below the table, **Automatic updates** lists only what needs a look:
+services paused after a failed update, with **Resume**, and what updated
+automatically in the last week. **Show rules** lists every opted-in service
+and its settings. A service's first check is one full
 interval after it opts in (or after the dashboard first sees it).
 
 **Several images.** Each image is its own unit, so in a service with several
@@ -184,7 +188,7 @@ went out.
 **When it fails, nothing is rolled back.** A release may already have
 migrated its data in the shared Postgres. The unit is paused with the reason,
 its Upgrades card gets a comment, the summary says what failed, and nothing
-more is tried for it until you press **Resume** in the Updates view. The new
+more is tried for it until you press **Resume** under Automatic updates. The new
 pin stays, as with the Update button.
 
 **Settings** (`../compose.yaml`):
@@ -198,7 +202,8 @@ pin stays, as with the Update button.
 | `AUTO_UPDATE_HEALTH_WAIT` | `180` | Seconds a recreated container must stay healthy |
 | `AUTO_UPDATE_STATE` | `/data-store/autoupdate.json` | Schedules, pauses and last results |
 
-`GET /api/autoupdate` lists each unit and why it's waiting, `POST
+`GET /api/autoupdate` lists each unit, where its pending release stands
+(`hold`, `eta`) and why it last waited, `POST
 /api/autoupdate/run` checks every unit now regardless of schedule (**Check
 now**), and `POST /api/autoupdate/resume` un-pauses one. Code is in
 `backend/alpenglow_dashboard/autoupdate/`.

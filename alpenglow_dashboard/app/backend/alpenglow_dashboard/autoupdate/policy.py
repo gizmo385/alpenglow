@@ -351,26 +351,47 @@ def parse_time(value: Any) -> Optional[datetime]:
     return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
 
 
-def blocker(p: Pending, cfg: AutoConfig, now: datetime) -> Optional[str]:
+@dataclass(frozen=True)
+class Hold:
+    """Why a release isn't going out automatically yet.
+
+    ``kind`` lets the Updates view say it briefly: ``bump`` (too big),
+    ``soak`` (out until ``until``), ``assessment`` (no verdict for it yet),
+    ``verdict`` (rated too risky), ``unknown`` (versions or date unreadable),
+    ``paused`` and ``config``.
+    """
+
+    kind: str
+    text: str
+    until: Optional[datetime] = None
+
+
+def hold(p: Pending, cfg: AutoConfig, now: datetime) -> Optional[Hold]:
     """Why this release can't go out automatically yet; ``None`` when it can."""
     size = bump_size(p.current, p.latest)
     if size is None:
-        return f"can't tell how big {p.current} → {p.latest} is"
+        return Hold("unknown", f"can't tell how big {p.current} → {p.latest} is")
     if BUMPS.index(size) > BUMPS.index(cfg.max_bump):
-        return f"{p.current} → {p.latest} is a {size} update; only {cfg.max_bump} updates are automatic"
+        return Hold("bump", f"{p.current} → {p.latest} is a {size} update; only {cfg.max_bump} updates are automatic")
     if p.published_at is None:
-        return f"no release date for {p.latest}, so its soak time can't be checked"
+        return Hold("unknown", f"no release date for {p.latest}, so its soak time can't be checked")
     ready = p.published_at + cfg.soak
     if now < ready:
-        return f"{p.latest} has been out less than {_fmt(cfg.soak)} (ready {ready.strftime('%Y-%m-%d %H:%M UTC')})"
+        return Hold("soak", f"{p.latest} has been out less than {_fmt(cfg.soak)} "
+                            f"(ready {ready.strftime('%Y-%m-%d %H:%M UTC')})", ready)
     if cfg.verdict == "any":
         return None
     if p.verdict is None or p.verdict_target != p.latest:
-        return f"waiting for Claude's assessment of {p.latest}"
+        return Hold("assessment", f"waiting for Claude's assessment of {p.latest}")
     allowed = VERDICT_LEVELS[: VERDICT_LEVELS.index(cfg.verdict) + 1]
     if p.verdict not in allowed:
-        return f"Claude rated {p.latest} {p.verdict}"
+        return Hold("verdict", f"Claude rated {p.latest} {p.verdict}")
     return None
+
+
+def blocker(p: Pending, cfg: AutoConfig, now: datetime) -> Optional[str]:
+    h = hold(p, cfg, now)
+    return h.text if h else None
 
 
 def _fmt(d: timedelta) -> str:

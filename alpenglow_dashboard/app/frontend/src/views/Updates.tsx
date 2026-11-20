@@ -26,7 +26,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "../api/client";
-import { useUpdates } from "../api/hooks";
+import { useAutoUpdates, useUpdates } from "../api/hooks";
 import type { UpdateEntry } from "../api/types";
 import { Button, Card } from "../components";
 import { Icon } from "../lib/icons";
@@ -34,7 +34,7 @@ import { relativeAgo } from "../lib/format";
 import { useData } from "../store/data";
 import { useToast } from "../store/toast";
 import viewStyles from "./views.module.css";
-import { AutoUpdates } from "./updates/AutoUpdates";
+import { AutoNote, AutoUpdates, unitFor } from "./updates/AutoUpdates";
 import styles from "./updates/updates.module.css";
 
 /** Exact per-service update command (README §Interactions, PLAN.md C3). */
@@ -83,6 +83,7 @@ function Verdict({ entry }: { entry: UpdateEntry }) {
 
 export function Updates() {
   const { data, refresh } = useUpdates();
+  const auto = useAutoUpdates();
   const { services, refreshServices } = useData();
   const toast = useToast();
   const [checking, setChecking] = useState(false);
@@ -371,6 +372,7 @@ export function Updates() {
                         <Icon name={e.icon} size={15} className={styles.svcIcon} />
                         <span className={styles.svcName}>{e.name}</span>
                       </div>
+                      {auto.data && <AutoNote unit={unitFor(auto.data, e)} mode={auto.data.mode} />}
                     </td>
                     <td className={`${styles.mono} ${styles.image}`}>{e.image}</td>
                     <td className={styles.mono}>{e.currentVersion}</td>
@@ -436,7 +438,7 @@ export function Updates() {
           </table>
         </Card>
       )}
-      <AutoUpdates />
+      <AutoUpdates data={auto.data} refresh={auto.refresh} />
     </div>
   );
 }

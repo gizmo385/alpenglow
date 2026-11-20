@@ -31,11 +31,29 @@ class UnitRequest(BaseModel):
     unit: Optional[str] = None
 
 
-def _unit_view(unit: policy.Unit, state: State) -> dict:
+def _live(plan: Optional[runner.Plan], unit: policy.Unit, last) -> dict:
+    """Where the unit's pending release stands right now, for the Updates rows."""
+    if plan is None:
+        return {"pending": [], "hold": None, "eta": None}
+    hold = plan.hold
+    eta = None
+    if plan.ready:
+        eta = runner.next_run(unit, last) if last else None
+    elif hold and hold.kind == "soak" and hold.until:
+        eta = runner.first_run_after(unit, last, hold.until)
+    return {
+        "pending": [{"image": p.image, "current": p.current, "latest": p.latest} for p in plan.pending],
+        "hold": {"kind": hold.kind, "text": hold.text, "until": iso(hold.until) if hold.until else None}
+        if hold else None,
+        "eta": iso(eta) if eta else None,
+    }
+
+
+def _unit_view(unit: policy.Unit, state: State, plan: Optional[runner.Plan] = None) -> dict:
     entry = state.get(unit.id)
     last = state.last_run(unit.id)
     cfg = unit.config
-    return {
+    return _live(plan, unit, last) | {
         "id": unit.id,
         "label": unit.label,
         "images": list(unit.images),
@@ -54,15 +72,32 @@ def _unit_view(unit: policy.Unit, state: State) -> dict:
     }
 
 
+async def _plans(units: list[policy.Unit], state: State) -> dict[str, runner.Plan]:
+    """Each unit's evaluation against the tracker now; empty if it can't be read."""
+    from .. import repin, upgrades
+    from ..integrations import updates
+
+    if not units:
+        return {}
+    payload = await updates._tracker_cached()
+    if payload is None:
+        return {}
+    annotations = await upgrades.annotations_by_repo()
+    pins = repin.load_pins(repin.repo_root())
+    now = runner._now()
+    return {u.id: runner.evaluate(u, payload, annotations, pins, state, now) for u in units}
+
+
 @router.get("")
 async def get_status() -> dict:
     loaded = runner.load()
     state = State.load()
+    plans = await _plans(loaded.units, state)
     return {
         "mode": runner.mode(),
         "commit": runner.commit_enabled(),
         "running": runner.run_lock().locked(),
-        "units": [_unit_view(u, state) for u in loaded.units],
+        "units": [_unit_view(u, state, plans.get(u.id)) for u in loaded.units],
         "errors": loaded.errors,
     }
 

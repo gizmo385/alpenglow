@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Optional
 
 from .. import actions, inventory, mock, repin
+from ..upgrades.verdicts import VERDICTS
 from . import health, policy
 from .state import State, from_iso, iso, now as _now
 
@@ -104,7 +105,11 @@ class Plan:
     targets: list[repin.Target] = field(default_factory=list)
     pending: list[policy.Pending] = field(default_factory=list)
     card_ids: list[int] = field(default_factory=list)
-    blocker: Optional[str] = None
+    hold: Optional[policy.Hold] = None
+
+    @property
+    def blocker(self) -> Optional[str]:
+        return self.hold.text if self.hold else None
 
     @property
     def ready(self) -> bool:
@@ -146,13 +151,14 @@ def evaluate(unit: policy.Unit, payload: dict, annotations: dict, pins: dict, st
     plan = Plan(unit, places=_places(unit.images))
     paused = state.paused(unit.id)
     if paused:
-        plan.blocker = f"paused after a failed update ({paused.get('reason')}); press Resume once it's sorted"
+        plan.hold = policy.Hold(
+            "paused", f"paused after a failed update ({paused.get('reason')}); press Resume once it's sorted")
         return plan
     if not plan.places:
-        plan.blocker = "no compose file uses this image"
+        plan.hold = policy.Hold("config", "no compose file uses this image")
         return plan
     if any(sid == actions.SELF_SERVICE and svc == "dashboard" for sid, svc in plan.places):
-        plan.blocker = "the dashboard can't update itself automatically"
+        plan.hold = policy.Hold("config", "the dashboard can't update itself automatically")
         return plan
     if unit.follow:
         return plan
@@ -175,17 +181,28 @@ def evaluate(unit: policy.Unit, payload: dict, annotations: dict, pins: dict, st
             current=str(entry.get("current_version") or target.current_tag),
             latest=str(entry["latest_version"]),
             published_at=_release_time(entry),
-            verdict=verdict if verdict in policy.VERDICT_LEVELS else None,
+            verdict=verdict if verdict in VERDICTS else None,  # Hold too, not "Waiting"
             verdict_target=getattr(ann, "target", None),
         ))
         if ann is not None and getattr(ann, "card_id", None):
             plan.card_ids.append(ann.card_id)
     for p in plan.pending:
-        reason = policy.blocker(p, unit.config, now)
-        if reason:
-            plan.blocker = reason
+        plan.hold = policy.hold(p, unit.config, now)
+        if plan.hold:
             break
     return plan
+
+
+def first_run_after(unit: policy.Unit, last: Optional[datetime], when: datetime) -> Optional[datetime]:
+    """The first scheduled check at or after ``when``, counting from ``last``."""
+    if last is None:
+        return None
+    t = next_run(unit, last)
+    for _ in range(5000):
+        if t >= when:
+            return t
+        t = next_run(unit, t)
+    return None
 
 
 # ── the scheduled pass ────────────────────────────────────────────────────────

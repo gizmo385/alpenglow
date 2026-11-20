@@ -308,7 +308,20 @@ export interface AutoUpdateResult {
   text: string;
 }
 
+export interface AutoUpdateHold {
+  /** bump | soak | assessment | verdict | unknown | paused | config */
+  kind: string;
+  text: string;
+  until: string | null;
+}
+
 export interface AutoUpdateUnit {
+  /** Its pending release(s) right now, from the tracker. */
+  pending: { image: string; current: string; latest: string }[];
+  /** Why that release won't go out automatically yet; null when it will. */
+  hold: AutoUpdateHold | null;
+  /** When it's expected to go out: the next check, or the first after its soak. */
+  eta: string | null;
   id: string;
   label: string;
   images: string[];
