@@ -31,7 +31,7 @@ from fastapi import APIRouter, HTTPException
 from .. import inventory, mock
 from ..integrations._common import AsyncTTLCache
 from . import cards, verdicts
-from .vikunja import Vikunja
+from .vikunja import Card, Vikunja
 
 log = logging.getLogger("alpenglow.upgrades")
 router = APIRouter(tags=["upgrades"])
@@ -90,6 +90,26 @@ async def annotations() -> list[verdicts.Annotation]:
 
 async def annotations_by_repo() -> dict[str, verdicts.Annotation]:
     return {a.repo.lower(): a for a in await annotations()}
+
+
+async def comment(card_id: int, text: str) -> bool:
+    """Leave a comment on an Upgrades card; False when the board is off or down.
+
+    ``text`` must not start with ``@claude``, which would start a dispatcher job.
+    """
+    s = Settings.from_env()
+    if s is None:
+        return False
+    text = text.lstrip()
+    if text.lower().startswith("@claude"):
+        text = text[1:]
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            await _api(s, client).comment(Card(card_id, "", "", False), text)
+    except httpx.HTTPError as err:
+        log.warning("upgrades: couldn't comment on card %s: %s", card_id, err)
+        return False
+    return True
 
 
 async def sync_once() -> cards.Plan | None:

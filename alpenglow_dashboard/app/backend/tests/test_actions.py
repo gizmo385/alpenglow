@@ -108,6 +108,13 @@ def test_compose_commands(action, expected_tails, monkeypatch):
         assert cmd[len(cmd) - len(tail):] == tail
 
 
+def test_pull_can_be_limited_to_some_compose_services(monkeypatch):
+    monkeypatch.setenv("SERVICES_ROOT", str(ACTION_SERVICES))
+    pull, up = actions._compose_commands("glances", "pull", ["app"])
+    assert pull[-2:] == ["pull", "app"]
+    assert up[-3:] == ["up", "-d", "app"]
+
+
 def test_compose_commands_rejects_unknown_action():
     with pytest.raises(ValueError):
         actions._compose_commands("glances", "explode")

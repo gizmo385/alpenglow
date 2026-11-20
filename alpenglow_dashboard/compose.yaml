@@ -36,6 +36,14 @@ services:
       VIKUNJA_API_URL: http://vikunja:3456/api/v1
       VIKUNJA_PROJECT_ID: "2"   # Upgrades
       VIKUNJA_PUBLIC_URL: https://board.acbc.house
+      # Automatic updates for images versions.yaml marks auto-eligible (see
+      # app/README.md, "Automatic updates"). dry-run only announces on Discord
+      # what would go out; set to "on" to let it, or "off".
+      AUTO_UPDATE: dry-run
+      # Schedule for entries without their own `auto: {every: ...}`.
+      AUTO_UPDATE_EVERY: daily
+      # 1 commits each successful automatic update in /services (never pushed).
+      AUTO_UPDATE_COMMIT: "0"
     env_file:
       - path: .env
         required: true

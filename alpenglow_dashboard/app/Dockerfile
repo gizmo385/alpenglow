@@ -11,6 +11,8 @@ FROM python:3.13-slim
 
 # docker CLI + compose plugin — the app drives the *host* daemon through
 # /services/docker-proxy (DOCKER_HOST); no daemon runs in this container.
+# git lets automatic updates commit their repins (AUTO_UPDATE_COMMIT), and
+# tzdata makes their cron schedules follow TZ.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && install -m 0755 -d /etc/apt/keyrings \
@@ -19,7 +21,7 @@ RUN apt-get update \
         https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
         > /etc/apt/sources.list.d/docker.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+    && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin git tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/

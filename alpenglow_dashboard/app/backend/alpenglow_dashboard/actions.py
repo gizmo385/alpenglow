@@ -34,7 +34,7 @@ import asyncio
 import logging
 import os
 import uuid
-from typing import Optional
+from typing import Optional, Sequence
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -114,11 +114,13 @@ def is_busy(service_id: str) -> bool:
 # ── compose command construction ──────────────────────────────────────────────
 
 
-def _compose_commands(service_id: str, action: str) -> list[list[str]]:
+def _compose_commands(service_id: str, action: str, services: Sequence[str] = ()) -> list[list[str]]:
     """The docker-compose argv(s) for an action.
 
     ``restart|stop|start`` are single commands; ``pull`` is ``pull`` then
-    ``up -d`` to recreate with the freshly pulled image.
+    ``up -d`` to recreate with the freshly pulled image. ``services`` limits a
+    pull to those compose services (automatic updates pull only the images
+    they update, so a sidecar on a moving tag isn't swept along).
     """
     base = [
         "docker",
@@ -133,7 +135,7 @@ def _compose_commands(service_id: str, action: str) -> list[list[str]]:
     if action == "start":
         return [base + ["up", "-d"]]
     if action == "pull":
-        return [base + ["pull"], base + ["up", "-d"]]
+        return [base + ["pull", *services], base + ["up", "-d", *services]]
     raise ValueError(f"unknown action {action!r}")
 
 
@@ -161,10 +163,10 @@ async def _run(cmd: list[str], timeout: float) -> tuple[int, str]:
     return proc.returncode or 0, (stderr or b"").decode("utf-8", "replace")
 
 
-async def _run_commands(service_id: str, action: str) -> tuple[bool, str]:
+async def _run_commands(service_id: str, action: str, services: Sequence[str] = ()) -> tuple[bool, str]:
     """Run an action's compose command(s); return (ok, stderr of the failure)."""
     timeout = _TIMEOUT_PULL if action == "pull" else _TIMEOUT_DEFAULT
-    for cmd in _compose_commands(service_id, action):
+    for cmd in _compose_commands(service_id, action, services):
         rc, stderr = await _run(cmd, timeout)
         if rc != 0:
             return False, stderr

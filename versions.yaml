@@ -13,6 +13,19 @@
 #
 # policy is for the upgrade pipeline: auto-eligible | approve | manual | float.
 # `manual` images are never upgraded automatically, whatever an approval says.
+# `auto-eligible` images update themselves from the dashboard, on the rules in
+# an optional `auto:` block (alpenglow_dashboard/app/README.md, "Automatic
+# updates"):
+#
+#   auto:
+#     every: daily       # hourly | daily | weekly | 6h | 2d | "0 4 * * *"
+#     max_bump: patch    # patch | minor | major
+#     soak: 2d           # how long a release must be out first
+#     verdict: Easy      # Claude's verdict needed: Easy | Needs care | any
+#     monitor: FreshRSS  # Uptime Kuma monitor(s) that must be up afterwards
+#
+# Every member of a group must be auto-eligible for the group to update. A
+# float entry on a moving tag (main) can set `auto: {follow: true}` instead.
 
 exclude:
   - "**/tests/fixtures/**"

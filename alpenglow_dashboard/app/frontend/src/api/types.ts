@@ -294,3 +294,42 @@ export interface Updates {
   refreshing: boolean;
   trackerUnavailable: boolean;
 }
+
+// GET /api/autoupdate — automatic updates (backend autoupdate/__init__.py)
+export interface AutoUpdatePause {
+  version: string;
+  reason: string;
+  at: string;
+}
+
+export interface AutoUpdateResult {
+  at: string;
+  ok: boolean;
+  text: string;
+}
+
+export interface AutoUpdateUnit {
+  id: string;
+  label: string;
+  images: string[];
+  services: string[];
+  follow: boolean;
+  every: string;
+  maxBump: string | null;
+  soak: string | null;
+  verdict: string | null;
+  monitors: string[];
+  lastRun: string | null;
+  nextRun: string | null;
+  waiting: string | null;
+  paused: AutoUpdatePause | null;
+  lastResult: AutoUpdateResult | null;
+}
+
+export interface AutoUpdates {
+  mode: "off" | "dry-run" | "on";
+  commit: boolean;
+  running: boolean;
+  units: AutoUpdateUnit[];
+  errors: string[];
+}

@@ -78,7 +78,11 @@ images:
   entry until they are pinned, at which point `sync` replaces them with the
   literal version.
 - `policy` doesn't change what `pin` does. It's for the upgrade pipeline:
-  `manual` images are never upgraded automatically.
+  `manual` images are never upgraded automatically, and `auto-eligible` ones
+  update themselves from the dashboard on the rules in their optional `auto:`
+  block (see `alpenglow_dashboard/app/README.md`, "Automatic updates"). pin
+  only checks that block, so `pin check` catches a typo in it, and `pin set`
+  keeps it.
 
 ## Development
 

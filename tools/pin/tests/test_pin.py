@@ -202,6 +202,57 @@ def test_validate(repo):
     ]
 
 
+def test_validate_auto_settings(repo):
+    write(repo, "versions.yaml", """
+        images:
+          ok: {tag: "1", policy: auto-eligible, auto: {every: 6h, max_bump: minor, soak: 3d, verdict: any, monitor: [A, B]}}
+          cron: {tag: "1", policy: auto-eligible, auto: {every: "0 4 * * 1-5"}}
+          defaults: {tag: "1", policy: auto-eligible}
+          follow: {policy: float, reason: built from main, auto: {follow: true, every: daily}}
+          approve: {tag: "1", auto: {every: daily}}
+          typo: {tag: "1", policy: auto-eligible, auto: {evry: daily}}
+          bad: {tag: "1", policy: auto-eligible, auto: {every: sometimes, max_bump: huge, soak: soon, verdict: Fine}}
+          fast: {tag: "1", policy: auto-eligible, auto: {every: 5m}}
+          floatbump: {policy: float, reason: x, auto: {every: daily}}
+          pinfollow: {tag: "1", policy: auto-eligible, auto: {follow: true}}
+    """)
+    errors = lock(repo).validate()
+    assert errors == [
+        "versions.yaml: approve: auto: only applies with policy auto-eligible (this entry is approve)",
+        "versions.yaml: typo: auto: unknown setting 'evry' (known: every, max_bump, soak, verdict, monitor, follow)",
+        "versions.yaml: bad: auto: every must be hourly, daily, weekly, a duration like 6h or 2d, or a 5-field cron line",
+        "versions.yaml: bad: auto: soak must be a duration like 12h or 3d",
+        "versions.yaml: bad: auto: max_bump must be one of patch, minor, major",
+        "versions.yaml: bad: auto: verdict must be one of Easy, Needs care, any",
+        "versions.yaml: fast: auto: every must be at least 15m",
+        "versions.yaml: floatbump: auto: a float entry can only have `follow: true` (it has no version to bump)",
+        "versions.yaml: pinfollow: auto: follow is for float entries that track a moving tag such as main",
+    ]
+
+
+def test_set_keeps_auto_settings(repo):
+    write(repo, "versions.yaml", """
+        images:
+          vabene1111/recipes:
+            tag: 2.7.1
+            policy: auto-eligible
+            auto:
+              every: daily   # comment survives
+    """)
+    write(repo, "tandoor/compose.yaml", """
+        services:
+          web:
+            image: vabene1111/recipes:2.7.1
+    """)
+    lk = lock(repo)
+    set_tag(lk, "vabene1111/recipes", "2.7.2", resolve=False)
+    lk.save()
+    text = (repo / "versions.yaml").read_text()
+    assert "tag: 2.7.2" in text
+    assert "auto:\n      every: daily   # comment survives" in text
+    assert "policy: auto-eligible" in text
+
+
 # ── sync ────────────────────────────────────────────────────────────────────
 
 

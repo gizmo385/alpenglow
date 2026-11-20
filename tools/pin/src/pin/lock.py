@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import io
+import re
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -47,6 +48,7 @@ class Entry:
     policy: str = DEFAULT_POLICY
     reason: str | None = None
     plugins: dict[str, str] = field(default_factory=dict)
+    auto: Any = None  # the upgrade pipeline's settings; pin only validates them
 
     @property
     def floating(self) -> bool:
@@ -100,6 +102,7 @@ class Lock:
                 policy=str(raw.get("policy") or DEFAULT_POLICY),
                 reason=_opt_str(raw.get("reason")),
                 plugins={str(k): str(v) for k, v in (raw.get("plugins") or {}).items()},
+                auto=raw.get("auto"),
             )
         return out
 
@@ -110,6 +113,7 @@ class Lock:
             where = f"{LOCK_NAME}: {name}"
             if e.policy not in POLICIES:
                 errors.append(f"{where}: policy {e.policy!r} is not one of {', '.join(POLICIES)}")
+            errors += [f"{where}: {problem}" for problem in auto_problems(e)]
             if e.floating:
                 if not e.reason:
                     errors.append(f"{where}: float entries need a reason")
@@ -163,6 +167,72 @@ class Lock:
 
     def save(self) -> None:
         self.path.write_text(self.dumps())
+
+
+# ── auto: the dashboard's automatic updates ─────────────────────────────────
+#
+# pin doesn't act on these; it checks them so a typo fails `pin check` in CI
+# instead of quietly turning automatic updates off. The dashboard reads them
+# (alpenglow_dashboard/app/backend/alpenglow_dashboard/autoupdate/policy.py),
+# so keep the two in step.
+
+AUTO_KEYS = ("every", "max_bump", "soak", "verdict", "monitor", "follow")
+BUMPS = ("patch", "minor", "major")
+VERDICTS = ("Easy", "Needs care", "any")
+_DURATION_RE = re.compile(r"^\s*(\d+)\s*([mhdw])\s*$")
+_EVERY_WORDS = ("hourly", "daily", "weekly")
+_CRON_FIELD_RE = re.compile(r"^(\*|\d+(-\d+)?)(/\d+)?(,(\*|\d+(-\d+)?)(/\d+)?)*$")
+
+
+def _duration_ok(value: Any) -> bool:
+    return isinstance(value, str) and bool(_DURATION_RE.match(value))
+
+
+def _every_ok(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    if value.strip().lower() in _EVERY_WORDS or _duration_ok(value):
+        return True
+    fields = value.split()
+    return len(fields) == 5 and all(_CRON_FIELD_RE.match(f) for f in fields)
+
+
+def auto_problems(e: Entry) -> list[str]:
+    """What's wrong with an entry's ``auto`` block, if anything."""
+    if e.auto is None:
+        return []
+    if not isinstance(e.auto, dict):
+        return ["auto must be a mapping"]
+    out = [f"auto: unknown setting {k!r} (known: {', '.join(AUTO_KEYS)})" for k in e.auto if k not in AUTO_KEYS]
+    follow = e.auto.get("follow")
+    if follow not in (None, True, False):
+        out.append("auto: follow must be true or false")
+    if e.floating and follow is not True:
+        out.append("auto: a float entry can only have `follow: true` (it has no version to bump)")
+    if not e.floating and e.policy != "auto-eligible":
+        out.append(f"auto: only applies with policy auto-eligible (this entry is {e.policy})")
+    if not e.floating and follow:
+        out.append("auto: follow is for float entries that track a moving tag such as main")
+    if "every" in e.auto and not _every_ok(e.auto["every"]):
+        out.append("auto: every must be hourly, daily, weekly, a duration like 6h or 2d, or a 5-field cron line")
+    elif _duration_ok(e.auto.get("every")):
+        m = _DURATION_RE.match(e.auto["every"])
+        minutes = int(m.group(1)) * {"m": 1, "h": 60, "d": 1440, "w": 10080}[m.group(2)]
+        if minutes < 15:
+            out.append("auto: every must be at least 15m")
+    if "soak" in e.auto and not _duration_ok(e.auto["soak"]):
+        out.append("auto: soak must be a duration like 12h or 3d")
+    if "max_bump" in e.auto and e.auto["max_bump"] not in BUMPS:
+        out.append(f"auto: max_bump must be one of {', '.join(BUMPS)}")
+    if "verdict" in e.auto and e.auto["verdict"] not in VERDICTS:
+        out.append(f"auto: verdict must be one of {', '.join(VERDICTS)}")
+    monitor = e.auto.get("monitor")
+    if monitor is not None and not (
+        (isinstance(monitor, str) and monitor.strip())
+        or (isinstance(monitor, list) and monitor and all(isinstance(m, str) and m.strip() for m in monitor))
+    ):
+        out.append("auto: monitor must be an Uptime Kuma monitor name or a list of them")
+    return out
 
 
 def _opt_str(v: Any) -> str | None:

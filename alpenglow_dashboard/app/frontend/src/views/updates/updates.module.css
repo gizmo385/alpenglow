@@ -174,3 +174,29 @@ a.verdict:hover {
 .noVerdict {
   color: var(--color-neutral-600);
 }
+
+/* Automatic updates section (AutoUpdates.tsx) */
+.autoSection {
+  margin-top: 28px;
+}
+.autoHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.autoTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.autoMode {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+.autoOk {
+  font-size: 12px;
+  color: var(--color-neutral-400);
+}

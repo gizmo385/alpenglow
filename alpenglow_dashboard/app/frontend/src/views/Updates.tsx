@@ -34,6 +34,7 @@ import { relativeAgo } from "../lib/format";
 import { useData } from "../store/data";
 import { useToast } from "../store/toast";
 import viewStyles from "./views.module.css";
+import { AutoUpdates } from "./updates/AutoUpdates";
 import styles from "./updates/updates.module.css";
 
 /** Exact per-service update command (README §Interactions, PLAN.md C3). */
@@ -435,6 +436,7 @@ export function Updates() {
           </table>
         </Card>
       )}
+      <AutoUpdates />
     </div>
   );
 }
