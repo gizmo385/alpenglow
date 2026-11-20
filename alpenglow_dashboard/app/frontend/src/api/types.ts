@@ -322,6 +322,8 @@ export interface AutoUpdateUnit {
   hold: AutoUpdateHold | null;
   /** When it's expected to go out: the next check, or the first after its soak. */
   eta: string | null;
+  /** While soaking, what will still stand after it (e.g. "assessment"). */
+  then: string | null;
   id: string;
   label: string;
   images: string[];

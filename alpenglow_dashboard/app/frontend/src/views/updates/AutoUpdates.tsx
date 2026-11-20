@@ -3,8 +3,9 @@
  * Two places in the Updates view:
  *
  * - <AutoNote> under a pending row's service name says when that update will
- *   go out by itself ("Auto-updates in 19h", "Auto-updates after Claude's
- *   review"). Rows that stay manual (too big, or flagged) get no note.
+ *   go out by itself ("Auto · in 19h"), or just "Auto" while it waits for
+ *   Claude's assessment (shown in the Assessment column). Rows that
+ *   stay manual (too big, or flagged) get no note.
  * - <AutoUpdates> below the table lists only what needs a look: units paused
  *   after a failed update (with Resume) and what updated automatically in the
  *   last week. The opted-in services and their rules are behind "Show rules".
@@ -62,15 +63,15 @@ export function AutoNote({ unit, mode }: { unit: AutoUpdateUnit | undefined; mod
   let text: string;
   let tone = styles.autoNote;
   if (unit.paused || h?.kind === "paused") {
-    text = "Auto-update paused";
+    text = "Auto paused";
     tone = `${styles.autoNote} ${styles.autoNoteBad}`;
-  } else if (!h || (h.kind === "soak" && unit.eta)) {
-    if (!unit.eta) return null;
-    text = `Auto-updates ${when(unit.eta)}${mode === "dry-run" ? " (dry run)" : ""}`;
-  } else if (h.kind === "assessment") {
-    text = "Auto-updates after Claude's review";
   } else {
-    return null; // too big, or Claude flagged it: a normal manual update
+    const needs = h?.kind === "assessment" || (h?.kind === "soak" && unit.then === "assessment");
+    const blocked = h && !needs && !(h.kind === "soak" && !unit.then);
+    if (blocked || !unit.eta) return null; // too big or flagged: a normal manual update
+    // Waiting on Claude: the Assessment column beside it already says so.
+    text = needs && unit.verdict !== "any" ? "Auto" : `Auto · ${when(unit.eta)}`;
+    if (mode === "dry-run") text += " (dry run)";
   }
   return (
     <div className={tone} title={h ? cap(h.text) : "Goes out at its next scheduled check"}>

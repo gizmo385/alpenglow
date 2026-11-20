@@ -34,14 +34,20 @@ class UnitRequest(BaseModel):
 def _live(plan: Optional[runner.Plan], unit: policy.Unit, last) -> dict:
     """Where the unit's pending release stands right now, for the Updates rows."""
     if plan is None:
-        return {"pending": [], "hold": None, "eta": None}
+        return {"pending": [], "hold": None, "eta": None, "then": None}
     hold = plan.hold
     eta = None
+    then = None  # what still stands once the soak is over
     if plan.ready:
         eta = runner.next_run(unit, last) if last else None
     elif hold and hold.kind == "soak" and hold.until:
         eta = runner.first_run_after(unit, last, hold.until)
+        after = [policy.hold(p, unit.config, hold.until) for p in plan.pending]
+        then = next((h.kind for h in after if h and h.kind != "soak"), None)
+    elif hold and hold.kind == "assessment":
+        eta = runner.next_run(unit, last) if last else None
     return {
+        "then": then,
         "pending": [{"image": p.image, "current": p.current, "latest": p.latest} for p in plan.pending],
         "hold": {"kind": hold.kind, "text": hold.text, "until": iso(hold.until) if hold.until else None}
         if hold else None,

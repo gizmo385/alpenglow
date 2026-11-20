@@ -603,8 +603,14 @@ def test_status_route_says_where_each_pending_release_stands(client, env, monkey
     fresh = {u["id"]: u for u in client.get("/api/autoupdate").json()["units"]}["image:freshrss/freshrss"]
     assert fresh["hold"]["kind"] == "soak"
     assert datetime.fromisoformat(fresh["eta"]) >= datetime.fromisoformat(fresh["hold"]["until"])
+    assert fresh["then"] is None  # Claude already rated it Easy
 
-    env["annotations"]["freshrss/freshrss"] = Annotation("FreshRSS/FreshRSS", "t", "Hold", target="1.30.5")
+    # Soaking with no verdict yet: it only goes out if Claude rates it well.
+    env["annotations"] = {}
+    fresh = {u["id"]: u for u in client.get("/api/autoupdate").json()["units"]}["image:freshrss/freshrss"]
+    assert (fresh["hold"]["kind"], fresh["then"]) == ("soak", "assessment")
+
+    env["annotations"] = {"freshrss/freshrss": Annotation("FreshRSS/FreshRSS", "t", "Hold", target="1.30.5")}
     env["tracker"]["services"][0]["releases"] = [release("1.30.5", 30)]
     fresh = {u["id"]: u for u in client.get("/api/autoupdate").json()["units"]}["image:freshrss/freshrss"]
     assert (fresh["hold"]["kind"], fresh["eta"]) == ("verdict", None)

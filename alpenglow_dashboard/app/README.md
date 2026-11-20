@@ -159,8 +159,8 @@ the tracker and the Upgrades board. The newest release goes out only if:
 - nobody is updating that service already, and it isn't paused.
 
 In the Updates view, a pending row that will go out by itself says when
-("Auto-updates in 19h", or "after Claude's review"); hover it for the
-reason. Below the table, **Automatic updates** lists only what needs a look:
+("Auto · in 19h"), or just "Auto" while it waits for Claude's assessment;
+hover it for the reason. Rows that stay manual get no note. Below the table, **Automatic updates** lists only what needs a look:
 services paused after a failed update, with **Resume**, and what updated
 automatically in the last week. **Show rules** lists every opted-in service
 and its settings. A service's first check is one full
