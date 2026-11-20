@@ -202,9 +202,13 @@ a.verdict:hover {
 .autoTable th {
   white-space: nowrap;
 }
-.autoRules {
-  font-size: 12px;
-  color: var(--color-neutral-400);
+.autoMonitor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--color-neutral-500);
 }
 .autoError {
   display: flex;

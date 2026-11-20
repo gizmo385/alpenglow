@@ -36,19 +36,36 @@ function inFuture(iso: string | null): string {
   return `in ${Math.round(hours / 24)} days`;
 }
 
-/** "0 4 * * *" → "daily at 4:00"; other cron lines are shown as written. */
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** "daily" → "Daily", "6h" → "Every 6h", "0 4 * * *" → "Daily 4:00". */
 function schedule(every: string): string {
   const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(every);
-  if (daily) return `daily at ${daily[2]}:${daily[1].padStart(2, "0")}`;
-  if (every.split(" ").length === 5) return `cron ${every}`;
-  return /^\d/.test(every) ? `every ${every}` : every;
+  if (daily) return `Daily ${daily[2]}:${daily[1].padStart(2, "0")}`;
+  if (every.split(" ").length === 5) return every;
+  return /^\d/.test(every) ? `Every ${every}` : cap(every);
 }
 
-function rules(u: AutoUpdateUnit): string {
-  if (u.follow) return `${schedule(u.every)} · follows its tag`;
-  const verdict =
-    u.verdict === "any" ? "any verdict" : u.verdict === "Needs care" ? "Easy or Needs care" : "Easy only";
-  return [schedule(u.every), `${u.maxBump} updates`, `${u.soak} soak`, verdict].join(" · ");
+/** "2 days" → "2d", "12 hours" → "12h". */
+function short(span: string | null): string {
+  const m = span && /^(\d+) (\w)/.exec(span);
+  return m ? `${m[1]}${m[2]}` : "—";
+}
+
+const VERDICT_COLOR: Record<string, string> = {
+  Easy: "#2e7d32",
+  "Needs care": "#f9a825",
+};
+
+function Verdict({ u }: { u: AutoUpdateUnit }) {
+  if (u.follow || !u.verdict) return <span className={styles.noVerdict}>—</span>;
+  if (u.verdict === "any") return <span>Any</span>;
+  return (
+    <span className={styles.verdict} title={u.verdict === "Needs care" ? "Easy or Needs care" : "Easy only"}>
+      <span className={styles.verdictDot} style={{ background: VERDICT_COLOR[u.verdict] }} aria-hidden />
+      {u.verdict === "Needs care" ? "Needs care" : "Easy"}
+    </span>
+  );
 }
 
 type Status = { label: string; color: string; note: string | null };
@@ -121,7 +138,10 @@ export function AutoUpdates() {
             <thead>
               <tr>
                 <th>Service</th>
-                <th>Rules</th>
+                <th>Schedule</th>
+                <th title="Largest update that goes out by itself">Up to</th>
+                <th title="How long a release must be out first">Soak</th>
+                <th title="Claude's assessment it needs">Verdict</th>
                 <th>Next check</th>
                 <th>Status</th>
                 <th className={styles.actionCol} aria-label="Action" />
@@ -135,14 +155,19 @@ export function AutoUpdates() {
                     <td>
                       <div className={styles.svcName}>{u.services.join(", ") || u.label}</div>
                       <div className={`${styles.mono} ${styles.image}`}>{u.images.join(", ")}</div>
-                    </td>
-                    <td className={styles.autoRules}>
-                      {rules(u)}
                       {u.monitors.length > 0 && (
-                        <div className={styles.verdictNote}>Uptime Kuma: {u.monitors.join(", ")}</div>
+                        <div className={styles.autoMonitor} title="Uptime Kuma monitors checked after each update">
+                          <Icon name="heartbeat" size={12} /> {u.monitors.join(", ")}
+                        </div>
                       )}
                     </td>
-                    <td className={styles.released}>{u.paused ? "—" : inFuture(u.nextRun)}</td>
+                    <td className={styles.released}>{schedule(u.every)}</td>
+                    <td className={styles.released}>{u.follow ? "New tag" : cap(u.maxBump ?? "")}</td>
+                    <td className={styles.released}>{u.follow ? "—" : short(u.soak)}</td>
+                    <td className={styles.verdictCell}>
+                      <Verdict u={u} />
+                    </td>
+                    <td className={styles.released}>{u.paused ? "—" : cap(inFuture(u.nextRun))}</td>
                     <td className={styles.verdictCell}>
                       <span className={styles.verdict}>
                         <span className={styles.verdictDot} style={{ background: st.color }} aria-hidden />
