@@ -196,7 +196,21 @@ a.verdict:hover {
   font-size: 12px;
   color: var(--color-neutral-500);
 }
-.autoOk {
+.autoTable td {
+  vertical-align: middle;
+}
+.autoTable th {
+  white-space: nowrap;
+}
+.autoRules {
   font-size: 12px;
   color: var(--color-neutral-400);
+}
+.autoError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--color-down);
 }

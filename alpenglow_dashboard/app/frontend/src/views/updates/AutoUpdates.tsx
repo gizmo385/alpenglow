@@ -36,11 +36,34 @@ function inFuture(iso: string | null): string {
   return `in ${Math.round(hours / 24)} days`;
 }
 
+/** "0 4 * * *" → "daily at 4:00"; other cron lines are shown as written. */
+function schedule(every: string): string {
+  const daily = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(every);
+  if (daily) return `daily at ${daily[2]}:${daily[1].padStart(2, "0")}`;
+  if (every.split(" ").length === 5) return `cron ${every}`;
+  return /^\d/.test(every) ? `every ${every}` : every;
+}
+
 function rules(u: AutoUpdateUnit): string {
-  if (u.follow) return `follows its tag, ${u.every}`;
-  const parts = [u.every, `${u.maxBump} only`, `after ${u.soak}`];
-  parts.push(u.verdict === "any" ? "any verdict" : `verdict ${u.verdict}${u.verdict === "Needs care" ? " or Easy" : ""}`);
-  return parts.join(" · ");
+  if (u.follow) return `${schedule(u.every)} · follows its tag`;
+  const verdict =
+    u.verdict === "any" ? "any verdict" : u.verdict === "Needs care" ? "Easy or Needs care" : "Easy only";
+  return [schedule(u.every), `${u.maxBump} updates`, `${u.soak} soak`, verdict].join(" · ");
+}
+
+type Status = { label: string; color: string; note: string | null };
+
+function status(u: AutoUpdateUnit): Status {
+  if (u.paused) return { label: "Paused", color: "var(--color-down)", note: u.paused.reason };
+  const r = u.lastResult;
+  const waiting = u.waiting && u.waiting !== "up to date" ? u.waiting : null;
+  if (waiting) return { label: "Waiting", color: "var(--color-neutral-500)", note: waiting };
+  if (r) {
+    return r.ok
+      ? { label: `Updated ${relativeAgo(r.at)}`, color: "var(--color-ok)", note: r.text }
+      : { label: `Failed ${relativeAgo(r.at)}`, color: "var(--color-down)", note: r.text };
+  }
+  return { label: "Up to date", color: "var(--color-ok)", note: null };
 }
 
 export function AutoUpdates() {
@@ -69,79 +92,88 @@ export function AutoUpdates() {
         <h2 className={styles.autoTitle}>Automatic updates</h2>
         <span className={styles.autoMode}>
           {MODE_LABEL[data.mode]}
-          {data.mode === "on" && (data.commit ? " · commits on the server" : " · left uncommitted")}
+          {data.mode === "on" && (data.commit ? " · committed on the server" : " · repins left uncommitted")}
         </span>
         <Button
-          variant="ghost"
+          variant="secondary"
           disabled={data.mode === "off" || data.running || busy !== null}
           onClick={() => act("run", () => api.runAutoUpdates(), "Checking automatic updates…")}
         >
           {data.running ? (
             <>
-              <Icon name="spinner" size={13} className={styles.spin} /> Running…
+              <Icon name="spinner" size={15} className={styles.spin} /> Checking…
             </>
           ) : (
-            "Check now"
+            <>
+              <Icon name="arrow-clockwise" size={15} /> Check now
+            </>
           )}
         </Button>
       </div>
       {data.errors.map((e) => (
-        <div key={e} className={styles.updateError}>
+        <p key={e} className={styles.autoError}>
           <Icon name="warning" size={13} /> versions.yaml: {e}
-        </div>
+        </p>
       ))}
       {data.units.length > 0 && (
         <Card className={styles.tableCard}>
-          <table className="table">
+          <table className={`table ${styles.autoTable}`}>
             <thead>
               <tr>
                 <th>Service</th>
                 <th>Rules</th>
                 <th>Next check</th>
                 <th>Status</th>
+                <th className={styles.actionCol} aria-label="Action" />
               </tr>
             </thead>
             <tbody>
-              {data.units.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <div className={styles.svcName}>{u.services.join(", ") || u.label}</div>
-                    <div className={`${styles.mono} ${styles.image}`}>{u.images.join(", ")}</div>
-                  </td>
-                  <td className={styles.released}>
-                    {rules(u)}
-                    {u.monitors.length > 0 && <div className={styles.verdictNote}>Kuma: {u.monitors.join(", ")}</div>}
-                  </td>
-                  <td className={styles.released}>{u.paused ? "paused" : inFuture(u.nextRun)}</td>
-                  <td>
-                    {u.paused ? (
-                      <>
-                        <div className={styles.updateError} title={u.paused.reason}>
-                          <Icon name="warning" size={13} /> Paused: {u.paused.reason}
+              {data.units.map((u) => {
+                const st = status(u);
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <div className={styles.svcName}>{u.services.join(", ") || u.label}</div>
+                      <div className={`${styles.mono} ${styles.image}`}>{u.images.join(", ")}</div>
+                    </td>
+                    <td className={styles.autoRules}>
+                      {rules(u)}
+                      {u.monitors.length > 0 && (
+                        <div className={styles.verdictNote}>Uptime Kuma: {u.monitors.join(", ")}</div>
+                      )}
+                    </td>
+                    <td className={styles.released}>{u.paused ? "—" : inFuture(u.nextRun)}</td>
+                    <td className={styles.verdictCell}>
+                      <span className={styles.verdict}>
+                        <span className={styles.verdictDot} style={{ background: st.color }} aria-hidden />
+                        {st.label}
+                      </span>
+                      {st.note && (
+                        <div className={styles.verdictNote} title={st.note}>
+                          {st.note}
                         </div>
-                        <Button
-                          variant="ghost"
-                          disabled={busy !== null}
-                          onClick={() =>
-                            act(u.id, () => api.resumeAutoUpdate(u.id), `Resumed automatic updates for ${u.label}`)
-                          }
-                        >
-                          Resume
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        {u.lastResult && (
-                          <div className={u.lastResult.ok ? styles.autoOk : styles.updateError}>
-                            {u.lastResult.ok ? "Updated" : "Failed"} {relativeAgo(u.lastResult.at)}: {u.lastResult.text}
-                          </div>
+                      )}
+                    </td>
+                    <td>
+                      <div className={styles.actionCell}>
+                        {u.paused && (
+                          <Button
+                            variant="primary"
+                            className={styles.pullBtn}
+                            disabled={busy !== null}
+                            title="Let automatic updates run for this again"
+                            onClick={() =>
+                              act(u.id, () => api.resumeAutoUpdate(u.id), `Resumed automatic updates for ${u.label}`)
+                            }
+                          >
+                            <Icon name="play" size={13} /> Resume
+                          </Button>
                         )}
-                        {u.waiting && <div className={styles.verdictNote}>{u.waiting}</div>}
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Card>
