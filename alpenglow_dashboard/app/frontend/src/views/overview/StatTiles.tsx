@@ -132,13 +132,26 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
         }}
       >
         <div className="card-kicker">Updates</div>
-        <div className="ov-tile-big">
-          <span className="ov-tile-num accent">{dash(updates)}</span>
-          <span className="ov-tile-unit">available</span>
-        </div>
-        <div className="ov-tile-action">
-          <ArrowRightIcon size={12} /> pull &amp; recreate
-        </div>
+        {updates === 0 ? (
+          <>
+            <div className="ov-tile-big">
+              <span className="ov-tile-num ok ov-uptodate">
+                <CheckCircleIcon size={26} weight="fill" /> Up to date
+              </span>
+            </div>
+            <div className="ov-tile-caption">Every service is on its latest image</div>
+          </>
+        ) : (
+          <>
+            <div className="ov-tile-big">
+              <span className="ov-tile-num accent">{dash(updates)}</span>
+              <span className="ov-tile-unit">available</span>
+            </div>
+            <div className="ov-tile-action">
+              <ArrowRightIcon size={12} /> pull &amp; recreate
+            </div>
+          </>
+        )}
       </Card>
 
       {/* Monitors */}

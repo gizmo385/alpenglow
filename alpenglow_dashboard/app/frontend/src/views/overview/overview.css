@@ -55,6 +55,13 @@
 .ov-tile-num.ok {
   color: var(--color-ok);
 }
+/* Updates tile when nothing is pending. */
+.ov-uptodate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 26px;
+}
 .ov-tile-unit {
   font-size: 14px;
   color: var(--color-neutral-500);

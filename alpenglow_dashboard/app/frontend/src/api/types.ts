@@ -31,7 +31,8 @@ export interface OverviewServices {
 }
 
 export interface OverviewUpdates {
-  count: number;
+  /** null when the update tracker can't be read. */
+  count: number | null;
 }
 
 export interface MonitorRef {
