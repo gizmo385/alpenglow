@@ -133,14 +133,11 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
       >
         <div className="card-kicker">Updates</div>
         {updates === 0 ? (
-          <>
-            <div className="ov-tile-big">
-              <span className="ov-tile-num ok ov-uptodate">
-                <CheckCircleIcon size={26} weight="fill" /> Up to date
-              </span>
-            </div>
-            <div className="ov-tile-caption">Every service is on its latest image</div>
-          </>
+          <div className="ov-tile-big">
+            <span className="ov-tile-num ok ov-uptodate">
+              <CheckCircleIcon size={26} weight="fill" /> Up to date
+            </span>
+          </div>
         ) : (
           <>
             <div className="ov-tile-big">
