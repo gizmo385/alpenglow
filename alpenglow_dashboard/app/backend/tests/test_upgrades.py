@@ -102,6 +102,18 @@ def test_annotations_sorted_and_linked():
     assert data["link_label"] == "Open card"
 
 
+def test_verdict_from_before_a_retarget_is_stale():
+    """A card moved to a newer release keeps its old label until Claude answers again."""
+    retarget = {"comment": f"<p>@claude 2.8.1 {v.RETARGET_MARK}</p>"}
+    old = {"comment": "<p>Verdict: Easy. Patch.</p>"}
+    new = {"comment": "<p>Verdict: Needs care. Migration.</p>"}
+    cards_ = [card(1, "2.8.1", labels=["Verdict: Easy"])]
+    assert v.annotations_from(cards_, {1: [old, retarget]}, None)[0].group == v.WAITING
+    cards_ = [card(1, "2.8.1", labels=["Verdict: Needs care"])]
+    out = v.annotations_from(cards_, {1: [old, retarget, new]}, None)[0]
+    assert (out.group, out.target) == ("Needs care", "2.8.1")
+
+
 # ── routes, against a fake Vikunja and tracker ──────────────────────────────
 
 
@@ -166,7 +178,7 @@ def test_annotations_route_is_outside_auth_and_cached(board, client, monkeypatch
     monkeypatch.setenv("DEV_NO_AUTH", "0")  # the bot can't pass oauth2-proxy
     data = client.get("/internal/upgrades/annotations").json()
     assert data["items"] == [{"repo": "TandoorRecipes/recipes", "title": "old", "group": "Easy",
-                              "note": "Patch release.", "url": "https://board.example/tasks/7", "card_id": 7}]
+                              "note": "Patch release.", "url": "https://board.example/tasks/7", "card_id": 7, "target": "2.7.9"}]
     client.get("/internal/upgrades/annotations")
     assert board.calls.count(("GET", "/v1/projects/2/tasks")) == 1
     assert client.post("/api/upgrades/sync").status_code == 401  # but sync is behind auth

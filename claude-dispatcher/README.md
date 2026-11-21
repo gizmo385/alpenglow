@@ -137,8 +137,10 @@ A job killed at its time limit may not get to flush its last metrics.
 ## Not built yet
 
 - Polling as a fallback for missed webhooks (Vikunja sends each one once).
-- The rest of the upgrade flow: approving from Discord and an applier.
-  Cards are filed and their verdicts shown by the dashboard (`alpenglow_dashboard/app/backend/alpenglow_dashboard/upgrades`).
+- Approving upgrades from Discord. Cards are filed and their verdicts shown
+  by the dashboard (`alpenglow_dashboard/app/backend/alpenglow_dashboard/upgrades`),
+  which also applies `auto-eligible` upgrades whose verdict allows it
+  (`.../autoupdate`).
 
 ## Development
 

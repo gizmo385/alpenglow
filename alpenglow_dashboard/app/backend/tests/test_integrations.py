@@ -627,7 +627,7 @@ async def test_overview_all_dead_degrades(monkeypatch, tmp_path):
     assert ov.host.cpuPct is None
     assert ov.monitors.up is None
     assert ov.storage.pools == [] and ov.storage.fs == []
-    assert ov.updates.count == 0
+    assert ov.updates.count is None  # unknown, not "up to date"
     # inventory still enumerates the fixture dirs (docker socket absent → all down)
     assert ov.services.total >= 1
 

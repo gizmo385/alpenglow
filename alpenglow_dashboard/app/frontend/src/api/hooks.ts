@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "./client";
-import type { CategoryInfo, Overview, ServiceSummary, Updates } from "./types";
+import type { AutoUpdates, CategoryInfo, Overview, ServiceSummary, Updates } from "./types";
 
 type Poll<T> = {
   data: T | null;
@@ -98,4 +98,9 @@ export function useUpdates(): Poll<Updates> {
 /** /api/categories, polled every 30s. Carries stored order/icons + live counts. */
 export function useCategories(): Poll<CategoryInfo[]> {
   return usePolling(api.categories, 30_000);
+}
+
+/** /api/autoupdate, polled every 30s. */
+export function useAutoUpdates(): Poll<AutoUpdates> {
+  return usePolling(api.autoUpdates, 30_000);
 }

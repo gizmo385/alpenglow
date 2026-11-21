@@ -35,13 +35,21 @@ export function Overview() {
   const total = overview?.services.total ?? services.length;
   const down =
     overview?.services.down ?? services.filter((s) => s.status === "down").length;
-  const updates =
-    overview?.updates.count ?? services.filter((s) => s.latestVersion).length;
+  // null once the overview says the tracker can't be read.
+  const updates = overview
+    ? overview.updates.count
+    : services.filter((s) => s.latestVersion).length;
   // "linked to Keycloak" now counts services carrying the "Keycloak SSO" tag.
   const linked = services.filter((s) => s.tags.includes(KEYCLOAK_SSO_TAG)).length;
 
+  const updatesText =
+    updates == null
+      ? "updates unknown"
+      : updates === 0
+        ? "all up to date"
+        : `${updates} update${updates === 1 ? "" : "s"} pending`;
   const summary =
-    `${total} services · ${linked} linked to Keycloak · ${updates} updates pending` +
+    `${total} services · ${linked} linked to Keycloak · ${updatesText}` +
     (down ? ` · ${down} stopped` : "");
 
   // Tag-filter chips: the union of tags currently in use, sorted.

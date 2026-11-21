@@ -53,7 +53,7 @@ class OverviewServices(BaseModel):
 
 
 class OverviewUpdates(BaseModel):
-    count: int
+    count: Optional[int] = None  # None: tracker unavailable
 
 
 class MonitorRef(BaseModel):

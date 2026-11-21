@@ -10,7 +10,7 @@ from collections.abc import Callable
 
 from .lock import LOCK_NAME, Lock, LockError
 from .refs import FLOATING_TAGS, is_release_tag, parse_ref, split_variant
-from .registry import resolve_digest
+from .registry import RegistryError, list_tags, resolve_digest
 from .scan import scan
 
 Resolver = Callable[[str, str], str]
@@ -61,6 +61,51 @@ def set_tag(
             digest = resolver(member, member_tag)
         _pin(lock, member, member_tag, digest)
     return members
+
+
+# How many tags `resolve_follow` looks up before giving up.
+FOLLOW_LOOKUPS = 40
+
+
+def tag_family(tag: str) -> str:
+    """The prefix tags like ``tag`` share: ``sha-5c5381c`` -> ``sha-``."""
+    return tag[: tag.rfind("-") + 1]
+
+
+def resolve_follow(
+    lock: Lock,
+    name: str,
+    moving: str | None = None,
+    *,
+    resolver: Resolver = resolve_digest,
+    lister: Callable[[str], list[str]] = list_tags,
+) -> str:
+    """The tag, shaped like ``name``'s pinned one, that ``moving`` points at now.
+
+    For images that publish only a moving tag plus per-build tags (``latest``
+    and ``sha-<commit>``): the pin stays on a per-build tag, and following
+    ``latest`` means moving the pin to whichever per-build tag ``latest`` is.
+    Returns the pinned tag when ``latest`` hasn't moved. Read-only.
+    """
+    entry = lock.entries().get(name)
+    if entry is None or entry.floating or not entry.tag:
+        raise LockError(f"{name} isn't pinned in {LOCK_NAME}")
+    if moving is None:
+        follow = entry.auto.get("follow") if isinstance(entry.auto, dict) else None
+        if not isinstance(follow, str):
+            raise LockError(f"{name} has no `auto: {{follow: TAG}}`; name the tag to follow")
+        moving = follow
+    want = resolver(name, moving)
+    if entry.digest == want:
+        return entry.tag
+    family = tag_family(entry.tag)
+    candidates = [t for t in lister(name) if t != moving and t.startswith(family)]
+    # Registries list tags oldest first in practice, so the newest build is last.
+    for tag in list(reversed(candidates))[:FOLLOW_LOOKUPS]:
+        if resolver(name, tag) == want:
+            return tag
+    raise RegistryError(f"no {family}* tag of {name} points at {moving} "
+                        f"(checked the newest {min(len(candidates), FOLLOW_LOOKUPS)})")
 
 
 def fill_digests(lock: Lock, *, resolver: Resolver = resolve_digest) -> tuple[list[str], list[str]]:

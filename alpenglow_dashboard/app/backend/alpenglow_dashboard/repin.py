@@ -27,6 +27,7 @@ import asyncio
 import logging
 import os
 import pwd
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -78,8 +79,11 @@ class Target:
     current_version: str  # the tracker's release names
     latest_version: str
     repo: str = ""  # owner/repo, which ties it to its Upgrades card
+    exact: bool = False  # latest_version is the tag itself (a followed sha-* tag)
 
     def tags(self) -> list[str]:
+        if self.exact:
+            return [self.latest_version]
         return candidate_tags(self.current_tag, self.current_version, self.latest_version)
 
 
@@ -197,7 +201,9 @@ def _env(owner: tuple[int, int] | None) -> dict[str, str]:
         name = ""
     # Keep the container's own settings (PATH, proxies, CA bundles) but not its
     # secrets: pin needs no token.
-    env = {k: v for k, v in os.environ.items() if not _secret(k)}
+    # GIT_CONFIG_COUNT/KEY_n/VALUE_n come as a set: dropping the KEYs as
+    # "secrets" would leave git unable to parse its config, so drop them all.
+    env = {k: v for k, v in os.environ.items() if not _secret(k) and not k.startswith("GIT_CONFIG_")}
     return env | {
         "HOME": str(home),
         "USER": name or "alpenglow",
@@ -239,11 +245,36 @@ async def _pin_set(root: Path, name: str, tag: str) -> tuple[int, str]:
     return await _run([str(root / "pin"), "set", name, tag], root, _TIMEOUT_PIN)
 
 
+async def resolve_follow(name: str, moving: str) -> str:
+    """The per-build tag (``sha-...``) that ``name:moving`` points at now."""
+    root = repo_root()
+    rc, out = await _run([str(root / "pin"), "resolve", name, moving], root, _TIMEOUT_PIN)
+    lines = out.splitlines()
+    if rc != 0 or not lines:
+        raise RepinError((lines or [f"pin resolve exited {rc}"])[-1].removeprefix("error: "))
+    return lines[-1].strip()
+
+
 # ── the repin ─────────────────────────────────────────────────────────────────
 
 
 async def pin(t: Target) -> str:
-    """Pin ``t`` to its new release; return the tag used. Hold :func:`repo_lock`.
+    """Pin ``t`` to its new release; return the tag used. Hold :func:`repo_lock`."""
+    return (await pin_with_files(t))[0]
+
+
+# pin set prints one "path:line: old -> new" line per reference it rewrote.
+_CHANGE_RE = re.compile(r"^(?P<path>[^\s:][^:]*):\d+: .+ -> .+$")
+
+
+def changed_files(output: str) -> list[str]:
+    """The repo files a ``pin set`` rewrote, from its output (versions.yaml aside)."""
+    return list(dict.fromkeys(m.group("path") for line in output.splitlines()
+                              if (m := _CHANGE_RE.match(line.strip()))))
+
+
+async def pin_with_files(t: Target) -> tuple[str, list[str]]:
+    """Like :func:`pin`, and also the files pin rewrote besides versions.yaml.
 
     Tries each of :meth:`Target.tags` until the registry has one. Any other
     failure stops there, since another spelling wouldn't help. pin writes all
@@ -255,7 +286,7 @@ async def pin(t: Target) -> str:
         rc, out = await _pin_set(root, t.name, candidate)
         if rc == 0:
             log.info("repin: %s %s -> %s", t.name, t.current_tag, candidate)
-            return candidate
+            return candidate, changed_files(out)
         reason = out.splitlines()[-1] if out else f"exit {rc}"
         if rc != _EXIT_NO_SUCH_TAG:
             raise RepinError(f"couldn't pin {t.name} to {candidate}: {reason}")
