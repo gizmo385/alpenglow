@@ -3,7 +3,9 @@
 For each container the update recreated, over ``AUTO_UPDATE_HEALTH_WAIT``
 seconds (3 minutes by default):
 
-- it has to stay running, without Docker restarting it;
+- it has to stay running, without Docker restarting it, unless it's a
+  one-shot job (compose ``restart: no`` or ``on-failure``, like ollama's
+  model pull) that exits cleanly;
 - a container with its own healthcheck has to report ``healthy`` by the end
   (``unhealthy`` fails straight away);
 
@@ -43,6 +45,15 @@ class ContainerState:
     health: Optional[str]  # healthy / unhealthy / starting, or None without a healthcheck
     restarts: int
     image_id: str
+    exit_code: Optional[int] = None
+    restart_policy: str = ""  # "no"/"" for one-shot jobs, "unless-stopped", ...
+
+    @property
+    def finished(self) -> bool:
+        """A one-shot job that ran to completion, which is meant to stop
+        (the same rule as ``inventory._is_completed_oneoff``)."""
+        return (self.status != "running" and self.exit_code == 0
+                and self.restart_policy.strip().lower() in ("", "no", "on-failure"))
 
 
 # (service dir, compose service) → that container's state, or None if it has none.
@@ -79,6 +90,8 @@ async def inspect(service_dir: str, compose_service: str) -> Optional[ContainerS
                 health=(state.get("Health") or {}).get("Status"),
                 restarts=int(info.get("RestartCount") or 0),
                 image_id=str(info.get("Image", "")),
+                exit_code=state.get("ExitCode"),
+                restart_policy=str(((info.get("HostConfig") or {}).get("RestartPolicy") or {}).get("Name") or ""),
             )
         return None
     finally:
@@ -121,10 +134,13 @@ async def check(
             st = await inspector(*key)
             if st is None:
                 return f"{key[1]} in {key[0]} disappeared"
+            if st.finished:
+                continue  # a one-shot job that's done
             if st.restarts > baseline[key]:
                 return f"{st.name} restarted {st.restarts - baseline[key]} time(s) after the update"
             if st.status != "running":
-                return f"{st.name} is {st.status or 'not running'}"
+                code = f" (exit code {st.exit_code})" if st.exit_code else ""
+                return f"{st.name} is {st.status or 'not running'}{code}"
             if st.health == "unhealthy":
                 return f"{st.name} reports unhealthy"
             last[key] = st
