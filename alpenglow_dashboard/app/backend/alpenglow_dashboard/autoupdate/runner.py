@@ -273,6 +273,10 @@ async def tick(now: Optional[datetime] = None, *, force: bool = False, only: Opt
             state.save()
             return []
 
+        if force:
+            # Check now: rescan first, so a change made by hand (a rollback, a
+            # repin) counts instead of the tracker's last scheduled scan.
+            await updates.rescan()
         payload = await updates._fetch_tracker()
         if payload is None:
             log.warning("autoupdate: tracker unavailable; trying again in %s", TRACKER_RETRY)
