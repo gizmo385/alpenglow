@@ -215,14 +215,16 @@ images:
     tag: 25.12.5
     digest: sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a
     group: clickhouse
-    reason: SigNoz's telemetry store
+    policy: manual
+    reason: SigNoz's telemetry store; follows the ClickHouse version SigNoz ships, not ClickHouse's own releases
     compatibility:
-      - The ClickHouse version SigNoz supports (SigNoz release notes)
+      - The ClickHouse version SigNoz ships (Foundry's default in SigNoz/foundry api/v1alpha1/installation/telemetrystore.go, 25.12.5 as of Nov 2026). Hold anything newer.
       - signoz/clickhouse/config-0-0.yaml (allow_simdjson must stay 1)
   clickhouse/clickhouse-keeper:
     tag: 25.12.5
     digest: sha256:525b8b0f93ccb371131c46f22a066ea43d33d74aba314203e8044609945d8524
     group: clickhouse
+    policy: manual
     reason: Moves with clickhouse/clickhouse-server
   johly/airtrail:
     tag: v3.14.0
