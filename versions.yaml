@@ -151,8 +151,8 @@ images:
     tag: 35.0.3
     digest: sha256:8a7a65b8bae82a79568fec2ed9cf3e374a1944eda2a22ebe130d79463336fee3
   ollama/ollama:
-    tag: 0.40.16
-    digest: sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
+    tag: 0.40.17
+    digest: sha256:ccc42bcd3d5fcf7ab0d532b300382154e1a4da56fc666bdb313b78ebdd912754
     policy: auto-eligible
     auto:
       max_bump: major
