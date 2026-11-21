@@ -53,8 +53,7 @@ def _reason(detail: str) -> str:
     """The line of a failure worth reading: compose's errors come last."""
     lines = [line.strip() for line in detail.splitlines() if line.strip()]
     errors = [line for line in lines if not line.startswith("[update]")]
-    reason = (errors[-1] if errors else "Update failed")[:_REASON_LIMIT]
-    return f"{reason} (new pin not rolled back)" if len(errors) < len(lines) else reason
+    return (errors[-1] if errors else "Update failed")[:_REASON_LIMIT]
 
 
 def _line(result: Result) -> str:

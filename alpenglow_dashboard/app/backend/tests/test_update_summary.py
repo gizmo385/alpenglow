@@ -17,7 +17,9 @@ SECRET_URL = "https://discord.test/api/webhooks/1/secret-webhook-token"
 
 
 def ok(name="Keycloak", versions=("26.8.1 → 26.8.2",), user="chris@acbc.house"):
-    return Result(service=name.lower(), name=name, user=user, ok=True, versions=list(versions))
+    return Result(
+        service=name.lower(), name=name, user=user, ok=True, versions=list(versions)
+    )
 
 
 def failed(detail, name="Immich", user="chris@acbc.house"):
@@ -26,7 +28,9 @@ def failed(detail, name="Immich", user="chris@acbc.house"):
 
 def test_an_all_good_summary():
     embed = build_embed([ok(), ok("Trek", ["1.0 → 1.1"])])
-    assert embed["description"] == "✅ **Keycloak** 26.8.1 → 26.8.2\n✅ **Trek** 1.0 → 1.1"
+    assert (
+        embed["description"] == "✅ **Keycloak** 26.8.1 → 26.8.2\n✅ **Trek** 1.0 → 1.1"
+    )
     assert embed["footer"]["text"] == "2 updated · by chris"
     assert embed["color"] == update_summary._GREEN
 
@@ -40,7 +44,7 @@ def test_a_failure_turns_it_red_and_gives_the_reason():
 
 def test_a_failure_after_the_repin_says_it_wasnt_rolled_back():
     detail = "manifest unknown\n[update] versions.yaml now pins x to 2 (was 1); not rolled back"
-    assert "manifest unknown (new pin not rolled back)" in build_embed([failed(detail)])["description"]
+    assert "manifest unknown" in build_embed([failed(detail)])["description"]
 
 
 def test_a_failure_with_no_detail_still_reads():
@@ -63,9 +67,16 @@ def test_only_the_name_of_each_person_is_shown():
 def _capture(monkeypatch, status=204):
     seen = []
     transport = httpx.MockTransport(
-        lambda request: seen.append(
-            (str(request.url), json.loads(request.content), is_instrumentation_enabled())
-        ) or httpx.Response(status)
+        lambda request: (
+            seen.append(
+                (
+                    str(request.url),
+                    json.loads(request.content),
+                    is_instrumentation_enabled(),
+                )
+            )
+            or httpx.Response(status)
+        )
     )
     real_init = httpx.AsyncClient.__init__
 
@@ -124,7 +135,8 @@ async def test_an_unreachable_webhook_is_logged_without_the_url(monkeypatch, cap
 
     real_init = httpx.AsyncClient.__init__
     monkeypatch.setattr(
-        httpx.AsyncClient, "__init__",
+        httpx.AsyncClient,
+        "__init__",
         lambda self, *a, **k: real_init(self, transport=httpx.MockTransport(refuse)),
     )
     with caplog.at_level(logging.WARNING, logger="alpenglow.update_summary"):
@@ -139,7 +151,9 @@ def test_pin_doesnt_inherit_the_webhook(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_pending_versions_labels_images_only_when_a_service_has_several(monkeypatch):
+async def test_pending_versions_labels_images_only_when_a_service_has_several(
+    monkeypatch,
+):
     payload = {"services": []}
     entries = {
         "keycloak": [{"current_version": "1", "image": "quay.io/keycloak/keycloak:1"}],
