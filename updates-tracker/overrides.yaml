@@ -35,6 +35,10 @@ overrides:
   ekofr/pihole-exporter: eko/pihole-exporter
   signoz/signoz: SigNoz/signoz
   signoz/signoz-otel-collector: SigNoz/signoz-otel-collector
+  # No OCI source label on these images
+  eclipse-mosquitto: eclipse-mosquitto/mosquitto
+  clickhouse/clickhouse-server: ClickHouse/ClickHouse
+  clickhouse/clickhouse-keeper: ClickHouse/ClickHouse
 
 names:
   home-assistant/core: Home Assistant
@@ -52,6 +56,8 @@ names:
   liketrek/TREK: Trek
   caddyserver/caddy: Caddy
   open-telemetry/opentelemetry-collector-releases: OpenTelemetry Collector
+  eclipse-mosquitto/mosquitto: Mosquitto
+  ClickHouse/ClickHouse: ClickHouse
 
 # Hide releases whose tags contain these words, on top of GitHub's prerelease
 # flag. 'global' is unset, so the built-in list (alpha, beta, rc, nightly, ...)
