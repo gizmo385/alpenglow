@@ -95,7 +95,14 @@ class State:
         self.unit(unit_id)["paused"] = {"version": version, "reason": reason, "at": iso(at)}
 
     def resume(self, unit_id: str) -> bool:
-        return self.unit(unit_id).pop("paused", None) is not None
+        """Un-pause; the failure it was paused for is dealt with, so it's dropped
+        from the recent results too."""
+        entry = self.unit(unit_id)
+        if entry.pop("paused", None) is None:
+            return False
+        if not (entry.get("last_result") or {}).get("ok", True):
+            entry.pop("last_result")
+        return True
 
     def result(self, unit_id: str, ok: bool, text: str, at: datetime) -> None:
         self.unit(unit_id)["last_result"] = {"at": iso(at), "ok": ok, "text": text}

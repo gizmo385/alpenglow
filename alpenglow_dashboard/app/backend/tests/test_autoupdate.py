@@ -454,6 +454,15 @@ def test_failed_health_check_pauses_and_does_not_roll_back(env):
     assert "paused" in state().get("image:freshrss/freshrss")["waiting"]
 
 
+def test_check_now_rescans_the_tracker_first(env):
+    tick()
+    tick(NOW + timedelta(hours=1), force=True)
+    assert env["rescans"] == 2  # the forced check's rescan, then the one after its update
+    env["rescans"] = 0
+    tick(NOW + timedelta(days=3))  # scheduled checks use the tracker's own scans
+    assert env["rescans"] == 0
+
+
 def test_failed_pull_pauses(env):
     env["compose_fail"]["freshrss"] = (False, "manifest unknown")
     tick()
@@ -690,10 +699,12 @@ def test_status_route_says_where_each_pending_release_stands(client, env, monkey
 def test_resume_route(client):
     s = state()
     s.pause("image:freshrss/freshrss", "x", "broke", NOW)
+    s.result("image:freshrss/freshrss", False, "1.30.4 → 1.30.5: broke", NOW)
     s.save()
     headers = csrf(client)
     assert client.post("/api/autoupdate/resume", json={"unit": "image:freshrss/freshrss"}, headers=headers).status_code == 200
     assert state().paused("image:freshrss/freshrss") is None
+    assert "last_result" not in state().get("image:freshrss/freshrss")  # off the recent list
     assert client.post("/api/autoupdate/resume", json={"unit": "image:freshrss/freshrss"}, headers=headers).status_code == 404
 
 

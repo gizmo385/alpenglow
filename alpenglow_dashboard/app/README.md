@@ -162,8 +162,9 @@ In the Updates view, a pending row that will go out by itself says when
 ("Auto · in 19h"), or just "Auto" while it waits for Claude's assessment;
 hover it for the reason. Rows that stay manual get no note. Below the table, **Automatic updates** lists only what needs a look:
 services paused after a failed update, with **Resume**, and what updated
-automatically in the last week. **Show rules** lists every opted-in service
-and its settings. A service's first check is one full
+automatically in the last week (Resume clears the failure from it). **Check
+now** rescans the tracker first, so a rollback or repin made by hand counts.
+**Show rules** lists every opted-in service and its settings. A service's first check is one full
 interval after it opts in (or after the dashboard first sees it).
 
 **Several images.** Each image is its own unit, so in a service with several
@@ -195,7 +196,9 @@ went out.
 migrated its data in the shared Postgres. The unit is paused with the reason,
 its Upgrades card gets a comment, the summary says what failed, and nothing
 more is tried for it until you press **Resume** under Automatic updates. The new
-pin stays, as with the Update button.
+pin stays, as with the Update button, so to try it again after rolling the
+container back, roll the pin back too (`./pin set NAME OLD_TAG`); otherwise
+the service already counts as on the new release.
 
 **Settings** (`../compose.yaml`):
 
