@@ -106,3 +106,11 @@
     data:
       is_volume_muted: false
   mode: single
+- id: '1795279041593'
+  alias: Cast Immichframe Dashboard
+  description: ''
+  use_blueprint:
+    path: kind3r/cast-and-re-cast-a-lovelace-view-to-a-google-hub.yaml
+    input:
+      player: media_player.kitchen_display
+      view: dashboard-immichframe
