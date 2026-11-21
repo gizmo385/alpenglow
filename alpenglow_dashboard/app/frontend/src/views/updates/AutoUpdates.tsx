@@ -118,7 +118,7 @@ function RulesTable({ units }: { units: AutoUpdateUnit[] }) {
                 <div className={`${styles.mono} ${styles.image}`}>{u.images.join(", ")}</div>
               </td>
               <td className={styles.released}>{schedule(u.every)}</td>
-              <td className={styles.released}>{u.follow ? "New image on its tag" : cap(u.maxBump ?? "")}</td>
+              <td className={styles.released}>{u.followTag ? `Each new ${u.followTag} build` : u.follow ? "New image on its tag" : cap(u.maxBump ?? "")}</td>
               <td className={styles.released}>{u.follow ? "—" : short(u.soak)}</td>
               <td className={styles.verdictCell}>
                 {u.follow || !u.verdict ? (

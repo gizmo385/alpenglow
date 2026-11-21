@@ -79,8 +79,11 @@ class Target:
     current_version: str  # the tracker's release names
     latest_version: str
     repo: str = ""  # owner/repo, which ties it to its Upgrades card
+    exact: bool = False  # latest_version is the tag itself (a followed sha-* tag)
 
     def tags(self) -> list[str]:
+        if self.exact:
+            return [self.latest_version]
         return candidate_tags(self.current_tag, self.current_version, self.latest_version)
 
 
@@ -240,6 +243,16 @@ async def _run(argv: list[str], root: Path, timeout: float) -> tuple[int, str]:
 
 async def _pin_set(root: Path, name: str, tag: str) -> tuple[int, str]:
     return await _run([str(root / "pin"), "set", name, tag], root, _TIMEOUT_PIN)
+
+
+async def resolve_follow(name: str, moving: str) -> str:
+    """The per-build tag (``sha-...``) that ``name:moving`` points at now."""
+    root = repo_root()
+    rc, out = await _run([str(root / "pin"), "resolve", name, moving], root, _TIMEOUT_PIN)
+    lines = out.splitlines()
+    if rc != 0 or not lines:
+        raise RepinError((lines or [f"pin resolve exited {rc}"])[-1].removeprefix("error: "))
+    return lines[-1].strip()
 
 
 # ── the repin ─────────────────────────────────────────────────────────────────

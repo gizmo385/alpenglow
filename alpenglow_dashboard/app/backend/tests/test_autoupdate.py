@@ -254,6 +254,12 @@ images:
     group: beszel
     policy: auto-eligible
 """
+PINNED_FOLLOW = """\
+  ghcr.io/gizmo385/youtube-rss-manager:
+    tag: sha-aaa1111
+    policy: auto-eligible
+    auto: {follow: latest}
+"""
 FOLLOW = """\
   ghcr.io/gizmo385/image-updates-tracker:
     policy: float
@@ -267,6 +273,12 @@ FAKE_PIN = """#!/usr/bin/env python3
 import pathlib, re, sys
 _, cmd, name, tag = sys.argv
 root = pathlib.Path(__file__).parent
+if cmd == "resolve":  # the tag resolve.txt says `tag` points at
+    answer = root / "resolve.txt"
+    if not answer.exists():
+        sys.exit("error: ghcr.io returned 503")
+    print(answer.read_text().strip())
+    sys.exit(0)
 with (root / "pin.log").open("a") as log:
     log.write(f"{name} {tag}\\n")
 lock = root / "versions.yaml"
@@ -298,7 +310,9 @@ def env(tmp_path: Path, monkeypatch):
     write_versions(root, VERSIONS)
     for sid, svc, image in (("freshrss", "freshrss", "freshrss/freshrss:1.30.4"),
                             ("beszel", "beszel", "henrygd/beszel:0.21.2"),
-                            ("updates-tracker", "release-feeds", "ghcr.io/gizmo385/image-updates-tracker:main")):
+                            ("updates-tracker", "release-feeds", "ghcr.io/gizmo385/image-updates-tracker:main"),
+                            ("youtube_rss_manager", "youtube_rss_manager",
+                             "ghcr.io/gizmo385/youtube-rss-manager:sha-aaa1111")):
         (root / sid).mkdir()
         (root / sid / "compose.yaml").write_text(
             f"services:\n  {svc}:\n    image: {image}\n  sidecar:\n    image: redis:latest\n")
@@ -488,6 +502,48 @@ def test_follow_pulls_and_only_reports_a_new_image(env):
     tick(NOW + timedelta(hours=12))
     assert env["health_calls"] == [([("updates-tracker", "release-feeds")], ())]
     assert env["summaries"][-1] == [(updates.display_name("updates-tracker"), True, ["new ghcr.io/gizmo385/image-updates-tracker image"], "")]
+
+
+def test_pinned_follow_repins_to_the_build_latest_points_at(env):
+    write_versions(env["root"], VERSIONS + PINNED_FOLLOW)
+    yt = "follow:ghcr.io/gizmo385/youtube-rss-manager"
+    (env["root"] / "resolve.txt").write_text("sha-aaa1111")
+    tick()
+    tick(NOW + timedelta(days=1))  # latest is still the pinned build: nothing to do
+    assert "youtube_rss_manager" not in {c[0] for c in env["compose"]}
+    assert state().get(yt)["waiting"] == "up to date"
+
+    (env["root"] / "resolve.txt").unlink()  # registry down: wait, don't pull
+    tick(NOW + timedelta(days=2))
+    assert "couldn't tell where latest points: ghcr.io returned 503" in state().get(yt)["waiting"]
+    assert "youtube_rss_manager" not in {c[0] for c in env["compose"]}
+
+    (env["root"] / "resolve.txt").write_text("sha-bbb2222")
+    tick(NOW + timedelta(days=3))
+    root = env["root"]
+    assert "ghcr.io/gizmo385/youtube-rss-manager sha-bbb2222" in (root / "pin.log").read_text()
+    assert "youtube-rss-manager:sha-bbb2222" in (root / "youtube_rss_manager/compose.yaml").read_text()
+    assert ("youtube_rss_manager", "pull", ("youtube_rss_manager",)) in env["compose"]
+    assert ([("youtube_rss_manager", "youtube_rss_manager")], ()) in env["health_calls"]
+    assert (updates.display_name("youtube_rss_manager"), True, ["sha-aaa1111 → sha-bbb2222"], "") in \
+        env["summaries"][-1]
+
+
+def test_pinned_follow_is_a_follow_unit(tmp_path: Path):
+    path = write_versions(tmp_path, """
+images:
+  ghcr.io/o/app: {tag: sha-aaa1111, policy: auto-eligible, auto: {follow: latest, every: 6h}}
+  ghcr.io/o/grouped: {tag: sha-aaa1111, group: g, policy: auto-eligible, auto: {follow: latest}}
+  ghcr.io/o/bare: {tag: "1", policy: auto-eligible, auto: {follow: true}}
+""")
+    loaded = policy.load(path, DAILY)
+    [unit] = loaded.units
+    assert (unit.id, unit.follow, unit.follow_tag, unit.config.every.text) == \
+        ("follow:ghcr.io/o/app", False, "latest", "6h")
+    assert loaded.errors == [
+        "ghcr.io/o/grouped: ghcr.io/o/grouped: follow can't be used in a group",
+        "ghcr.io/o/bare: a pinned entry follows a named tag (`follow: latest`)",
+    ]
 
 
 def test_busy_service_is_skipped(env):

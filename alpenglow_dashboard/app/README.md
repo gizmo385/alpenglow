@@ -175,6 +175,12 @@ same service directory that are due together go out together.
 **Your own images.** A `policy: float` entry on a moving tag such as `main`
 can set `auto: {follow: true, every: 6h}`. It's pulled on schedule and, when
 the tag points at a new image, health-checked and reported like any other.
+An image that publishes only `latest` plus per-build tags (`sha-<commit>`) is
+pinned to a per-build tag with `auto: {follow: latest}` instead. Each check asks
+the registry which `sha-*` tag `latest` points at (`./pin resolve`) and, when
+it has moved, repins to it like any other update, so the build that runs is
+recorded in versions.yaml and `./pin set` puts an older one back. Neither kind
+has a version to judge, so `max_bump`, `soak` and `verdict` don't apply.
 
 **What an update does.** The same repin as the Update button (`./pin set`),
 then `docker compose pull` and `up -d` for just the compose services that use

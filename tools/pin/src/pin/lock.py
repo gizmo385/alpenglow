@@ -205,14 +205,17 @@ def auto_problems(e: Entry) -> list[str]:
         return ["auto must be a mapping"]
     out = [f"auto: unknown setting {k!r} (known: {', '.join(AUTO_KEYS)})" for k in e.auto if k not in AUTO_KEYS]
     follow = e.auto.get("follow")
-    if follow not in (None, True, False):
-        out.append("auto: follow must be true or false")
+    follow_tag = isinstance(follow, str) and bool(follow.strip())
+    if follow not in (None, True, False) and not follow_tag:
+        out.append("auto: follow must be true, false or a tag to follow such as latest")
     if e.floating and follow is not True:
         out.append("auto: a float entry can only have `follow: true` (it has no version to bump)")
     if not e.floating and e.policy != "auto-eligible":
         out.append(f"auto: only applies with policy auto-eligible (this entry is {e.policy})")
-    if not e.floating and follow:
-        out.append("auto: follow is for float entries that track a moving tag such as main")
+    if not e.floating and follow is True:
+        out.append("auto: a pinned entry follows a named tag (`follow: latest`); `follow: true` is for float entries")
+    if follow_tag and e.group:
+        out.append("auto: `follow: TAG` can't be used in a group")
     if "every" in e.auto and not _every_ok(e.auto["every"]):
         out.append("auto: every must be hourly, daily, weekly, a duration like 6h or 2d, or a 5-field cron line")
     elif _duration_ok(e.auto.get("every")):

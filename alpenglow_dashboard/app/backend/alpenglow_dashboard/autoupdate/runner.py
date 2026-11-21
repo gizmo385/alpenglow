@@ -146,8 +146,12 @@ def _release_time(entry: dict) -> Optional[datetime]:
 
 
 def evaluate(unit: policy.Unit, payload: dict, annotations: dict, pins: dict, state: State,
-             now: datetime) -> Plan:
-    """What updating ``unit`` now would do, or why it can't."""
+             now: datetime, follows: Optional[dict[str, str | Exception]] = None) -> Plan:
+    """What updating ``unit`` now would do, or why it can't.
+
+    ``follows`` has, for each unit that follows a tag from a pin, the tag that
+    tag points at now (:func:`resolve_follows`), or why it couldn't be read.
+    """
     plan = Plan(unit, places=_places(unit.images))
     paused = state.paused(unit.id)
     if paused:
@@ -162,6 +166,8 @@ def evaluate(unit: policy.Unit, payload: dict, annotations: dict, pins: dict, st
         return plan
     if unit.follow:
         return plan
+    if unit.follow_tag:
+        return _follow_pin(plan, pins, (follows or {}).get(unit.id))
 
     keys = {repin.image_key(i): i for i in unit.images}
     for entry in payload.get("services") or []:
@@ -191,6 +197,36 @@ def evaluate(unit: policy.Unit, payload: dict, annotations: dict, pins: dict, st
         if plan.hold:
             break
     return plan
+
+
+def _follow_pin(plan: Plan, pins: dict, resolved: str | Exception | None) -> Plan:
+    """A pinned entry following a moving tag: repin to the tag it points at."""
+    unit = plan.unit
+    name = unit.images[0]
+    pin = pins.get(repin.image_key(name))
+    if pin is None:
+        plan.hold = policy.Hold("config", f"{name} isn't pinned in versions.yaml")
+    elif resolved is None or isinstance(resolved, Exception):
+        why = f": {resolved}" if resolved else ""
+        plan.hold = policy.Hold("unknown", f"couldn't tell where {unit.follow_tag} points{why}")
+    elif resolved != str(pin["tag"]):
+        current = str(pin["tag"])
+        plan.targets.append(repin.Target(name=pin["name"], current_tag=current, current_version=current,
+                                         latest_version=resolved, exact=True))
+        plan.pending.append(policy.Pending(image=name, current=current, latest=resolved, published_at=None))
+    return plan
+
+
+async def resolve_follows(units: list[policy.Unit]) -> dict[str, str | Exception]:
+    """For each unit following a tag from a pin, the per-build tag it points at now."""
+    out: dict[str, str | Exception] = {}
+    for unit in units:
+        if unit.follow_tag:
+            try:
+                out[unit.id] = await repin.resolve_follow(unit.images[0], unit.follow_tag)
+            except repin.RepinError as err:
+                out[unit.id] = err
+    return out
 
 
 def first_run_after(unit: policy.Unit, last: Optional[datetime], when: datetime) -> Optional[datetime]:
@@ -247,7 +283,8 @@ async def tick(now: Optional[datetime] = None, *, force: bool = False, only: Opt
             return []
         annotations = await upgrades.annotations_by_repo()
         pins = repin.load_pins(repin.repo_root())
-        plans = [evaluate(unit, payload, annotations, pins, state, now) for unit in due]
+        follows = await resolve_follows(due)
+        plans = [evaluate(unit, payload, annotations, pins, state, now, follows) for unit in due]
         for p in plans:
             entry = state.unit(p.unit.id)
             entry["last_run"] = iso(now)

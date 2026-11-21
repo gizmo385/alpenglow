@@ -20,7 +20,11 @@ A ``group`` (images that always move together) is one unit: it updates only
 if every member opts in, and its settings are the most cautious of its
 members'. A ``policy: float`` entry built from a moving tag can instead set
 ``auto: {follow: true}``: it is pulled on schedule, and updated when the tag
-points somewhere new.
+points somewhere new. An image that publishes only a moving tag plus per-build
+tags is pinned to a per-build tag (``sha-5c5381c``) with ``auto: {follow:
+latest}``: each update repins it to the per-build tag ``latest`` points at
+(``pin resolve``). Neither kind has a version to judge, so verdict, soak and
+max_bump don't apply.
 
 ``tools/pin`` validates the same block (``pin.lock.auto_problems``), so CI
 catches a typo; keep the two in step.
@@ -202,7 +206,8 @@ class Unit:
     label: str
     images: tuple[str, ...]  # versions.yaml keys, exactly as written there
     config: AutoConfig
-    follow: bool = False
+    follow: bool = False  # a float entry pulled on schedule
+    follow_tag: Optional[str] = None  # a pinned entry that follows this moving tag
 
 
 @dataclass
@@ -221,8 +226,8 @@ def _monitors(value: Any) -> tuple[str, ...]:
     raise ConfigError("monitor must be an Uptime Kuma monitor name or a list of them")
 
 
-def parse_auto(raw: Any, default_every: Schedule) -> tuple[AutoConfig, bool]:
-    """(settings, follow) from an entry's ``auto:`` block."""
+def parse_auto(raw: Any, default_every: Schedule) -> tuple[AutoConfig, bool | str]:
+    """(settings, follow) from an entry's ``auto:`` block; follow is a bool or a tag."""
     raw = raw if raw is not None else {}
     if not isinstance(raw, dict):
         raise ConfigError("auto must be a mapping")
@@ -237,8 +242,10 @@ def parse_auto(raw: Any, default_every: Schedule) -> tuple[AutoConfig, bool]:
     if verdict not in VERDICT_LEVELS:
         raise ConfigError(f"verdict must be one of {', '.join(VERDICT_LEVELS)}")
     follow = raw.get("follow", False)
-    if follow not in (True, False):
-        raise ConfigError("follow must be true or false")
+    if isinstance(follow, str) and follow.strip():
+        follow = follow.strip()
+    elif follow not in (True, False):
+        raise ConfigError("follow must be true, false or a tag to follow such as latest")
     cfg = AutoConfig(
         every=Schedule.parse(raw["every"]) if "every" in raw else default_every,
         max_bump=max_bump,
@@ -246,7 +253,7 @@ def parse_auto(raw: Any, default_every: Schedule) -> tuple[AutoConfig, bool]:
         verdict=verdict,
         monitors=_monitors(raw.get("monitor")),
     )
-    return cfg, bool(follow)
+    return cfg, follow
 
 
 def _merge(configs: list[tuple[AutoConfig, bool]]) -> AutoConfig:
@@ -289,7 +296,7 @@ def load(path: Optional[Path], default_every: Schedule) -> Loaded:
                 if raw.get("auto") is None:
                     continue
                 cfg, follow = parse_auto(raw.get("auto"), default_every)
-                if not follow:
+                if follow is not True:
                     raise ConfigError("a float entry can only have `follow: true`")
                 out.units.append(Unit(f"follow:{name}", name, (name,), cfg, follow=True))
                 continue
@@ -300,9 +307,12 @@ def load(path: Optional[Path], default_every: Schedule) -> Loaded:
             group = str(raw["group"]) if raw.get("group") else None
             if group is None:
                 cfg, follow = parse_auto(raw.get("auto"), default_every)
+                if follow is True:
+                    raise ConfigError("a pinned entry follows a named tag (`follow: latest`)")
                 if follow:
-                    raise ConfigError("follow is only for float entries")
-                out.units.append(Unit(f"image:{name}", name, (name,), cfg))
+                    out.units.append(Unit(f"follow:{name}", name, (name,), cfg, follow_tag=str(follow)))
+                else:
+                    out.units.append(Unit(f"image:{name}", name, (name,), cfg))
                 continue
             if group in seen_groups:
                 continue
@@ -318,7 +328,7 @@ def load(path: Optional[Path], default_every: Schedule) -> Loaded:
                 auto = (images[m] or {}).get("auto")
                 cfg, follow = parse_auto(auto, default_every)
                 if follow:
-                    raise ConfigError(f"{m}: follow is only for float entries")
+                    raise ConfigError(f"{m}: follow can't be used in a group")
                 configs.append((cfg, isinstance(auto, dict) and "every" in auto))
             out.units.append(Unit(f"group:{group}", group, tuple(members), _merge(configs)))
         except ConfigError as err:

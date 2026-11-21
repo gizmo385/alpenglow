@@ -59,16 +59,18 @@ def _unit_view(unit: policy.Unit, state: State, plan: Optional[runner.Plan] = No
     entry = state.get(unit.id)
     last = state.last_run(unit.id)
     cfg = unit.config
+    follow = unit.follow or bool(unit.follow_tag)  # no version, so no bump, soak or verdict
     return _live(plan, unit, last) | {
         "id": unit.id,
         "label": unit.label,
         "images": list(unit.images),
         "services": sorted({sid for sid, _ in runner._places(unit.images)}),
-        "follow": unit.follow,
+        "follow": follow,
+        "followTag": unit.follow_tag,
         "every": cfg.every.text,
-        "maxBump": None if unit.follow else cfg.max_bump,
-        "soak": None if unit.follow else policy._fmt(cfg.soak),
-        "verdict": None if unit.follow else cfg.verdict,
+        "maxBump": None if follow else cfg.max_bump,
+        "soak": None if follow else policy._fmt(cfg.soak),
+        "verdict": None if follow else cfg.verdict,
         "monitors": list(cfg.monitors),
         "lastRun": iso(last) if last else None,
         "nextRun": iso(runner.next_run(unit, last)) if last else None,

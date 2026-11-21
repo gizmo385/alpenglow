@@ -330,6 +330,8 @@ export interface AutoUpdateUnit {
   images: string[];
   services: string[];
   follow: boolean;
+  /** A pinned image that follows this moving tag (latest) by repinning. */
+  followTag: string | null;
   every: string;
   maxBump: string | null;
   soak: string | null;
