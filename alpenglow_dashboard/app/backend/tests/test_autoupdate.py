@@ -228,6 +228,19 @@ def test_restarts_and_exits_fail():
         [("svc", "gone")], (), wait=0, inspector=fake_docker({}), sleep=no_sleep))
 
 
+def test_one_shot_jobs_may_finish():
+    """ollama-pull shares ollama's image, runs once (restart: no) and exits."""
+    def job(status="exited", code=0, policy="no"):
+        return health.ContainerState("ollama-pull", status, None, 0, "sha256:new", code, policy)
+
+    states = {("ollama", "ollama"): [cs()], ("ollama", "ollama-pull"): [job("running", None), job()]}
+    assert run_check(states) is None
+    assert run_check({("ollama", "ollama-pull"): [job(policy="on-failure")]}) is None
+    assert "exit code 1" in run_check({("ollama", "ollama-pull"): [job("running", None), job(code=1)]})
+    # A long-running service that exits cleanly is still a failure.
+    assert "is exited" in run_check({("svc", "app"): [cs(), job(policy="unless-stopped")]})
+
+
 def test_kuma_monitors():
     states = {("svc", "app"): [cs()]}
     assert run_check(states, ("FreshRSS",), {"FreshRSS": 1}) is None
