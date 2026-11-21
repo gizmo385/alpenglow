@@ -93,7 +93,7 @@ services:
 
   # Telemetry storage (see clickhouse/config-0-0.yaml for the CPU trims).
   signoz-telemetrystore-clickhouse-0-0:
-    image: clickhouse/clickhouse-server:25.12.5@sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a
+    image: clickhouse/clickhouse-server:26.10.9@sha256:60bb5a5d7c0df82933d15dacf5a71e1384f8109cb158e6d0e4023b09cbaf72a3
     container_name: signoz-telemetrystore-clickhouse-0-0
     restart: unless-stopped
     depends_on:
@@ -121,7 +121,7 @@ services:
   # One-shot: fetches SigNoz's histogramQuantile UDF (clickhouse/functions.yaml)
   # into the user-scripts volume.
   signoz-telemetrystore-clickhouse-user-scripts:
-    image: clickhouse/clickhouse-server:25.12.5@sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a
+    image: clickhouse/clickhouse-server:26.10.9@sha256:60bb5a5d7c0df82933d15dacf5a71e1384f8109cb158e6d0e4023b09cbaf72a3
     container_name: signoz-telemetrystore-clickhouse-user-scripts
     restart: on-failure
     command:
@@ -142,7 +142,7 @@ services:
       - signoz-network
 
   signoz-telemetrykeeper-clickhousekeeper-0:
-    image: clickhouse/clickhouse-keeper:25.12.5@sha256:525b8b0f93ccb371131c46f22a066ea43d33d74aba314203e8044609945d8524
+    image: clickhouse/clickhouse-keeper:26.10.9@sha256:3aaf2198d6c8d6f835f3f991a3161f3511d0b587d80e3f2bad2e712fe14fe711
     container_name: signoz-telemetrykeeper-clickhousekeeper-0
     restart: unless-stopped
     entrypoint:
