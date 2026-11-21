@@ -63,27 +63,36 @@ def _line(result: Result) -> str:
     return f"✅ {head}" if result.ok else f"❌ {head}: {_reason(result.detail)}"
 
 
-def build_embed(results: list[Result]) -> dict:
+TITLE = "Docker Services — Update Summary"
+
+
+def build_embed(results: list[Result], title: str = TITLE) -> dict:
     failed = sum(not r.ok for r in results)
     updated = len(results) - failed
     # The name only: the digest's channel doesn't need people's email addresses.
     users = sorted({r.user.split("@", 1)[0] for r in results})
     counts = [f"{updated} updated"] + ([f"{failed} failed"] if failed else [])
     return {
-        "title": "Docker Services — Update Summary",
+        "title": title,
         "color": _RED if failed else _GREEN,
         "description": "\n".join(_line(r) for r in results)[:_DESCRIPTION_LIMIT],
         "footer": {"text": f"{' · '.join(counts)} · by {', '.join(users)}"},
     }
 
 
-async def post(results: list[Result]) -> None:
+async def post(results: list[Result], title: str = TITLE) -> None:
     """Post the summary. A failure is logged and goes no further."""
+    if results:
+        await post_embed(build_embed(results, title))
+
+
+async def post_embed(embed: dict) -> None:
+    """Post one embed to the summary webhook, if there is one."""
     url = os.environ.get("UPDATE_SUMMARY_WEBHOOK_URL")
-    if not url or not results:
+    if not url:
         return
     body = {
-        "embeds": [build_embed(results)],
+        "embeds": [embed],
         # A failure's text comes from elsewhere, so it mustn't ping anyone.
         "allowed_mentions": {"parse": []},
     }

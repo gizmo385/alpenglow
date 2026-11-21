@@ -13,6 +13,23 @@
 #
 # policy is for the upgrade pipeline: auto-eligible | approve | manual | float.
 # `manual` images are never upgraded automatically, whatever an approval says.
+# `auto-eligible` images update themselves from the dashboard, on the rules in
+# an optional `auto:` block (alpenglow_dashboard/app/README.md, "Automatic
+# updates"):
+#
+#   auto:
+#     every: daily       # hourly | daily | weekly | 6h | 2d | "0 4 * * *"
+#     max_bump: patch    # patch | minor | major
+#     soak: 2d           # how long a release must be out first
+#     verdict: Easy      # Claude's verdict needed: Easy | Needs care | any
+#     monitor: FreshRSS  # Uptime Kuma monitor(s) that must be up afterwards
+#
+# Every member of a group must be auto-eligible for the group to update. A
+# float entry on a moving tag (main) can set `auto: {follow: true}` instead.
+# An image that publishes only a moving tag plus per-build tags (latest and
+# sha-<commit>) is pinned to a per-build tag with `auto: {follow: latest}`:
+# each update repins it to the sha-* tag latest points at, with no verdict
+# or soak, since there's no version to judge.
 
 exclude:
   - "**/tests/fixtures/**"
@@ -22,7 +39,11 @@ images:
     tag: 0.21.2
     digest: sha256:b0be90bd4aee2993fde763032a5098ce4386fba43cfe5031ec017b8d9e8c97a2
     group: beszel
-    policy: approve
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
     reason: First service on the lock, to try the upgrade flow
     compatibility:
       - henrygd/beszel-agent (keep it on the same version as the hub)
@@ -30,7 +51,11 @@ images:
     tag: 0.21.2-alpine
     digest: sha256:2ea69d4c9a6690d07368d50762cf606281d96b447cdd411855c87ff4027465d9
     group: beszel
-    policy: approve
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
     reason: Moves with henrygd/beszel
   alangrainger/immich-public-proxy:
     tag: 4.2.0
@@ -128,6 +153,11 @@ images:
   ollama/ollama:
     tag: 0.40.16
     digest: sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
   redis:
     tag: 8.10.3-alpine
     digest: sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
@@ -149,11 +179,20 @@ images:
     policy: float
     reason: Not pinned yet
   ghcr.io/gizmo385/youtube-rss-manager:
-    policy: float
-    reason: Not pinned yet
+    tag: sha-5c5381c
+    digest: sha256:116da0b13ab70ba024873fe4e4fdccd77edb22c8014e47766682f835c8bac785
+    policy: auto-eligible
+    reason: Publishes only latest and sha-* tags; updates by following latest
+    auto:
+      follow: latest
   nicolargo/glances:
     tag: 4.5.9
     digest: sha256:1d994d181732cfbf68b7c5826a1f71b89624e3eaaa2fe28b28048b2f61b200d7
+    policy: auto-eligible
+    auto:
+      max_bump: major
+      soak: 0d
+      verdict: Easy
   ghcr.io/zhaofengli/attic:
     tag: 12cbeca141f46e1ade76728bce8adc447f2166c6
     digest: sha256:18574aba70fc89d2b695273fbe2e7b2f8ad7e8e786b4cc535124fbe14bada1d0

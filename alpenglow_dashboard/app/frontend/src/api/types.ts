@@ -31,7 +31,8 @@ export interface OverviewServices {
 }
 
 export interface OverviewUpdates {
-  count: number;
+  /** null when the update tracker can't be read. */
+  count: number | null;
 }
 
 export interface MonitorRef {
@@ -293,4 +294,60 @@ export interface Updates {
   lastUpdated: string | null;
   refreshing: boolean;
   trackerUnavailable: boolean;
+}
+
+// GET /api/autoupdate — automatic updates (backend autoupdate/__init__.py)
+export interface AutoUpdatePause {
+  version: string;
+  reason: string;
+  at: string;
+}
+
+export interface AutoUpdateResult {
+  at: string;
+  ok: boolean;
+  text: string;
+}
+
+export interface AutoUpdateHold {
+  /** bump | soak | assessment | verdict | unknown | paused | config */
+  kind: string;
+  text: string;
+  until: string | null;
+}
+
+export interface AutoUpdateUnit {
+  /** Its pending release(s) right now, from the tracker. */
+  pending: { image: string; current: string; latest: string }[];
+  /** Why that release won't go out automatically yet; null when it will. */
+  hold: AutoUpdateHold | null;
+  /** When it's expected to go out: the next check, or the first after its soak. */
+  eta: string | null;
+  /** While soaking, what will still stand after it (e.g. "assessment"). */
+  then: string | null;
+  id: string;
+  label: string;
+  images: string[];
+  services: string[];
+  follow: boolean;
+  /** A pinned image that follows this moving tag (latest) by repinning. */
+  followTag: string | null;
+  every: string;
+  maxBump: string | null;
+  soak: string | null;
+  verdict: string | null;
+  monitors: string[];
+  lastRun: string | null;
+  nextRun: string | null;
+  waiting: string | null;
+  paused: AutoUpdatePause | null;
+  lastResult: AutoUpdateResult | null;
+}
+
+export interface AutoUpdates {
+  mode: "off" | "dry-run" | "on";
+  commit: boolean;
+  running: boolean;
+  units: AutoUpdateUnit[];
+  errors: string[];
 }

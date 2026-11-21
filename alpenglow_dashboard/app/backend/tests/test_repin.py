@@ -493,3 +493,19 @@ def test_back_to_back_clicks_queue_on_the_lock(job, repo: Path):
     lock = (repo / "versions.yaml").read_text()
     assert "henrygd/beszel: {tag: 0.22.0" in lock
     assert "jellyfin/jellyfin: {tag: 10.11.0" in lock
+
+
+def test_changed_files_from_pin_output():
+    out = ("freshrss/compose.yaml:3: freshrss/freshrss:1.30.4@sha256:a -> freshrss/freshrss:1.30.5@sha256:b\n"
+           "beszel/compose.yaml:9: henrygd/beszel-agent:0.21.2 -> henrygd/beszel-agent:0.21.3\n"
+           "freshrss/compose.yaml:7: x:1 -> x:2\n"
+           "updated 2 file(s)\npinned freshrss/freshrss to 1.30.5\n")
+    assert repin.changed_files(out) == ["freshrss/compose.yaml", "beszel/compose.yaml"]
+
+
+def test_env_drops_git_config_pairs_together(monkeypatch):
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "a.b")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "c")
+    env = repin._env(None)
+    assert not any(k.startswith("GIT_CONFIG_") for k in env)

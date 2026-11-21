@@ -174,3 +174,75 @@ a.verdict:hover {
 .noVerdict {
   color: var(--color-neutral-600);
 }
+
+/* Automatic updates section (AutoUpdates.tsx) */
+.autoSection {
+  margin-top: 28px;
+}
+.autoSection > * + * {
+  margin-top: 10px;
+}
+.autoHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.autoTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.autoMode {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+.autoTable td {
+  vertical-align: middle;
+}
+.autoTable th {
+  white-space: nowrap;
+}
+.autoNote {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 0 23px; /* under the name, past the icon */
+  font-size: 11px;
+  color: var(--color-accent-400);
+  white-space: nowrap;
+}
+.autoNoteBad {
+  color: var(--color-down);
+}
+.autoList {
+  padding: 4px 18px;
+}
+.autoItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--color-neutral-400);
+}
+.autoItem + .autoItem {
+  border-top: 1px solid var(--color-divider);
+}
+.autoItemText {
+  flex: 1;
+  min-width: 0;
+}
+.autoItemText .svcName {
+  color: var(--color-text);
+}
+.autoError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--color-down);
+}

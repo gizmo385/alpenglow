@@ -97,3 +97,28 @@ def resolve_digest(name: str, tag: str, timeout: float = 20.0) -> str:
     if not digest:
         raise RegistryError(f"{name}:{tag}: {host} sent no Docker-Content-Digest header")
     return digest
+
+
+_LINK_RE = re.compile(r"<([^>]+)>")
+
+
+def list_tags(name: str, timeout: float = 20.0) -> list[str]:
+    """Every tag of ``name``, in the order the registry lists them (paginated)."""
+    host, repo = split_name(parse_ref(name).name)
+    token = _token(host, repo, timeout)
+    url: str | None = f"https://{host}/v2/{repo}/tags/list?n=1000"
+    tags: list[str] = []
+    while url:
+        req = urllib.request.Request(url)
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = json.load(resp)
+                link = resp.headers.get("Link", "")
+        except urllib.error.HTTPError as err:
+            raise RegistryError(f"{name}: listing tags, {host} returned {err.code}") from err
+        tags += [str(t) for t in body.get("tags") or []]
+        m = _LINK_RE.search(link) if 'rel="next"' in link else None
+        url = urllib.parse.urljoin(f"https://{host}/", m.group(1)) if m else None
+    return tags

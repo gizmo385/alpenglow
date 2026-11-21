@@ -202,6 +202,62 @@ def test_validate(repo):
     ]
 
 
+def test_validate_auto_settings(repo):
+    write(repo, "versions.yaml", """
+        images:
+          ok: {tag: "1", policy: auto-eligible, auto: {every: 6h, max_bump: minor, soak: 3d, verdict: any, monitor: [A, B]}}
+          cron: {tag: "1", policy: auto-eligible, auto: {every: "0 4 * * 1-5"}}
+          defaults: {tag: "1", policy: auto-eligible}
+          follow: {policy: float, reason: built from main, auto: {follow: true, every: daily}}
+          approve: {tag: "1", auto: {every: daily}}
+          typo: {tag: "1", policy: auto-eligible, auto: {evry: daily}}
+          bad: {tag: "1", policy: auto-eligible, auto: {every: sometimes, max_bump: huge, soak: soon, verdict: Fine}}
+          fast: {tag: "1", policy: auto-eligible, auto: {every: 5m}}
+          floatbump: {policy: float, reason: x, auto: {every: daily}}
+          pinfollow: {tag: "1", policy: auto-eligible, auto: {follow: true}}
+          tagfollow: {tag: sha-abc1234, policy: auto-eligible, auto: {follow: latest}}
+          groupfollow: {tag: sha-abc1234, group: g, policy: auto-eligible, auto: {follow: latest}}
+          badfollow: {tag: "1", policy: auto-eligible, auto: {follow: 3}}
+    """)
+    errors = lock(repo).validate()
+    assert errors == [
+        "versions.yaml: approve: auto: only applies with policy auto-eligible (this entry is approve)",
+        "versions.yaml: typo: auto: unknown setting 'evry' (known: every, max_bump, soak, verdict, monitor, follow)",
+        "versions.yaml: bad: auto: every must be hourly, daily, weekly, a duration like 6h or 2d, or a 5-field cron line",
+        "versions.yaml: bad: auto: soak must be a duration like 12h or 3d",
+        "versions.yaml: bad: auto: max_bump must be one of patch, minor, major",
+        "versions.yaml: bad: auto: verdict must be one of Easy, Needs care, any",
+        "versions.yaml: fast: auto: every must be at least 15m",
+        "versions.yaml: floatbump: auto: a float entry can only have `follow: true` (it has no version to bump)",
+        "versions.yaml: pinfollow: auto: a pinned entry follows a named tag (`follow: latest`); `follow: true` is for float entries",
+        "versions.yaml: groupfollow: auto: `follow: TAG` can't be used in a group",
+        "versions.yaml: badfollow: auto: follow must be true, false or a tag to follow such as latest",
+    ]
+
+
+def test_set_keeps_auto_settings(repo):
+    write(repo, "versions.yaml", """
+        images:
+          vabene1111/recipes:
+            tag: 2.7.1
+            policy: auto-eligible
+            auto:
+              every: daily   # comment survives
+    """)
+    write(repo, "tandoor/compose.yaml", """
+        services:
+          web:
+            image: vabene1111/recipes:2.7.1
+    """)
+    lk = lock(repo)
+    set_tag(lk, "vabene1111/recipes", "2.7.2", resolve=False)
+    lk.save()
+    text = (repo / "versions.yaml").read_text()
+    assert "tag: 2.7.2" in text
+    assert "auto:\n      every: daily   # comment survives" in text
+    assert "policy: auto-eligible" in text
+
+
 # ── sync ────────────────────────────────────────────────────────────────────
 
 
@@ -794,3 +850,33 @@ def test_adopt_all_scans_the_repo_once(repo, monkeypatch):
     ops.adopt_all(lk, inspect=lambda ref: (_ for _ in ()).throw(LockError("not running")),
                   resolver=lambda n, t: D1)
     assert len(count) == 1
+
+
+def test_resolve_follow(repo):
+    from pin.ops import resolve_follow, tag_family
+    from pin.registry import RegistryError
+
+    write(repo, "versions.yaml", """
+        images:
+          ghcr.io/o/app: {tag: sha-aaa1111, digest: "sha256:old", policy: auto-eligible, auto: {follow: latest}}
+    """)
+    digests = {"latest": "sha256:new", "sha-aaa1111": "sha256:old", "sha-bbb2222": "sha256:new",
+               "sha-ccc3333": "sha256:other", "v1": "sha256:new"}
+    tags = ["latest", "v1", "sha-aaa1111", "sha-bbb2222", "sha-ccc3333"]
+    looked: list[str] = []
+
+    def resolver(name, tag):
+        looked.append(tag)
+        return digests[tag]
+
+    assert tag_family("sha-aaa1111") == "sha-" and tag_family("1.2.3") == ""
+    got = resolve_follow(lock(repo), "ghcr.io/o/app", resolver=resolver, lister=lambda n: tags)
+    assert got == "sha-bbb2222"
+    assert looked == ["latest", "sha-ccc3333", "sha-bbb2222"]  # newest first, v1 skipped
+
+    digests["latest"] = "sha256:old"  # latest hasn't moved: stay put, no listing
+    assert resolve_follow(lock(repo), "ghcr.io/o/app", resolver=resolver, lister=lambda n: []) == "sha-aaa1111"
+
+    digests["latest"] = "sha256:unknown"
+    with pytest.raises(RegistryError, match="no sha-\\* tag"):
+        resolve_follow(lock(repo), "ghcr.io/o/app", resolver=resolver, lister=lambda n: tags)

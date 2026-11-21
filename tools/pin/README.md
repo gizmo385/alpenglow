@@ -31,6 +31,7 @@ into `~/.cache/pin` if there isn't one. Each user's environment lives there too.
 | `./pin adopt NAME [--tag T]` | On the server: pin exactly what's running now, so moving off `latest` changes nothing. The tag is `--tag`, else a full release tag already in the compose file (`v1.21.3`, not `2` or `alpine`), else the image's version label. Refuses a moving tag such as `main`, and refuses if the tag now points at a different digest (`--force` pins the running digest anyway). |
 | `./pin adopt --all` | On the server: `adopt` every compose image that has no entry in `versions.yaml` yet. Listed images (pinned or float) are left alone. Images it can't adopt (not running here, no usable tag, moving tag, tag moved, env-var tag) are listed with the reason and skipped; retry those one at a time with `--tag`. |
 | `./pin list` | Show every entry. |
+| `./pin resolve NAME [TAG]` | Print the tag shaped like NAME's pin (`sha-5c5381c`) that TAG points at now; TAG defaults to the entry's `auto: {follow: TAG}`. Read-only. The dashboard's automatic updates use it to follow `latest` on images that publish only `latest` and `sha-*` tags. |
 
 Commands that write (`sync`, `set`, `add`, `plugin`, `digests`, `adopt`) hold
 an exclusive `flock` on `versions.yaml` until they finish, so two at once (the
@@ -78,7 +79,11 @@ images:
   entry until they are pinned, at which point `sync` replaces them with the
   literal version.
 - `policy` doesn't change what `pin` does. It's for the upgrade pipeline:
-  `manual` images are never upgraded automatically.
+  `manual` images are never upgraded automatically, and `auto-eligible` ones
+  update themselves from the dashboard on the rules in their optional `auto:`
+  block (see `alpenglow_dashboard/app/README.md`, "Automatic updates"). pin
+  only checks that block, so `pin check` catches a typo in it, and `pin set`
+  keeps it.
 
 ## Development
 

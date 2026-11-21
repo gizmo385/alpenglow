@@ -23,6 +23,7 @@ from pathlib import Path
 
 import yaml
 
+from .verdicts import RETARGET_MARK
 from .vikunja import REPO_LINE, TARGET_LINE, Card, Vikunja
 
 logger = logging.getLogger(__name__)
@@ -165,7 +166,7 @@ async def sync(services: list[Service], api: Vikunja, versions_path: Path | None
         logger.info("Filed a card for %s %s", s.name, s.latest_version)
     for card, s in todo.retarget:
         await api.update(card, title=card_title(s), description=card_description(s, lock.get(image_key(s.image))))
-        await api.comment(card, f"@claude {s.latest_version} is out now. Please assess the upgrade to it instead.")
+        await api.comment(card, f"@claude {s.latest_version} {RETARGET_MARK}")
         logger.info("Moved card %s to %s %s", card.id, s.name, s.latest_version)
     for card, s in todo.close:
         await api.update(card, done=True)

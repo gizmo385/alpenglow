@@ -1,11 +1,6 @@
 services:
   youtube_rss_manager:
-    image: ghcr.io/gizmo385/youtube-rss-manager:latest
-    # Temporary: build from the local working tree for archive/podcast testing
-    # instead of pulling :latest. Revert to the plain image (see
-    # compose.yaml.bak) once the changes are merged and CI has published :latest.
-    build:
-      context: /home/chris/workspace/youtube-rss-manager
+    image: ghcr.io/gizmo385/youtube-rss-manager:sha-5c5381c@sha256:116da0b13ab70ba024873fe4e4fdccd77edb22c8014e47766682f835c8bac785
     restart: unless-stopped
     env_file: .env
     user: "994:985"

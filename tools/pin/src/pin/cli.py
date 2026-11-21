@@ -9,6 +9,7 @@
     pin adopt NAME [--tag T]        pin what the server runs now (run on the server)
     pin adopt --all                 adopt every compose image not in versions.yaml yet
     pin list                        show every entry
+    pin resolve NAME [TAG]          the tag like NAME's pin that TAG (its auto follow tag) points at
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from pathlib import Path
 
 from .check import check
 from .lock import LOCK_NAME, Lock, LockError, exclusive
-from .ops import add_ref, adopt, adopt_all, fill_digests, set_plugin, set_tag
+from .ops import add_ref, adopt, adopt_all, fill_digests, resolve_follow, set_plugin, set_tag
 from .registry import RegistryError, TagNotFound
 from .sync import apply, plan
 
@@ -133,6 +134,11 @@ def cmd_list(lock: Lock, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_resolve(lock: Lock, args: argparse.Namespace) -> int:
+    print(resolve_follow(lock, args.name, args.tag))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pin", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--root", type=Path, help=f"repo root holding {LOCK_NAME} (default: search upward)")
@@ -173,6 +179,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--ref", help="image reference to inspect (for env-var tags)")
     s.add_argument("--force", action="store_true", help="pin the running digest even if the tag moved")
     s.set_defaults(func=cmd_adopt)
+
+    s = sub.add_parser("resolve", help="the per-build tag a moving tag points at (for auto follow)")
+    s.add_argument("name")
+    s.add_argument("tag", nargs="?", help="moving tag (default: the entry's auto follow tag)")
+    s.set_defaults(func=cmd_resolve)
 
     s = sub.add_parser("list", help="show every entry")
     s.set_defaults(func=cmd_list)

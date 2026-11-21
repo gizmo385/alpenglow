@@ -3,6 +3,7 @@
 
 import type {
   ActionRequest,
+  AutoUpdates,
   ActionResponse,
   BeszelContainer,
   CategoryIconRequest,
@@ -98,6 +99,11 @@ export const api = {
   refreshUpdates: () => mutate<Updates>("/api/updates/refresh", "POST"),
   applyUpdates: (body: UpdateBatchRequest) =>
     mutate<UpdateBatchResponse>("/api/updates/apply", "POST", body),
+  autoUpdates: () => request<AutoUpdates>("/api/autoupdate"),
+  runAutoUpdates: (unit?: string) =>
+    mutate<{ started: boolean }>("/api/autoupdate/run", "POST", unit ? { unit } : {}),
+  resumeAutoUpdate: (unit: string) =>
+    mutate<{ resumed: string }>("/api/autoupdate/resume", "POST", { unit }),
 
   // Category management (G1)
   categories: () => request<CategoryInfo[]>("/api/categories"),

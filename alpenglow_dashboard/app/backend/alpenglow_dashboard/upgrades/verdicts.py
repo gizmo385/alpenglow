@@ -37,6 +37,7 @@ class Annotation:
     note: str = ""
     url: str | None = None
     card_id: int | None = None
+    target: str | None = None  # the release the card asks about
 
 
 def html_to_text(value: str | None) -> str:
@@ -70,6 +71,23 @@ def reason_from_comments(comments: list[dict], verdict: str) -> str:
     return ""
 
 
+# The comment cards.sync leaves when it moves a card to a newer release.
+RETARGET_MARK = "is out now. Please assess the upgrade to it instead."
+
+
+def verdict_is_current(comments: list[dict]) -> bool:
+    """False when the card was moved to a newer release after its last verdict:
+    the label is still the old release's until Claude answers again."""
+    last_verdict = last_retarget = -1
+    for i, comment in enumerate(comments):
+        text = html_to_text(comment.get("comment"))
+        if RETARGET_MARK in text:
+            last_retarget = i
+        elif re.search(r"verdict\W*(" + "|".join(map(re.escape, VERDICTS)) + ")", text, re.I):
+            last_verdict = i
+    return last_retarget < last_verdict or last_retarget == -1
+
+
 def annotations_from(cards: list[Card], comments: dict[int, list[dict]], public_url: str | None) -> list[Annotation]:
     """Pure: one annotation per open card that tracks a repo, best verdict first."""
     out = []
@@ -77,9 +95,11 @@ def annotations_from(cards: list[Card], comments: dict[int, list[dict]], public_
         if card.done or not card.repo:
             continue
         verdict = verdict_from_labels(card.raw.get("labels")) or WAITING
+        if verdict != WAITING and not verdict_is_current(comments.get(card.id, [])):
+            verdict = WAITING
         note = reason_from_comments(comments.get(card.id, []), verdict) if verdict != WAITING else ""
         url = f"{public_url.rstrip('/')}/tasks/{card.id}" if public_url else None
-        out.append(Annotation(card.repo, card.title, verdict, note, url, card.id))
+        out.append(Annotation(card.repo, card.title, verdict, note, url, card.id, card.target))
     order = {g["name"]: i for i, g in enumerate(GROUPS)}
     return sorted(out, key=lambda a: (order[a.group], a.title.casefold()))
 
