@@ -139,8 +139,8 @@ images:
     tag: v1.13.1
     digest: sha256:011e2d12c5bff759b90804bda642664775d7b4b127bf5148539bb82d3f590bb7
   wollomatic/socket-proxy:
-    tag: 1.13.2
-    digest: sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
+    tag: 1.14.0
+    digest: sha256:fead157c4de4092461267092be49c993c2e6dd296a54c89ed04b8c870016b045
   kopia/kopia:
     tag: 0.23.1
     digest: sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
@@ -206,8 +206,8 @@ images:
       - signoz/signoz-otel-collector (versioned separately; check the release notes for the collector version SigNoz expects)
       - signoz/ingester/ingester.yaml and signoz/clickhouse/ (config is hand-maintained since leaving Foundry)
   signoz/signoz-otel-collector:
-    tag: v0.144.16
-    digest: sha256:a3326375d0c398a98ffb98af3087a008bc98fb9ca8866c283bcb936db8305060
+    tag: v0.144.18
+    digest: sha256:9f414a1217a832410928853e538929ee33dfd28b39bd5603a015f15fa843b39e
     compatibility:
       - signoz/signoz (versioned separately)
       - signoz/ingester/ingester.yaml

@@ -52,7 +52,7 @@ services:
   # OTLP into ClickHouse. Only Alloy talks to it, over signoz-network. Its
   # pipelines are nop until SigNoz pushes config over OpAMP (opamp.yaml).
   ingester:
-    image: signoz/signoz-otel-collector:v0.144.16@sha256:a3326375d0c398a98ffb98af3087a008bc98fb9ca8866c283bcb936db8305060
+    image: signoz/signoz-otel-collector:v0.144.18@sha256:9f414a1217a832410928853e538929ee33dfd28b39bd5603a015f15fa843b39e
     restart: unless-stopped
     entrypoint: ["/bin/sh"]
     command:
@@ -74,7 +74,7 @@ services:
   # One-shot: creates and migrates the ClickHouse schema, then exits. Runs on
   # every `up`, so a SigNoz upgrade's migrations happen here.
   signoz-telemetrystore-migrator:
-    image: signoz/signoz-otel-collector:v0.144.16@sha256:a3326375d0c398a98ffb98af3087a008bc98fb9ca8866c283bcb936db8305060
+    image: signoz/signoz-otel-collector:v0.144.18@sha256:9f414a1217a832410928853e538929ee33dfd28b39bd5603a015f15fa843b39e
     container_name: signoz-telemetrystore-migrator
     restart: on-failure
     entrypoint: ["/bin/sh"]
