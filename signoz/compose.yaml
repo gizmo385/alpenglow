@@ -15,7 +15,7 @@ services:
   # back to SigNoz's own login, drop the four SIGNOZ_USER_ROOT/IDENTN entries;
   # users, dashboards and API keys are untouched.
   signoz-signoz-0:
-    image: signoz/signoz:v0.150.0@sha256:f47f90603c34667667bfdc17c58fcc7dd6986256a3164d288192e076aa84e3a6
+    image: signoz/signoz:v0.151.0@sha256:27cfe2131b3c5f398dcc8b63bb3c76126fd2dc422339b62f3e603b937bdc4140
     container_name: signoz-signoz-0
     restart: unless-stopped
     # Shared Postgres DSN (SIGNOZ_SQLSTORE_POSTGRES_DSN) and the root user.
@@ -52,7 +52,7 @@ services:
   # OTLP into ClickHouse. Only Alloy talks to it, over signoz-network. Its
   # pipelines are nop until SigNoz pushes config over OpAMP (opamp.yaml).
   ingester:
-    image: signoz/signoz-otel-collector:v0.144.15@sha256:3996e0ffc58bc86d433062a45ef7ff960a4768da0619944f651a17254d634daf
+    image: signoz/signoz-otel-collector:v0.144.16@sha256:a3326375d0c398a98ffb98af3087a008bc98fb9ca8866c283bcb936db8305060
     restart: unless-stopped
     entrypoint: ["/bin/sh"]
     command:
@@ -74,7 +74,7 @@ services:
   # One-shot: creates and migrates the ClickHouse schema, then exits. Runs on
   # every `up`, so a SigNoz upgrade's migrations happen here.
   signoz-telemetrystore-migrator:
-    image: signoz/signoz-otel-collector:v0.144.15@sha256:3996e0ffc58bc86d433062a45ef7ff960a4768da0619944f651a17254d634daf
+    image: signoz/signoz-otel-collector:v0.144.16@sha256:a3326375d0c398a98ffb98af3087a008bc98fb9ca8866c283bcb936db8305060
     container_name: signoz-telemetrystore-migrator
     restart: on-failure
     entrypoint: ["/bin/sh"]
@@ -253,7 +253,7 @@ services:
   # Listens only on the docker0 bridge address (host.docker.internal), not
   # the LAN or tailnet.
   node-exporter:
-    image: quay.io/prometheus/node-exporter:v1.12.1@sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0
+    image: quay.io/prometheus/node-exporter:v1.13.1@sha256:011e2d12c5bff759b90804bda642664775d7b4b127bf5148539bb82d3f590bb7
     container_name: signoz-node-exporter
     restart: unless-stopped
     network_mode: host

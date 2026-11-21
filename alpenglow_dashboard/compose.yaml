@@ -24,26 +24,6 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/Denver
-      # Traces to SigNoz via Alloy. service.name matches the name Alloy derives
-      # for this container's logs so SigNoz can correlate them.
-      OTEL_SERVICE_NAME: alpenglow_dashboard
-      OTEL_RESOURCE_ATTRIBUTES: service.namespace=alpenglow_dashboard
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
-      # Upgrades board: a card in Vikunja's Upgrades project for each pending
-      # upgrade of an image in versions.yaml, and Claude's verdicts back in the
-      # Updates view and the Discord digest. VIKUNJA_API_TOKEN is in .env.
-      VIKUNJA_API_URL: http://vikunja:3456/api/v1
-      VIKUNJA_PROJECT_ID: "2"   # Upgrades
-      VIKUNJA_PUBLIC_URL: https://board.acbc.house
-      # Automatic updates for images versions.yaml marks auto-eligible (see
-      # app/README.md, "Automatic updates"). dry-run only announces on Discord
-      # what would go out; set to "on" to let it, or "off".
-      AUTO_UPDATE: dry-run
-      # Schedule for entries without their own `auto: {every: ...}`.
-      AUTO_UPDATE_EVERY: daily
-      # 1 commits each successful automatic update in /services (never pushed).
-      AUTO_UPDATE_COMMIT: "0"
     env_file:
       - path: .env
         required: true

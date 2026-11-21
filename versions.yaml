@@ -118,8 +118,8 @@ images:
     tag: v7.15.6
     digest: sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
   vabene1111/recipes:
-    tag: 2.7.3
-    digest: sha256:73bb55c3096b9badd901717e298e025015ae3a264fecfb21a2a9fff72109f4f6
+    tag: 2.7.6
+    digest: sha256:6c467bf484044a0305ff39bed5badb48b58bb963d4276fc248e101921151895b
   vikunja/vikunja:
     tag: 2.8.0
     digest: sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3
@@ -127,8 +127,8 @@ images:
     tag: v1.8.2
     digest: sha256:65b74942f7e7ed5c60fde4ac15fc4ba715904c398c8b16dd451f4907d90347d4
   ekofr/pihole-exporter:
-    tag: v1.3.1
-    digest: sha256:4233c06fcd2d62c37b9345228bc9f798b3a66d052b4955ec6a0e5b8825e20827
+    tag: v1.4.0
+    digest: sha256:bd849cd5e0f7f89bf38943d7988c5facfd603d9813c4c089fcff8ed121f718bb
   fmtr/amniotic:
     tag: v1.10.3
     digest: sha256:12ff3c67ff2b29d0058bcfceaf687a2dbeaec754028b5a10b33750a9ff63347f
@@ -136,8 +136,8 @@ images:
     tag: v1.22.0
     digest: sha256:9acc2529bc1edb7f5b2bd801dd8334ebc80c158e3a9e5526ecd7c9a273d43189
   quay.io/prometheus/node-exporter:
-    tag: v1.12.1
-    digest: sha256:1b4e4438faca4dd7e001dd445d161a4a2091b0fededa84093b3a8dfeae1f1be0
+    tag: v1.13.1
+    digest: sha256:011e2d12c5bff759b90804bda642664775d7b4b127bf5148539bb82d3f590bb7
   wollomatic/socket-proxy:
     tag: 1.13.2
     digest: sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
@@ -145,14 +145,14 @@ images:
     tag: 0.23.1
     digest: sha256:89fd95ee2942880ca00eae964266958a394421ddbdf69bca62e38afc55f5900e
   louislam/uptime-kuma:
-    tag: 2.5.11
-    digest: sha256:7554dba313c84e44fee921ef3b5626ba1c711e412e82815e8c957517026112a9
+    tag: 2.5.12
+    digest: sha256:8e4b6bef96417ec98a35dc103c99cc64fc229a01e584e56d95d9004d2003c02a
   nextcloud:
     tag: 35.0.3
     digest: sha256:8a7a65b8bae82a79568fec2ed9cf3e374a1944eda2a22ebe130d79463336fee3
   ollama/ollama:
-    tag: 0.40.16
-    digest: sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
+    tag: 0.40.17
+    digest: sha256:ccc42bcd3d5fcf7ab0d532b300382154e1a4da56fc666bdb313b78ebdd912754
     policy: auto-eligible
     auto:
       max_bump: major
@@ -168,12 +168,12 @@ images:
     tag: v2.59.0
     digest: sha256:76933f24d3781a3a90809857217b0cfd70735b0fa79eee4acc76956573810439
   ghcr.io/immich-app/immich-server:
-    tag: v3.4.1
-    digest: sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b
+    tag: v3.4.2
+    digest: sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd
     group: immich
   ghcr.io/immich-app/immich-machine-learning:
-    tag: v3.4.1
-    digest: sha256:8adebf414256f6e4f837bfbb66fa94f14f4da7260e3a1d65cbba49e4e35d8764
+    tag: v3.4.2
+    digest: sha256:739405742a79bd7447227c553bb62ed5491aa36acf00bc667af7f9c93b6fae91
     group: immich
   ghcr.io/gizmo385/servo:
     policy: float
@@ -200,14 +200,14 @@ images:
     tag: v2.1.20
     digest: sha256:9d4e4c1408f71f669ffdc34836d801442dddd7c176838c6d129938d2c1bd95b1
   signoz/signoz:
-    tag: v0.150.0
-    digest: sha256:f47f90603c34667667bfdc17c58fcc7dd6986256a3164d288192e076aa84e3a6
+    tag: v0.151.0
+    digest: sha256:27cfe2131b3c5f398dcc8b63bb3c76126fd2dc422339b62f3e603b937bdc4140
     compatibility:
       - signoz/signoz-otel-collector (versioned separately; check the release notes for the collector version SigNoz expects)
       - signoz/ingester/ingester.yaml and signoz/clickhouse/ (config is hand-maintained since leaving Foundry)
   signoz/signoz-otel-collector:
-    tag: v0.144.15
-    digest: sha256:3996e0ffc58bc86d433062a45ef7ff960a4768da0619944f651a17254d634daf
+    tag: v0.144.16
+    digest: sha256:a3326375d0c398a98ffb98af3087a008bc98fb9ca8866c283bcb936db8305060
     compatibility:
       - signoz/signoz (versioned separately)
       - signoz/ingester/ingester.yaml
