@@ -15,6 +15,18 @@
 .ov-tile-clickable {
   cursor: pointer;
 }
+/* An Act now security verdict: tint the Updates tile's border. */
+.ov-tile-hot {
+  border-color: color-mix(in srgb, #e08a8a 55%, var(--color-neutral-800));
+}
+.ov-tile-security {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--color-neutral-200);
+}
+
 .ov-tile-span2 {
   grid-column: span 2;
   gap: 10px;

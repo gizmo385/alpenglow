@@ -1,7 +1,7 @@
 /* Updates view (C3) — the operator's update queue, fed by image-updates-tracker.
  *
  * Renders the §View 2 table inside a card: ☐ · Service · Image · Current ·
- * Latest · Released · Assessment · Action (changelog link + Update). Busy state
+ * Latest · Released · Assessment · Security · Action (changelog link + Update). Busy state
  * for each row is NOT faked locally — it is read from the polled /api/services
  * status (useData().services): while a service's status is "updating" the row's
  * button shows a spinner + "Updating…" and is disabled. Each row's result comes
@@ -24,6 +24,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import { useAutoUpdates, useUpdates } from "../api/hooks";
@@ -36,6 +37,7 @@ import { useToast } from "../store/toast";
 import viewStyles from "./views.module.css";
 import { AutoNote, AutoUpdates, unitFor } from "./updates/AutoUpdates";
 import styles from "./updates/updates.module.css";
+import { ShieldLabel } from "./security/Shield";
 
 /** Exact per-service update command (README §Interactions, PLAN.md C3). */
 function updateCommand(id: string): string {
@@ -84,6 +86,32 @@ function Verdict({ entry }: { entry: UpdateEntry }) {
         <span className={styles.verdict}>{label}</span>
       )}
       {entry.verdictNote && <div className={styles.verdictNote}>{entry.verdictNote}</div>}
+    </div>
+  );
+}
+
+/** Claude's verdict on the service's open security findings (security/), in
+ *  the Assessment column's style: colored shield, bold verdict, one gray note. */
+function Security({ entry }: { entry: UpdateEntry }) {
+  if (!entry.securityVerdict) return <span className={styles.noVerdict}>—</span>;
+  const n = entry.securityOpen ?? 0;
+  const label = (
+    <ShieldLabel color={entry.securityColor}>
+      <b className={styles.securityVerdict}>{entry.securityVerdict}</b>
+    </ShieldLabel>
+  );
+  return (
+    <div title={entry.securityNote ?? `${n} open finding${n === 1 ? "" : "s"}`}>
+      {entry.securityCardUrl ? (
+        <a className={styles.verdict} href={entry.securityCardUrl} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+      ) : (
+        <Link className={styles.verdict} to={`/services/${entry.id}?tab=security`}>
+          {label}
+        </Link>
+      )}
+      {entry.securityNote && <div className={styles.verdictNote}>{entry.securityNote}</div>}
     </div>
   );
 }
@@ -357,6 +385,7 @@ export function Updates() {
                 <th>Latest</th>
                 <th>Released</th>
                 <th>Assessment</th>
+                <th>Security</th>
                 <th className={styles.actionCol}>Action</th>
               </tr>
             </thead>
@@ -389,6 +418,9 @@ export function Updates() {
                     <td className={styles.released}>{relativeAgo(e.releasedAt)}</td>
                     <td className={styles.verdictCell}>
                       <Verdict entry={e} />
+                    </td>
+                    <td className={styles.verdictCell}>
+                      <Security entry={e} />
                     </td>
                     <td>
                       <div className={styles.actionCell}>

@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { MagnifyingGlassIcon, SlidersHorizontalIcon, TagIcon } from "@phosphor-icons/react";
 
+import { useSecurity } from "../api/hooks";
 import { useData } from "../store/data";
 import { useUiState } from "../store/ui";
 import { relativeAgo } from "../lib/format";
@@ -29,6 +30,17 @@ export function Overview() {
   const { services, overview, servicesLoading } = useData();
   const { query, category, tag, status, setQuery, setTag } = useUiState();
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
+  const security = useSecurity();
+  // Shields on service cards: services with open findings, except Not affected.
+  const shields = useMemo(
+    () =>
+      new Map(
+        (security.data?.services ?? [])
+          .filter((r) => r.verdict && r.verdict !== "Not affected")
+          .map((r) => [r.id, r]),
+      ),
+    [security.data],
+  );
 
   // Header summary counts (prefer authoritative overview numbers, fall back to
   // the services list so the line still renders before /api/overview resolves).
@@ -163,7 +175,7 @@ export function Overview() {
               </div>
               <div className="ov-grid">
                 {g.items.map((s) => (
-                  <ServiceCard key={s.id} service={s} />
+                  <ServiceCard key={s.id} service={s} security={shields.get(s.id)} />
                 ))}
               </div>
             </section>

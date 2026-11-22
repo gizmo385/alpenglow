@@ -2,7 +2,8 @@
 # /var/run/docker.sock (which is root on the host, read-only mount or not).
 #
 # docker-proxy: consumers extend one of the access profiles in profiles.yaml
-#   (docker-read, docker-read-stats, docker-read-logs, docker-manage), which
+#   (docker-read, docker-read-stats, docker-read-logs, docker-read-images,
+#   docker-manage), which
 #   puts them on the internal `docker-proxy` network, sets DOCKER_HOST and adds
 #   the socket-proxy.allow.* labels the proxy reads their permissions from.
 #   A container with no allow labels gets nothing. Refused requests are logged.

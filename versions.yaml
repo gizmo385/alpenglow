@@ -227,3 +227,13 @@ images:
   johly/airtrail:
     tag: v3.14.0
     digest: sha256:69ef0a421d6a5f99c06d04ea6b66445a5d1261dd533d6efe3bd8bc3e2dfd018f
+  anchore/syft:
+    tag: v1.57.2
+    digest: sha256:e97e20b6e6d1699c60296b66ab337941724f9bd06ac279d893eda89601fc4b2a
+    policy: approve
+    reason: Copied into cve-scanner's image; lists each image's packages
+  anchore/grype:
+    tag: v0.122.1
+    digest: sha256:661583704a253c0448ed63998b5ea2cd9d5a76ee71eedc4aed439b8ce3e93a1c
+    policy: approve
+    reason: Copied into cve-scanner's image; matches package lists against vulnerabilities

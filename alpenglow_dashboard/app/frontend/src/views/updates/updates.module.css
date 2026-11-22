@@ -176,6 +176,9 @@ a.verdict:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.securityVerdict {
+  font-weight: 600;
+}
 .noVerdict {
   color: var(--color-neutral-600);
 }

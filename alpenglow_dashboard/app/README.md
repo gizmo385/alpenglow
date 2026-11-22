@@ -86,6 +86,55 @@ links. `POST /api/upgrades/sync` (admin) syncs straight away.
 The token needs the **Tasks** preset (tasks, comments and labels). Code is in
 `backend/alpenglow_dashboard/upgrades/`.
 
+## Security
+
+The cve-scanner (`/services/cve-scanner`) scans every running image once a
+night and writes `cve-scanner/data/findings.json`. The dashboard reads it
+(the `/services` mount) and keeps only findings worth a look: on CISA's
+known-exploited list, an advisory on the app's own GitHub repo, Critical or
+High with a fixed version, or an EPSS of at least `SECURITY_EPSS_THRESHOLD`
+(10%). `cve-scanner/ignore.yaml` silences the rest, with a reason.
+
+Every 30 minutes (`SECURITY_SYNC_INTERVAL`), with `VIKUNJA_API_TOKEN` and
+`SECURITY_PROJECT_ID` set, it keeps Vikunja's Security project in step:
+
+- a service with open findings gets one card listing them, its exposure
+  (public, tailnet, none), any pending upgrade and a link to its compose
+  file. The claude-dispatcher's `security` profile assesses it and labels it
+  **Act now**, **Next upgrade** or **Not affected**;
+- new findings on an open card update it and leave an `@claude` comment, so
+  Claude assesses the whole list again;
+- an open card closes once a clean scan no longer shows its findings, and a
+  card you closed isn't refiled for the same findings.
+
+Where it shows up:
+
+- **Overview:** the Updates tile adds counts by verdict, and affected
+  service cards get a shield (not for Not affected).
+- **Updates:** a Security column after Assessment; flagged services sort
+  first.
+- **Service → Security tab:** the findings, Claude's latest reply, a box to
+  ask Claude a follow-up (an `@claude` comment on the card), and earlier
+  cards.
+- **Discord:** `DISCORD_SECURITY_WEBHOOK_URL` gets an immediate ping, once,
+  for an Act now verdict or for a known-exploited CVE on a public service
+  (the latter without waiting for Claude). Sent pings are kept in
+  `data/security-pings.json`. Everything else goes in the 9 AM digest's
+  Security section, which the tracker's bot reads from
+  `GET /internal/security/annotations` (`EXTRA_ANNOTATIONS_URLS`). Nothing
+  open means no section and no ping.
+
+Setup:
+
+1. Create a **Security** project in Vikunja, map its id to `security` in
+   `claude-dispatcher/profiles.yaml`, and add the dispatcher webhook to it
+   (claude-dispatcher/README.md, step 4).
+2. Set `SECURITY_PROJECT_ID` (and optionally the Discord settings) in `.env`;
+   see `.env.example`.
+
+`POST /api/security/sync` (admin) syncs straight away. Code is in
+`backend/alpenglow_dashboard/security/`.
+
 ## Updating services
 
 The Updates view lists one row per pending image. A service with several

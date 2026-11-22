@@ -42,13 +42,19 @@ async def _service_counts() -> models.OverviewServices:
 async def _updates_count() -> models.OverviewUpdates:
     # None when the tracker can't be read, so the tile shows "—" rather than
     # claiming everything is up to date.
+    from .. import security  # avoids an import cycle
+
+    try:
+        sec = await security.counts()
+    except Exception:
+        sec = None
     try:
         if await updates_mod._tracker_cached() is None:
-            return models.OverviewUpdates(count=None)
+            return models.OverviewUpdates(count=None, security=sec)
         enrich = await updates_mod.service_enrichment()
     except Exception:
-        return models.OverviewUpdates(count=None)
-    return models.OverviewUpdates(count=len(enrich))
+        return models.OverviewUpdates(count=None, security=sec)
+    return models.OverviewUpdates(count=len(enrich), security=sec)
 
 
 async def _storage() -> models.OverviewStorage:

@@ -62,6 +62,72 @@ profiles:
       out anything with nothing to report, and don't list what you checked.
       If something important couldn't be verified, say so in one line.
 
+  # Security assessments: one card per service with open findings, filed and
+  # kept up to date by the dashboard from the cve-scanner's nightly scan
+  # (alpenglow_dashboard/app/backend/alpenglow_dashboard/security/). Decides
+  # whether the findings matter for how we run the service. Read-only, like
+  # upgrade: fixing stays with a person.
+  security:
+    description: Assesses one service's open CVE findings. No repository, read-only tools.
+    allowed_tools: [WebSearch, WebFetch, Read, Grep, Glob]
+    egress:
+      - github.com              # advisories, fix commits, our compose files
+      - githubusercontent.com
+      - api.osv.dev             # advisory details
+      - osv.dev
+      - nvd.nist.gov
+      - cisa.gov                # known-exploited catalogue
+      - api.first.org           # EPSS
+      - pkg.go.dev              # Go vulnerability reports
+      - security-tracker.debian.org
+      - security.alpinelinux.org
+      - caddyserver.com
+    allowed_users: [chris@acbc.house, adam@acbc.house]
+    max_turns: 30
+    timeout_minutes: 20
+    buckets:
+      working: Assessing
+      replied: Done
+    # Green, amber, red in this order. The dashboard pings Discord on Act now.
+    verdicts: [Not affected, Next upgrade, Act now]
+    instructions: |
+      The card lists the open security findings for one service on our home
+      server: each CVE or advisory, the package and version, the fixed
+      version, whether it's on CISA's known-exploited list, its EPSS score,
+      and which image it's in. It also says how the service is exposed
+      (public on the internet, tailnet only, or no ingress), any pending
+      upgrade, and links the service's compose file.
+
+      Decide whether the findings matter for how we run this service. A
+      vulnerable package isn't the same as a vulnerable service: check
+      whether the vulnerable code is reachable (a library the app never
+      calls, a CLI tool in the base image, a server feature we don't
+      enable), and weigh the exposure. Known-exploited and public matter
+      most.
+
+      Keep the reply short; it's read on a phone. Start with exactly one of
+      "Verdict: Act now", "Verdict: Next upgrade" or "Verdict: Not affected",
+      followed by one sentence saying why.
+
+      - Act now: plausibly exploitable as we run it and serious enough that
+        it shouldn't wait for the next routine upgrade.
+      - Next upgrade: real but not urgent here; take the fix with the next
+        upgrade. Say which version fixes it, and whether the pending upgrade
+        (if any) does.
+      - Not affected: not reachable or not relevant as we run it.
+
+      Then list only what we need to know or do, each as a short bullet with
+      a source link: the findings that drive the verdict, the fix (upgrade
+      to which version, or a mitigation such as a config change), and any
+      finding to add to cve-scanner/ignore.yaml with a one-line reason.
+      Group findings with the same answer rather than going one by one. If
+      something important couldn't be verified, say so in one line.
+
+      When a comment says there are new findings, assess the whole list
+      again and give a fresh verdict. When a comment asks a question, answer
+      it and repeat the verdict line, updated if your answer changes it.
+
 projects:
   # Vikunja project id: profile. Find the id in the project's URL.
   2: upgrade   # Upgrades
+  5: security  # Security
