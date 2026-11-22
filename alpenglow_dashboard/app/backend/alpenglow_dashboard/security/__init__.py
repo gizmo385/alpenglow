@@ -467,6 +467,18 @@ _MOCK = {
 }
 
 
+_MOCK_REPLY = """Verdict: Next upgrade. The OpenSSL finding is real but unreachable as we run Caddy; take the fix with the next rebuild.
+**OpenSSL in the base image (CVE-2026-95692)**
+- Caddy is a static Go binary and doesn't load `libssl3`; only `apk` tools in the image could. See the [advisory](https://example.com/advisory).
+- The fix is `3.5.9-r1`. Rebuilding with `--pull` picks it up.
+**What to do**
+- Rebuild the image when convenient: `sudo docker compose build --pull && sudo docker compose up -d`.
+  - No config change needed.
+- Optionally add it to `cve-scanner/ignore.yaml` with the reason "not loaded by Caddy".
+
+— Claude, security profile · 7 turns · $0.17 API-equivalent"""
+
+
 def _mock_counts() -> models.SecurityCounts:
     c = models.SecurityCounts()
     for group, _, _ in _MOCK.values():
@@ -502,5 +514,5 @@ def _mock_service(sid: str) -> models.ServiceSecurity:
               for i, sev, p, ver, fix, kev in fs],
         ignored=[], belowBar=37 if fs else 0,
         verdict=group, verdictNote=note, verdictColor=verdicts.COLORS[group] if group else None,
-        reply=f"Verdict: {group}. {note}" if note else None, canAsk=bool(fs),
+        reply=_MOCK_REPLY if note else None, canAsk=bool(fs),
     )

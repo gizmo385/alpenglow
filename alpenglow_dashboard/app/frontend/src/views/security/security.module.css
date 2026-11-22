@@ -37,12 +37,63 @@
   padding: 2px 8px;
   gap: 5px;
 }
+.replyBox {
+  display: grid;
+  gap: 8px;
+}
+.lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-neutral-100);
+}
 .reply {
-  white-space: pre-wrap;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--color-neutral-200);
+  color: var(--color-neutral-300);
   overflow-wrap: anywhere;
+  display: grid;
+  gap: 6px;
+}
+.reply h4 {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-neutral-100);
+}
+.reply p {
+  margin: 0;
+}
+.reply ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+}
+.reply ul ul {
+  margin-top: 3px;
+}
+.reply li::marker {
+  color: var(--color-neutral-600);
+}
+.reply strong {
+  font-weight: 600;
+  color: var(--color-neutral-200);
+}
+.reply code,
+.lead code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: color-mix(in srgb, var(--color-neutral-500) 18%, transparent);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.reply a {
+  color: var(--color-accent-300);
+}
+.footer {
+  font-size: 11px;
+  color: var(--color-neutral-600);
 }
 .ask {
   display: flex;
