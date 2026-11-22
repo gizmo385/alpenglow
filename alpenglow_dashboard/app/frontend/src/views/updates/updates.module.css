@@ -176,6 +176,11 @@ a.verdict:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.rebuilt {
+  font-family: var(--font-body, inherit);
+  font-size: 10.5px;
+  color: var(--color-neutral-500);
+}
 .securityVerdict {
   font-weight: 600;
 }

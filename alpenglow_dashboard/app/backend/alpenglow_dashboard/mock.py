@@ -541,6 +541,13 @@ def mock_updates() -> models.Updates:
             **verdict,
             **_mock_security(sid),
         ))
+    if "mosquitto" in MOCK_SERVICES:  # a rebuilt tag (integrations/follows.py)
+        s = MOCK_SERVICES["mosquitto"]
+        entries.append(models.UpdateEntry(
+            id="mosquitto", name=s["name"], icon=s["icon"], image="eclipse-mosquitto",
+            currentVersion="2.1.2-alpine", latestVersion="2.1.2-alpine", releasedAt=_ago(days=2),
+            changelogUrl=None, source="rebuild",
+        ))
     return models.Updates(
         services=entries,
         lastUpdated=_ago(minutes=12),

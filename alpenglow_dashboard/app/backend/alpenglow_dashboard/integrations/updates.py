@@ -252,7 +252,8 @@ async def service_enrichment() -> dict[str, dict]:
     out: dict[str, dict] = {}
     for sid, pending in _match_follows(await follows_mod.pending()).items():
         f = pending[0]
-        out[sid] = {"latestVersion": f.latest, "releasedAt": f.built_at, "changelogUrl": f.compare_url}
+        latest = f"{f.latest} (rebuilt)" if f.rebuild else f.latest
+        out[sid] = {"latestVersion": latest, "releasedAt": f.built_at, "changelogUrl": f.compare_url}
     if payload is None:
         return out
     matched, unmatched = _match_entries(payload)
@@ -293,10 +294,18 @@ def _follow_entries(pending: list[follows_mod.FollowUpdate]) -> list[models.Upda
                 changelogUrl=f.compare_url,
                 updated=updated,
                 updateError=update_error,
-                source="follow",
-                followTag=f.follow_tag,
+                source="rebuild" if f.rebuild else "follow",
+                followTag=None if f.rebuild else f.follow_tag,
             ))
     return entries
+
+
+def _without_superseded(entries: list[models.UpdateEntry]) -> list[models.UpdateEntry]:
+    """Drop a rebuild of the current tag when the same image has a new release:
+    Update moves to the release, which is newer anyway."""
+    released = {(e.id, normalize_image(e.image)) for e in entries if e.source is None}
+    return [e for e in entries
+            if not (e.source == "rebuild" and (e.id, normalize_image(e.image)) in released)]
 
 
 def _build_updates(payload: dict, annotations: Optional[dict] = None,
@@ -334,7 +343,7 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None,
                 )
             )
     entries += _follow_entries(pending_follows or [])
-    entries = _with_security(entries, security or {})
+    entries = _with_security(_without_superseded(entries), security or {})
     return models.Updates(
         services=entries,
         lastUpdated=_last_updated_iso(payload),
@@ -416,7 +425,7 @@ def display_name(sid: str) -> str:
 async def pending_versions() -> dict[str, list[str]]:
     """Each service's pending updates as ``current → latest``, for the summary."""
     payload = await _tracker_cached()
-    versions = {sid: [f"{f.current} → {f.latest}" for f in found]
+    versions = {sid: [f"{f.current} (rebuilt)" if f.rebuild else f"{f.current} → {f.latest}" for f in found]
                 for sid, found in _match_follows(await follows_mod.pending()).items()}
     if not payload:
         return versions

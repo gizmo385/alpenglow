@@ -19,6 +19,10 @@
  * poll so the busy state appears/clears promptly. The backend rescans once, when
  * the last Update in flight has finished, however many were started.
  *
+ * A "rebuild" row is a pinned tag that now points at a different image (the
+ * publisher re-pushed it, e.g. with a CVE fix): Latest shows the same tag,
+ * marked rebuilt, and Update repins it to the new digest (integrations/follows.py).
+ *
  * Copy commands use the exact repo path format:
  *   cd /services/{id} && sudo docker compose pull && sudo docker compose up -d
  */
@@ -58,6 +62,13 @@ function uniqueIds(entries: UpdateEntry[]): string[] {
 
 /** Claude's verdict for an update (from upgrades-board), linking to its card. */
 function Verdict({ entry }: { entry: UpdateEntry }) {
+  if (entry.source === "rebuild")
+    return (
+      <div>
+        <span className={styles.noVerdict}>Rebuilt</span>
+        <div className={styles.verdictNote}>Same tag, new image: usually base-image or security fixes.</div>
+      </div>
+    );
   if (entry.source === "follow")
     return (
       <div>
@@ -414,6 +425,7 @@ export function Updates() {
                     <td className={`${styles.mono} ${styles.version}`}>{e.currentVersion}</td>
                     <td className={`${styles.mono} ${styles.version} ${styles.latest}`}>
                       {e.latestVersion}
+                      {e.source === "rebuild" && <div className={styles.rebuilt}>rebuilt</div>}
                     </td>
                     <td className={styles.released}>{relativeAgo(e.releasedAt)}</td>
                     <td className={styles.verdictCell}>

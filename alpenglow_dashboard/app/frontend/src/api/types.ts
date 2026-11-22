@@ -297,7 +297,8 @@ export interface UpdateEntry {
   updated?: boolean;
   /** Why the service's last Update failed, until its next one. */
   updateError?: string | null;
-  /** "follow": a new per-build image on a followed tag, not a release. */
+  /** "follow": a new per-build image on a followed tag, not a release.
+   *  "rebuild": the same tag now points at a different image. */
   source?: string | null;
   followTag?: string | null;
   /** Claude's verdict on the service's open Security card, if it has findings. */
