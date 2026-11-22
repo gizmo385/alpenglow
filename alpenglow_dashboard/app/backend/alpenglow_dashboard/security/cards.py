@@ -6,6 +6,11 @@ After each sync:
   claude-dispatcher's ``security`` profile assesses it;
 * new findings on a service with an open card update the card and get an
   ``@claude`` comment, so Claude assesses again with the whole list;
+* when some of an open card's findings are gone (an upgrade, a rebuilt image,
+  a scanner fix) but others remain, the card's list is rewritten. If Claude
+  had said "Act now", it's asked to assess again, since the urgent finding
+  may be the one that went; a milder verdict can't get worse by losing
+  findings, so those cards only get a note;
 * an open card is closed once a clean scan of the service shows none of its
   findings (usually after an upgrade);
 * a card closed by hand (say, "Not affected") isn't refiled for the same
@@ -22,6 +27,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
+from ..upgrades.verdicts import VERDICT_PREFIX
 from ..upgrades.vikunja import Card, Vikunja
 from .findings import OpenFinding, ServiceFindings
 
@@ -34,6 +40,8 @@ _FINDINGS_RE = re.compile(rf"{re.escape(FINDINGS_LINE)}\s*([^<\n]*)")
 
 # The comment the sync leaves when new findings arrive on an open card.
 NEW_FINDINGS_MARK = "New findings since the last assessment"
+# The comment it leaves when some of an open card's findings are gone.
+GONE_FINDINGS_MARK = "No longer open since the last assessment"
 
 TIER_TEXT = {
     "public": "Public (reachable from the internet on :10443)",
@@ -74,6 +82,14 @@ class Plan:
     create: list[str] = field(default_factory=list)
     add: list[tuple[SecurityCard, str, list[str]]] = field(default_factory=list)
     close: list[tuple[SecurityCard, str]] = field(default_factory=list)
+    # open card, service, findings it covered that aren't open any more
+    prune: list[tuple[SecurityCard, str, list[str]]] = field(default_factory=list)
+
+
+def is_act_now(card: Card) -> bool:
+    want = f"{VERDICT_PREFIX}act now".casefold()
+    return any(str(label.get("title") or "").strip().casefold() == want
+               for label in card.raw.get("labels") or [])
 
 
 def plan(services: dict[str, ServiceFindings], cards: list[SecurityCard]) -> Plan:
@@ -95,6 +111,9 @@ def plan(services: dict[str, ServiceFindings], cards: list[SecurityCard]) -> Pla
         covered = set().union(*(c.covers for c in existing)) if existing else set()
         new = sorted(current - covered)
         if not new:
+            gone = sorted(open_cards[0].covers - current) if open_cards and sf.scanned else []
+            if gone:
+                out.prune.append((open_cards[0], sid, gone))
             continue
         if open_cards:
             out.add.append((open_cards[0], sid, new))
@@ -165,10 +184,22 @@ async def sync(services: dict[str, ServiceFindings], contexts: dict[str, Context
         log.info("security: filed a card for %s (%d findings)", sid, len(sf.open))
     for sc, sid, new in todo.add:
         sf = services[sid]
+        gone = sorted(sc.covers - sf.open_ids)
         await api.update(sc.card, title=card_title(ctx(sid), sf), description=card_description(sid, ctx(sid), sf))
         await api.comment(sc.card, f"@claude {NEW_FINDINGS_MARK}: {', '.join(new)}. "
-                                   "The description lists everything open now. Please assess again.")
+                                   + (f"{GONE_FINDINGS_MARK}: {', '.join(gone)}. " if gone else "")
+                                   + "The description lists everything open now. Please assess again.")
         log.info("security: %d new findings on card %s (%s)", len(new), sc.card.id, sid)
+    for sc, sid, gone in todo.prune:
+        sf = services[sid]
+        await api.update(sc.card, title=card_title(ctx(sid), sf), description=card_description(sid, ctx(sid), sf))
+        if is_act_now(sc.card):
+            await api.comment(sc.card, f"@claude {GONE_FINDINGS_MARK}: {', '.join(gone)}. "
+                                       "The description lists what's still open. Please assess again.")
+        else:
+            await api.comment(sc.card, f"{GONE_FINDINGS_MARK}: {', '.join(gone)}. "
+                                       "The description now lists only what's still open.")
+        log.info("security: %d findings gone from card %s (%s)", len(gone), sc.card.id, sid)
     for sc, sid in todo.close:
         await api.update(sc.card, done=True)
         await api.comment(sc.card, "Closed by the security scan: a clean scan of the running "

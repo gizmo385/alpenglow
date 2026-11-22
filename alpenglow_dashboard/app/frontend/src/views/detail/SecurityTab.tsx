@@ -176,6 +176,11 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
             </a>
           )}
         </div>
+        {data.reply && data.verdict === "Waiting for assessment" && (
+          <div className={sec.muted}>
+            The findings changed since this reply, so Claude is assessing again. Its earlier reply is below.
+          </div>
+        )}
         {data.reply ? (
           <Reply text={data.reply} />
         ) : (

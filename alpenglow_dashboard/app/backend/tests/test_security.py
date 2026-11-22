@@ -116,6 +116,18 @@ def test_plan_files_adds_closes():
     assert [(sc.card.id, sid) for sc, sid in p.close] == [(3, "redis")]
 
 
+def test_plan_prunes_findings_that_are_gone():
+    s = scan()
+    cards_ = [
+        sec_card(1, "caddy", ["CVE-1", "CVE-3", "CVE-5", "CVE-9"]),  # CVE-9 fixed, rest still open
+        sec_card(2, "immich", ["GHSA-x"]),                           # unchanged: nothing to do
+        sec_card(4, "vikunja", ["CVE-8"]),                           # failed scan: don't trust it
+    ]
+    p = c.plan(s.services, cards_)
+    assert p.add == [] and p.close == []
+    assert [(sc.card.id, sid, gone) for sc, sid, gone in p.prune] == [(1, "caddy", ["CVE-9"])]
+
+
 def test_plan_creates_when_no_card():
     p = c.plan(scan().services, [])
     assert p.create == ["caddy", "immich"]
@@ -158,6 +170,25 @@ def test_sync_calls():
     assert ("update", 3, ["done"]) in api.calls
 
 
+def test_sync_prune_reasks_only_act_now():
+    api = FakeVikunja([sec_card(1, "caddy", ["CVE-1", "CVE-3", "CVE-5", "CVE-9"], labels=["Verdict: Act now"]),
+                       sec_card(2, "immich", ["GHSA-x", "GHSA-y"], labels=["Verdict: Next upgrade"])])
+    asyncio.run(c.sync(scan().services, {}, api))
+    assert ("update", 1, ["description", "title"]) in api.calls
+    assert ("update", 2, ["description", "title"]) in api.calls
+    act = next(x for x in api.calls if x[0] == "comment" and x[1] == 1)
+    assert act[2] == f"@claude {c.GONE_FINDINGS_MARK}: CVE-9. The description lists what's still open. Please assess again."
+    mild = next(x for x in api.calls if x[0] == "comment" and x[1] == 2)
+    assert mild[2].startswith(c.GONE_FINDINGS_MARK + ": GHSA-y.") and "@claude" not in mild[2]
+
+
+def test_sync_add_mentions_gone_findings():
+    api = FakeVikunja([sec_card(1, "caddy", ["CVE-1", "CVE-9"])])
+    asyncio.run(c.sync(scan().services, {}, api))
+    text = next(x for x in api.calls if x[0] == "comment" and x[1] == 1)[2]
+    assert text.startswith(f"@claude {c.NEW_FINDINGS_MARK}: CVE-3, CVE-5. {c.GONE_FINDINGS_MARK}: CVE-9.")
+
+
 # ── verdicts ─────────────────────────────────────────────────────────────────
 
 
@@ -178,6 +209,9 @@ def test_from_cards_reads_labels_and_staleness():
         # Claude answered, then new findings arrived: waiting again.
         3: [comment("Verdict: Not affected. Fine."), comment(f"@claude {c.NEW_FINDINGS_MARK}: CVE-9.")],
     }
+    # An Act now card that lost findings is waiting again; a plain note doesn't count.
+    assert not v.is_current([comment("Verdict: Act now. Bad."), comment(f"@claude {c.GONE_FINDINGS_MARK}: CVE-1.")])
+    assert v.is_current([comment("Verdict: Next upgrade. Meh."), comment(f"{c.GONE_FINDINGS_MARK}: CVE-1.")])
     got = v.from_cards(cards_, comments, "https://board")
     assert [(x.service, x.group) for x in got] == [
         ("immich", v.ACT_NOW), ("caddy", v.NEXT_UPGRADE), ("redis", v.WAITING)]

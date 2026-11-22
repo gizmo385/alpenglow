@@ -394,7 +394,7 @@ def mock_overview() -> models.Overview:
     services = mock_services()
     up = sum(1 for s in services if s.status != "down")
     down = len(services) - up
-    updates = sum(1 for s in services if s.latestVersion)
+    updates = len(mock_updates().services)
     return models.Overview(
         services=models.OverviewServices(up=up, down=down, total=len(services)),
         updates=models.OverviewUpdates(count=updates, security=models.SecurityCounts(nextUpgrade=1, waiting=1)),
