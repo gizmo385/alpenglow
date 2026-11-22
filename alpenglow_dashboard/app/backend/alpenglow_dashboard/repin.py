@@ -93,9 +93,41 @@ def _release(version: str) -> str:
     return version.rsplit("/", 1)[-1]
 
 
+# Release-channel suffixes some projects put on every release name, such as
+# ClickHouse's ``v26.10.10.3-stable``. The image tag (``26.10.10.3``) leaves
+# them off. The tracker drops the same ones to compare versions.
+_CHANNEL_SUFFIXES = ("-stable", "-lts")
+
+_TAG_VERSION_RE = re.compile(r"^(v?)(\d+(?:\.\d+)*)(.*)$")
+
+
 def _bare(version: str) -> str:
     version = _release(version)
-    return version[1:] if version[:1] in ("v", "V") and version[1:2].isdigit() else version
+    if version[:1] in ("v", "V") and version[1:2].isdigit():
+        version = version[1:]
+    for suffix in _CHANNEL_SUFFIXES:
+        if version.lower().endswith(suffix):
+            return version[: -len(suffix)]
+    return version
+
+
+def _short_tag(current_tag: str, cur_bare: str, bare: str) -> str | None:
+    """``bare`` cut to as many parts as a shortened pin has.
+
+    ClickHouse is pinned as ``26.10.9`` while running ``26.10.9.12``, so
+    ``26.10.10.3`` is tried as ``26.10.10`` first. ``None`` when the tag isn't
+    a shortened version, or when cutting gives the current tag back (a pin on a
+    release line, ``17`` for ``17.4``, moves to the full version as before).
+    """
+    m = _TAG_VERSION_RE.match(current_tag)
+    if not m or not cur_bare.startswith(m.group(2) + "."):
+        return None
+    n = m.group(2).count(".") + 1
+    parts = bare.split(".")
+    if len(parts) <= n or not all(p.isdigit() for p in parts[:n]):
+        return None
+    short = ".".join(parts[:n])
+    return None if short == m.group(2) else f"{m.group(1)}{short}{m.group(3)}"
 
 
 def candidate_tags(current_tag: str, current_version: str, latest_version: str) -> list[str]:
@@ -103,7 +135,9 @@ def candidate_tags(current_tag: str, current_version: str, latest_version: str) 
 
     Release names and image tags often differ by a leading ``v``, and some
     images add a suffix (``0.21.1-alpine``). Match the current tag's spelling
-    first, then fall back to the plain release name with and without ``v``.
+    first, then fall back to the plain release name with and without ``v``. A
+    release-channel suffix (``-stable``) is dropped; the name as released is
+    still the last one tried.
     """
     bare = _bare(latest_version)
     out: list[str] = []
@@ -114,6 +148,10 @@ def candidate_tags(current_tag: str, current_version: str, latest_version: str) 
                 prefix = "v" if spelled.startswith("v") else ""
                 out.append(f"{prefix}{bare}{current_tag[len(spelled):]}")
                 break
+        else:
+            short = _short_tag(current_tag, cur_bare, bare)
+            if short:
+                out.append(short)
     if current_tag[:1] == "v":
         out += [f"v{bare}", bare]
     else:

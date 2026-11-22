@@ -45,6 +45,19 @@ def test_candidate_tags_drop_a_monorepo_component():
     assert not any("/" in tag for tag in tags)
 
 
+def test_candidate_tags_drop_a_release_channel():
+    # ClickHouse releases v26.10.10.3-stable; the image is 26.10.10.3 / 26.10.10.
+    assert candidate_tags("26.10.9", "26.10.9.12", "v26.10.10.3-stable") == [
+        "26.10.10", "26.10.10.3", "v26.10.10.3", "v26.10.10.3-stable"]
+    assert candidate_tags("26.10.9.12", "v26.10.9.12-stable", "v26.10.10.3-stable")[0] == "26.10.10.3"
+    assert candidate_tags("25.8.12-alpine", "25.8.12.5", "v25.8.13.2-lts")[0] == "25.8.13-alpine"
+
+
+def test_candidate_tags_keep_a_release_line_pin_moving():
+    # Pinned to a line (17 running 17.4): cutting 17.5 would give 17 back.
+    assert candidate_tags("17", "17.4", "17.5") == ["17.5", "v17.5"]
+
+
 def test_candidate_tags_fall_back_to_both_spellings():
     assert candidate_tags("release-7", "7", "v8") == ["8", "v8"]
 
