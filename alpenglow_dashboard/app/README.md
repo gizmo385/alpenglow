@@ -77,11 +77,8 @@ every 30 minutes (`UPGRADES_SYNC_INTERVAL`):
   comes out, and closed once the server runs the release;
 - a card you closed isn't refiled for the same version.
 
-The verdicts show in the Updates view's Assessment column, and
-`GET /internal/upgrades/annotations` serves them to the tracker's Discord bot
-(`ANNOTATIONS_URL`). That route sits outside `/api` because the bot can't pass
-oauth2-proxy: it is read-only and returns only card titles, verdicts and
-links. `POST /api/upgrades/sync` (admin) syncs straight away.
+The verdicts show in the Updates view's Assessment column and lead the
+[daily digest](#daily-digest). `POST /api/upgrades/sync` (admin) syncs straight away.
 
 The token needs the **Tasks** preset (tasks, comments and labels). Code is in
 `backend/alpenglow_dashboard/upgrades/`.
@@ -125,8 +122,7 @@ Where it shows up:
   for an Act now verdict or for a known-exploited CVE on a public service
   (the latter without waiting for Claude). Sent pings are kept in
   `data/security-pings.json`. Everything else goes in the 9 AM digest's
-  Security section, which the tracker's bot reads from
-  `GET /internal/security/annotations` (`EXTRA_ANNOTATIONS_URLS`). Nothing
+  Security section (see [Daily digest](#daily-digest)). Nothing
   open means no section and no ping.
 
 Setup:
@@ -139,6 +135,30 @@ Setup:
 
 `POST /api/security/sync` (admin) syncs straight away. Code is in
 `backend/alpenglow_dashboard/security/`.
+
+## Daily digest
+
+Once a day (`DIGEST_AT`, local time, default `09:00`) the dashboard posts what's
+waiting for a person to Discord, in up to three messages:
+
+1. **Security**: Claude's verdicts on open CVE findings.
+2. **Upgrades**: the open Upgrades cards, grouped by verdict.
+3. **Other updates**: pending updates with no card, from the tracker, and any
+   release the tracker is holding back because its image isn't published yet.
+
+A message with nothing in it is left out, and on a day with none nothing is
+posted. The tracker rescans first, so the digest matches what's running.
+
+It goes to `DIGEST_WEBHOOK_URL`, or to `UPDATE_SUMMARY_WEBHOOK_URL` when that's
+unset; with neither, or with `DIGEST_AT=off`, there is no digest.
+`GET /api/digest` shows what it would say now, and `POST /api/digest/send`
+sends it now.
+
+The tracker's Discord bot used to send this, fetching the verdicts from the
+dashboard. It isn't run any more: the tracker reports what exists upstream, and
+the dashboard decides what to say about it. `GET /internal/upgrades/annotations`
+and `GET /internal/security/annotations` are what that bot read, and nothing
+uses them now.
 
 ## Updating services
 
@@ -192,8 +212,8 @@ read-write. Code is in `backend/alpenglow_dashboard/repin.py` and
 While a row waits it shows **Updated**, or why its update failed. When the last
 update in flight has finished, the tracker rescans once, which clears the updated
 rows, and a summary of the results goes to Discord if
-`UPDATE_SUMMARY_WEBHOOK_URL` is set in `.env` (a webhook of the digest's channel:
-the dashboard shouldn't hold the bot's token). The dashboard's own successful
+`UPDATE_SUMMARY_WEBHOOK_URL` is set in `.env` (a channel webhook, which can only post to its one
+channel: the dashboard is root-equivalent and shouldn't hold a bot token). The dashboard's own successful
 update ends the process first, so it isn't in a summary, and its row clears at the
 tracker's next scan. Failure reasons are posted, so mind who can read the channel.
 

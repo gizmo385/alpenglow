@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import actions, auth, autoupdate, categories, inventory, models, security, streams, tags, upgrades
+from . import actions, auth, autoupdate, categories, digest, inventory, models, security, streams, tags, upgrades
 from .integrations import overview as overview_routes
 from .integrations import updates as updates_routes
 
@@ -22,7 +22,8 @@ STATIC_DIR = Path(os.environ.get("STATIC_DIR", "/app/static"))
 
 @contextlib.asynccontextmanager
 async def lifespan(app):
-    async with streams.lifespan(app), upgrades.lifespan(app), security.lifespan(app), autoupdate.lifespan(app):
+    async with streams.lifespan(app), upgrades.lifespan(app), security.lifespan(app), autoupdate.lifespan(app), \
+            digest.lifespan(app):
         yield
 
 
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(upgrades.router)
     app.include_router(security.router)
     app.include_router(autoupdate.router)
+    app.include_router(digest.router)
 
     if STATIC_DIR.is_dir():
         app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")

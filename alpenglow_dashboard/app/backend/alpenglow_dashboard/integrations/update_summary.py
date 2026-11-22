@@ -30,8 +30,11 @@ class _HideWebhook(logging.Filter):
     """Drop httpx's own log line for the post, which quotes the whole URL."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        url = os.environ.get("UPDATE_SUMMARY_WEBHOOK_URL")
-        return not url or url not in record.getMessage()
+        message = record.getMessage()
+        return not any(
+            url and url in message
+            for url in (os.environ.get("UPDATE_SUMMARY_WEBHOOK_URL"), os.environ.get("DIGEST_WEBHOOK_URL"))
+        )
 
 
 logging.getLogger("httpx").addFilter(_HideWebhook())
@@ -85,9 +88,9 @@ async def post(results: list[Result], title: str = TITLE) -> None:
         await post_embed(build_embed(results, title))
 
 
-async def post_embed(embed: dict) -> None:
-    """Post one embed to the summary webhook, if there is one."""
-    url = os.environ.get("UPDATE_SUMMARY_WEBHOOK_URL")
+async def post_embed(embed: dict, url: str | None = None) -> None:
+    """Post one embed to ``url``, or to the summary webhook if there is one."""
+    url = url or os.environ.get("UPDATE_SUMMARY_WEBHOOK_URL")
     if not url:
         return
     body = {
