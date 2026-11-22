@@ -13,6 +13,7 @@ import { useServiceSecurity } from "../../api/hooks";
 import type { SecurityFinding, ServiceSecurity } from "../../api/types";
 import { Button } from "../../components";
 import { relativeAgo } from "../../lib/format";
+import { inline, Markdown } from "../../lib/markdown";
 import { useToast } from "../../store/toast";
 import { ShieldPill } from "../security/Shield";
 import css from "./detail.module.css";
@@ -30,6 +31,38 @@ const SEVERITY_COLOR: Record<string, string> = {
   High: "#f0a070",
   Medium: "#f5b942",
 };
+
+/** Split Claude's reply into its verdict sentence, the details and the
+ *  dispatcher's footer ("— Claude, security profile · 7 turns · …"). */
+export function splitReply(reply: string): { lead: string; body: string; footer: string } {
+  const lines = reply.replace(/\r/g, "").split("\n");
+  let lead = "";
+  let footer = "";
+  const first = lines.findIndex((l) => l.trim());
+  const m = first >= 0 ? /^\W*verdict\W*(act now|next upgrade|not affected)[\s*_.:\-–—]*(.*)$/i.exec(lines[first].trim()) : null;
+  if (m) {
+    lead = m[2].replace(/[*_]+$/, "").trim();
+    lines.splice(first, 1);
+  }
+  let last = lines.length - 1;
+  while (last >= 0 && !lines[last].trim()) last--;
+  if (last >= 0 && /^[—-]\s/.test(lines[last].trim()) && /claude/i.test(lines[last])) {
+    footer = lines[last].trim().replace(/^[—-]\s*/, "");
+    lines.splice(last, 1);
+  }
+  return { lead, body: lines.join("\n").trim(), footer };
+}
+
+function Reply({ text }: { text: string }) {
+  const { lead, body, footer } = splitReply(text);
+  return (
+    <div className={sec.replyBox}>
+      {lead && <p className={sec.lead}>{inline(lead, "lead")}</p>}
+      {body && <Markdown text={body} className={sec.reply} />}
+      {footer && <div className={sec.footer}>{footer}</div>}
+    </div>
+  );
+}
 
 function Finding({ f }: { f: SecurityFinding }) {
   const sevColor = SEVERITY_COLOR[f.severity] ?? "var(--color-neutral-400)";
@@ -144,7 +177,7 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
           )}
         </div>
         {data.reply ? (
-          <div className={sec.reply}>{data.reply}</div>
+          <Reply text={data.reply} />
         ) : (
           data.open.length > 0 && <div className={sec.muted}>Claude is assessing these findings.</div>
         )}
