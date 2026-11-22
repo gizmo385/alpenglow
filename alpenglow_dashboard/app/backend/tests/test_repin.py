@@ -168,8 +168,18 @@ def test_pin_uses_the_first_tag_that_exists(repo: Path):
 
 def test_pin_with_no_tag_raises(repo: Path):
     (repo / "pin").write_text("#!/bin/sh\necho 'error: manifest unknown' >&2\nexit 3\n")
-    with pytest.raises(repin.RepinError, match="no image tag found.*manifest unknown"):
+    with pytest.raises(repin.TagNotPublished) as err:
         asyncio.run(repin.pin(BESZEL))
+    assert str(err.value) == ("henrygd/beszel v0.22.0 is released but its image isn't published yet "
+                              "(no tag 0.22.0, v0.22.0)")
+
+
+def test_the_trackers_tag_is_tried_first(repo: Path):
+    e = entry(latest="v0.22.0", latest_tag="0.22")
+    t = target_for(e, PINS)
+    assert t.tags() == ["0.22", "0.22.0", "v0.22.0"]
+    assert asyncio.run(repin.pin(t)) == "0.22"
+    assert pin_log(repo) == ["henrygd/beszel 0.22"]
 
 
 @pytest.mark.parametrize(
@@ -344,7 +354,7 @@ def test_failed_repin_skips_that_pull(job, repo: Path):
     run_update("beszel", "jellyfin")
     assert calls == [("jellyfin", "pull")]
     by = {a["service"]: a for a in audit_lines()}
-    assert by["beszel"]["outcome"] == "failed" and "no image tag found" in by["beszel"]["stderr"]
+    assert by["beszel"]["outcome"] == "failed" and "image isn't published yet" in by["beszel"]["stderr"]
 
 
 def test_update_repins_every_image_of_a_service(job, repo: Path):
@@ -364,7 +374,7 @@ def test_one_failed_repin_of_a_service_skips_its_pull(job, repo: Path):
     assert calls == []
     by = {a["service"]: a for a in audit_lines()}
     assert by["beszel"]["outcome"] == "failed"
-    assert "no image tag found for jellyfin/jellyfin" in by["beszel"]["stderr"]
+    assert "jellyfin/jellyfin vNOPE is released but its image isn't published yet" in by["beszel"]["stderr"]
     assert "pins henrygd/beszel to 0.22.0 (was 0.21.1); not rolled back" in by["beszel"]["stderr"]
 
 
