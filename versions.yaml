@@ -88,8 +88,8 @@ images:
     tag: 0.44.0
     digest: sha256:7da31d62e6c46ee8b61280f872801e429ec6f3db81bb23aca11c83863939cade
   ghcr.io/music-assistant/server:
-    tag: 2.10.12
-    digest: sha256:7eb272e2e13da9a5d61dcbc4e1fcfc734776222b23f2825a9b5690d4427cfafb
+    tag: 2.10.13
+    digest: sha256:7510aaa7ee5fc85b34fd0de17992bd14473895b23ce3eb9b310092743f4dbb84
   ghcr.io/sergi0g/cup:
     tag: v3.6.0
     digest: sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
@@ -113,7 +113,7 @@ images:
     digest: sha256:66c798d79a95c2691f280329c3611dba1746117c61c9f331907ca35a06a52778
   quay.io/keycloak/keycloak:
     tag: 26.8.2
-    digest: sha256:3879c623248408de29a5303178b5816c77e8dfef3890c361f8c0bbeaa979ba3b
+    digest: sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
   quay.io/oauth2-proxy/oauth2-proxy:
     tag: v7.15.6
     digest: sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
@@ -149,7 +149,7 @@ images:
     digest: sha256:8e4b6bef96417ec98a35dc103c99cc64fc229a01e584e56d95d9004d2003c02a
   nextcloud:
     tag: 35.0.3
-    digest: sha256:8a7a65b8bae82a79568fec2ed9cf3e374a1944eda2a22ebe130d79463336fee3
+    digest: sha256:f22d1dd63844bd15bbf6c2019149653c3d1c775ba48b173b56c3c6ad5f386196
   ollama/ollama:
     tag: 0.40.17
     digest: sha256:ccc42bcd3d5fcf7ab0d532b300382154e1a4da56fc666bdb313b78ebdd912754
@@ -163,7 +163,7 @@ images:
     digest: sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
   eclipse-mosquitto:
     tag: 2.1.2-alpine
-    digest: sha256:860aeb5d63ce509508f6dcfb2bc8a1c1dd2bc60555b562b45ce90e52d8dabb0f
+    digest: sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98
   twentycrm/twenty:
     tag: v2.59.0
     digest: sha256:76933f24d3781a3a90809857217b0cfd70735b0fa79eee4acc76956573810439
@@ -179,8 +179,8 @@ images:
     policy: float
     reason: Not pinned yet
   ghcr.io/gizmo385/youtube-rss-manager:
-    tag: sha-5c5381c
-    digest: sha256:116da0b13ab70ba024873fe4e4fdccd77edb22c8014e47766682f835c8bac785
+    tag: sha-bcb5f17
+    digest: sha256:058d50f4b06f57e3cb3afb4c2eba3e3fd4d3e8fa8eaf95ee38f1f46624aec41c
     policy: auto-eligible
     reason: Publishes only latest and sha-* tags; updates by following latest
     auto:
