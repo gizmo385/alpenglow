@@ -130,4 +130,4 @@ profiles:
 projects:
   # Vikunja project id: profile. Find the id in the project's URL.
   2: upgrade   # Upgrades
-  # 3: security   # Security: create the project in Vikunja, then put its id here
+  5: security  # Security
