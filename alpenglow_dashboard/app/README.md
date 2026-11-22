@@ -151,6 +151,15 @@ too (`sha-5c5381c` → `sha-fdfa579`, the build's age, a GitHub compare link for
 `ghcr.io/OWNER/REPO` images), whether or not automatic updates are on. Its
 Update repins to exactly that tag.
 
+Publishers sometimes push a new image to a tag we already run (Keycloak
+re-pushing `26.6.4` with a CVE fix, official images rebuilt on a new base).
+Every 6 hours the dashboard asks each pinned image's registry where its tag
+points (a manifest lookup: nothing is pulled, and Docker Hub doesn't count it
+against the pull limit). When that's not the digest in `versions.yaml`, the
+image gets a **rebuilt** row (`2.1.2-alpine` → `2.1.2-alpine`, rebuilt) whose
+Update repins the same tag to the new digest. A new release of the same image
+replaces its rebuilt row. **Check for updates** looks again straight away.
+
 Tick services and press **Update selected**, or press a row's **Update**.
 Either posts `POST /api/updates/apply` (admin, CSRF), which:
 

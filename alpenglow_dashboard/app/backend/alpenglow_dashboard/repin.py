@@ -163,7 +163,8 @@ def target_for(entry: dict, pins: dict[str, dict]) -> Target | None:
 
 async def targets(service_id: str) -> list[Target]:
     """The pending upgrades of this service's pinned images (signoz has two),
-    from the tracker's releases and from followed tags' new builds."""
+    from the tracker's releases, followed tags' new builds, and rebuilt tags
+    (the same tag, repinned so pin looks its digest up again)."""
     from .integrations import updates  # avoids an import cycle
 
     from .integrations import follows
@@ -179,8 +180,10 @@ async def targets(service_id: str) -> list[Target]:
         return out
     matched, _ = updates._match_entries(payload)
     pins = load_pins(repo_root())
-    found = (target_for(entry, pins) for entry in matched.get(service_id, []))
-    return out + [t for t in found if t is not None]
+    found = [t for t in (target_for(entry, pins) for entry in matched.get(service_id, [])) if t is not None]
+    # A new release supersedes a rebuild of the current tag (see follows.py).
+    released = {t.name for t in found}
+    return [t for t in out if t.name not in released] + found
 
 
 # ── running pin as the repo's owner ───────────────────────────────────

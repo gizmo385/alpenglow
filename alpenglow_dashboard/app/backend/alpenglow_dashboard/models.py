@@ -405,6 +405,7 @@ class UpdateEntry(BaseModel):
     updateError: Optional[str] = None
     # "follow" when the entry comes from a versions.yaml `auto: {follow: TAG}`
     # pin rather than a GitHub release: a new per-build image on that tag.
+    # "rebuild" when the pinned tag itself now points at a different image.
     source: Optional[str] = None
     followTag: Optional[str] = None
     # Claude's verdict on the service's open Security card, if any (security/).
