@@ -532,3 +532,13 @@ def test_env_drops_git_config_pairs_together(monkeypatch):
     monkeypatch.setenv("GIT_CONFIG_VALUE_0", "c")
     env = repin._env(None)
     assert not any(k.startswith("GIT_CONFIG_") for k in env)
+
+
+def test_latest_is_the_image_tag_when_the_tracker_found_one():
+    """The Updates list shows what Update will pull, not the release's name."""
+    from alpenglow_dashboard.integrations import updates
+
+    release = {"latest_version": "v26.10.10.3-stable", "html_url": "https://x"}
+    assert updates._entry_fields({**release, "latest_tag": "26.10.10"})["latestVersion"] == "26.10.10"
+    assert updates._entry_fields(release)["latestVersion"] == "v26.10.10.3-stable"
+    assert updates._entry_fields({**release, "latest_tag": ""})["latestVersion"] == "v26.10.10.3-stable"
