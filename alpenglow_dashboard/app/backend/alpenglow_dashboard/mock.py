@@ -121,8 +121,10 @@ MOCK_SERVICES: dict[str, dict] = {
     "youtube_rss_manager": dict(
         name="YouTube RSS", cat="Productivity", icon="ph-youtube-logo",
         desc="Turns YouTube subscriptions into clean RSS feeds for FreshRSS.",
-        image="ghcr.io/gizmo385/youtube-rss-manager:latest", version="latest",
-        latest=None, released=None, changelog=None,
+        image="ghcr.io/gizmo385/youtube-rss-manager:sha-5c5381c", version="sha-5c5381c",
+        # Pinned with `auto: {follow: latest}`: a new build, not a release.
+        latest="sha-fdfa579", released=0.017, follow="latest",
+        changelog="https://github.com/gizmo385/youtube-rss-manager/compare/5c5381c...fdfa579",
         status="up", uptime=464400, url="https://youtube-rss.acbc.house", tier="tailnet",
         containers=["youtube_rss_manager"], tags=[], restart=_D, ports="8080", memLimit=None,
     ),
@@ -514,8 +516,8 @@ def mock_updates() -> models.Updates:
         if not s["latest"]:
             continue
         verdict = {}
-        if len(entries) < len(_MOCK_VERDICTS):
-            name, color, note = _MOCK_VERDICTS[len(entries)]
+        if not s.get("follow") and len([e for e in entries if not e.source]) < len(_MOCK_VERDICTS):
+            name, color, note = _MOCK_VERDICTS[len([e for e in entries if not e.source])]
             verdict = dict(verdict=name, verdictColor=color, verdictNote=note,
                            cardUrl=f"https://board.example/tasks/{len(entries) + 1}")
         entries.append(models.UpdateEntry(
@@ -528,6 +530,8 @@ def mock_updates() -> models.Updates:
             updated=s.get("updated", False),
             releasedAt=_ago(days=s["released"]) if s.get("released") is not None else None,
             changelogUrl=s["changelog"],
+            source="follow" if s.get("follow") else None,
+            followTag=s.get("follow"),
             **verdict,
         ))
     return models.Updates(

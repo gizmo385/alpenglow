@@ -93,6 +93,15 @@ The Updates view lists one row per pending image. A service with several
 each, and its rows select and update together: Update works on the whole
 service.
 
+Rows come from image-updates-tracker, which only knows GitHub releases. An
+image pinned with `auto: {follow: latest}` (see "Your own images" below) has
+none, so the dashboard asks the registry where `latest` points itself, using the same
+`./pin resolve` as the auto-updater, cached for 10 minutes and redone on
+**Check for updates**. When that's a newer build than the pin, it gets a row
+too (`sha-5c5381c` → `sha-fdfa579`, the build's age, a GitHub compare link for
+`ghcr.io/OWNER/REPO` images), whether or not automatic updates are on. Its
+Update repins to exactly that tag.
+
 Tick services and press **Update selected**, or press a row's **Update**.
 Either posts `POST /api/updates/apply` (admin, CSRF), which:
 

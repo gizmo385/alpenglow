@@ -162,16 +162,25 @@ def target_for(entry: dict, pins: dict[str, dict]) -> Target | None:
 
 
 async def targets(service_id: str) -> list[Target]:
-    """The pending upgrades of this service's pinned images (signoz has two)."""
+    """The pending upgrades of this service's pinned images (signoz has two),
+    from the tracker's releases and from followed tags' new builds."""
     from .integrations import updates  # avoids an import cycle
 
+    from .integrations import follows
+
+    out = [
+        # A followed sha-* tag is the exact tag to pin; there's no spelling to guess.
+        Target(name=f.name, current_tag=f.current, current_version=f.current,
+               latest_version=f.latest, exact=True)
+        for f in updates._match_follows(await follows.pending()).get(service_id, [])
+    ]
     payload = await updates._tracker_cached()
     if not payload:
-        return []
+        return out
     matched, _ = updates._match_entries(payload)
     pins = load_pins(repo_root())
     found = (target_for(entry, pins) for entry in matched.get(service_id, []))
-    return [t for t in found if t is not None]
+    return out + [t for t in found if t is not None]
 
 
 # ── running pin as the repo's owner ───────────────────────────────────
