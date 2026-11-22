@@ -287,6 +287,9 @@ export interface UpdateEntry {
   updated?: boolean;
   /** Why the service's last Update failed, until its next one. */
   updateError?: string | null;
+  /** "follow": a new per-build image on a followed tag, not a release. */
+  source?: string | null;
+  followTag?: string | null;
 }
 
 export interface Updates {

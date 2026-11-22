@@ -65,6 +65,11 @@
 .latest {
   color: var(--color-accent-300);
 }
+/* Versions are short; never break one mid-tag. */
+.version {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
 .released {
   font-size: 12px;
   color: var(--color-neutral-500);
@@ -245,4 +250,18 @@ a.verdict:hover {
   margin: 0 0 10px;
   font-size: 12px;
   color: var(--color-down);
+}
+
+/* With room to spare, keep image refs and versions on one line. */
+@media (min-width: 1440px) {
+  .mono {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  .svcName {
+    white-space: nowrap;
+  }
+  .verdictCell {
+    max-width: 360px;
+  }
 }

@@ -27,6 +27,10 @@ Connection failure / 404 → empty list + ``trackerUnavailable=True``.
 ``latestVersion``/``releasedAt``/``changelogUrl`` per dir, from its primary
 update (inventory calls it on every request — caching is required).
 
+Pinned images that follow a moving tag (``auto: {follow: latest}``) have no
+releases for the tracker to report; their new builds come from
+:mod:`.follows` and are listed alongside, with ``source="follow"``.
+
 Each entry also carries Claude's verdict when the Upgrades board has a card for
 it (see ``alpenglow_dashboard.upgrades``), matched by the tracker's
 ``owner/repo``. Vikunja being down only drops the verdicts; the list still
@@ -44,6 +48,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from .. import inventory, mock, models
+from . import follows as follows_mod
 from ._common import DEFAULT_TIMEOUT, AsyncTTLCache, env_url
 
 router = APIRouter(prefix="/api", tags=["updates"])
@@ -201,6 +206,21 @@ def _match_entries(payload: dict) -> tuple[dict[str, list[dict]], list[str]]:
     return matched, unmatched
 
 
+def _match_follows(
+    pending: list[follows_mod.FollowUpdate],
+) -> dict[str, list[follows_mod.FollowUpdate]]:
+    """``{dir_id: [follow update, ...]}``; ones no compose file uses are logged."""
+    img_map = _image_to_dir()
+    matched: dict[str, list[follows_mod.FollowUpdate]] = {}
+    for f in pending:
+        sid = img_map.get(normalize_image(f.name))
+        if sid is None:
+            log.info("updates: followed image %s isn't used by any service dir", f.name)
+            continue
+        matched.setdefault(sid, []).append(f)
+    return matched
+
+
 def _entry_fields(entry: dict) -> dict[str, Optional[str]]:
     rel = _newest_release(entry)
     return {
@@ -229,13 +249,18 @@ async def service_enrichment() -> dict[str, dict]:
     Empty dict when the tracker is unavailable.
     """
     payload = await _tracker_cached()
+    out: dict[str, dict] = {}
+    for sid, pending in _match_follows(await follows_mod.pending()).items():
+        f = pending[0]
+        out[sid] = {"latestVersion": f.latest, "releasedAt": f.built_at, "changelogUrl": f.compare_url}
     if payload is None:
-        return {}
+        return out
     matched, unmatched = _match_entries(payload)
     if unmatched:
         log.info("updates: %d tracker entries unmatched to a service dir: %s",
                  len(unmatched), ", ".join(unmatched))
-    return {sid: _entry_fields(entries[0]) for sid, entries in matched.items()}
+    out.update({sid: _entry_fields(entries[0]) for sid, entries in matched.items()})
+    return out
 
 
 # ── metadata for update entries ───────────────────────────────────────────────
@@ -249,7 +274,33 @@ def _meta_for(sid: str) -> tuple[str, str]:
     return name, icon
 
 
-def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.Updates:
+def _follow_entries(pending: list[follows_mod.FollowUpdate]) -> list[models.UpdateEntry]:
+    from .. import actions  # avoids an import cycle
+
+    entries = []
+    for sid, found in sorted(_match_follows(pending).items()):
+        name, icon = _meta_for(sid)
+        updated, update_error = actions.update_outcome(sid)
+        for f in found:
+            entries.append(models.UpdateEntry(
+                id=sid,
+                name=name,
+                icon=icon,
+                image=f.name,
+                currentVersion=f.current,
+                latestVersion=f.latest,
+                releasedAt=f.built_at,
+                changelogUrl=f.compare_url,
+                updated=updated,
+                updateError=update_error,
+                source="follow",
+                followTag=f.follow_tag,
+            ))
+    return entries
+
+
+def _build_updates(payload: dict, annotations: Optional[dict] = None,
+                   pending_follows: Optional[list[follows_mod.FollowUpdate]] = None) -> models.Updates:
     from .. import actions  # avoids an import cycle
 
     matched, unmatched = _match_entries(payload)
@@ -281,6 +332,7 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None) -> models.
                     **_verdict_fields(entry, annotations or {}),
                 )
             )
+    entries += _follow_entries(pending_follows or [])
     return models.Updates(
         services=entries,
         lastUpdated=_last_updated_iso(payload),
@@ -297,10 +349,11 @@ async def get_updates() -> models.Updates:
     if mock.mock_enabled():
         return mock.mock_updates()
     payload = await _tracker_cached()
+    pending = await follows_mod.pending()
     if payload is None:
-        return models.Updates(services=[], lastUpdated=None, refreshing=False,
+        return models.Updates(services=_follow_entries(pending), lastUpdated=None, refreshing=False,
                               trackerUnavailable=True)
-    return _build_updates(payload, await _annotations_cached())
+    return _build_updates(payload, await _annotations_cached(), pending)
 
 
 async def _proxy_refresh() -> Optional[dict]:
@@ -331,9 +384,10 @@ def display_name(sid: str) -> str:
 async def pending_versions() -> dict[str, list[str]]:
     """Each service's pending updates as ``current → latest``, for the summary."""
     payload = await _tracker_cached()
+    versions = {sid: [f"{f.current} → {f.latest}" for f in found]
+                for sid, found in _match_follows(await follows_mod.pending()).items()}
     if not payload:
-        return {}
-    versions = {}
+        return versions
     for sid, entries in _match_entries(payload)[0].items():
         labels = [
             f"{entry.get('current_version') or '?'} → {_entry_fields(entry)['latestVersion']}"
@@ -344,7 +398,7 @@ async def pending_versions() -> dict[str, list[str]]:
                 f"{str(entry.get('image', '')).split('@')[0].split(':')[0].rsplit('/', 1)[-1]} {label}"
                 for entry, label in zip(entries, labels)
             ]
-        versions[sid] = labels
+        versions[sid] = versions.get(sid, []) + labels
     return versions
 
 
@@ -383,10 +437,12 @@ async def refresh_updates() -> models.Updates:
         result = mock.mock_updates()
         result.refreshing = True
         return result
+    follows_mod.invalidate()
     payload = await _proxy_refresh()
+    pending = await follows_mod.pending()
     if payload is None:
-        return models.Updates(services=[], lastUpdated=None, refreshing=False,
+        return models.Updates(services=_follow_entries(pending), lastUpdated=None, refreshing=False,
                               trackerUnavailable=True)
-    result = _build_updates(payload, await _annotations_cached())
+    result = _build_updates(payload, await _annotations_cached(), pending)
     result.refreshing = True
     return result

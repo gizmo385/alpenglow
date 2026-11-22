@@ -11,6 +11,10 @@
 .page.narrow {
   max-width: 1080px;
 }
+/* Wide tables (Updates): use the screen, so image refs and versions fit on one line. */
+.page.wide {
+  max-width: 1720px;
+}
 
 .pageHead {
   display: flex;

@@ -56,6 +56,13 @@ function uniqueIds(entries: UpdateEntry[]): string[] {
 
 /** Claude's verdict for an update (from upgrades-board), linking to its card. */
 function Verdict({ entry }: { entry: UpdateEntry }) {
+  if (entry.source === "follow")
+    return (
+      <div>
+        <span className={styles.noVerdict}>Not needed</span>
+        <div className={styles.verdictNote}>New build of {entry.followTag ?? "its tag"}; no release to assess.</div>
+      </div>
+    );
   if (!entry.verdict) return <span className={styles.noVerdict}>—</span>;
   const label = (
     <>
@@ -265,7 +272,7 @@ export function Updates() {
     : `${count} service${count === 1 ? "" : "s"} have a newer image available`;
 
   return (
-    <div className={`${viewStyles.page} ${viewStyles.narrow}`}>
+    <div className={`${viewStyles.page} ${viewStyles.wide}`}>
       <div className={viewStyles.pageHead}>
         <div>
           <h2>Updates</h2>
@@ -375,8 +382,10 @@ export function Updates() {
                       {auto.data && <AutoNote unit={unitFor(auto.data, e)} mode={auto.data.mode} />}
                     </td>
                     <td className={`${styles.mono} ${styles.image}`}>{e.image}</td>
-                    <td className={styles.mono}>{e.currentVersion}</td>
-                    <td className={`${styles.mono} ${styles.latest}`}>{e.latestVersion}</td>
+                    <td className={`${styles.mono} ${styles.version}`}>{e.currentVersion}</td>
+                    <td className={`${styles.mono} ${styles.version} ${styles.latest}`}>
+                      {e.latestVersion}
+                    </td>
                     <td className={styles.released}>{relativeAgo(e.releasedAt)}</td>
                     <td className={styles.verdictCell}>
                       <Verdict entry={e} />
@@ -389,7 +398,7 @@ export function Updates() {
                             href={e.changelogUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title="Changelog"
+                            title={e.source === "follow" ? "Commits since current build" : "Changelog"}
                             aria-label={`Changelog for ${e.name}`}
                           >
                             <Icon name="note" size={15} />

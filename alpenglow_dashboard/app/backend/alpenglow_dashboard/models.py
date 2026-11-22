@@ -392,6 +392,10 @@ class UpdateEntry(BaseModel):
     updated: bool = False
     # Why the service's last Update failed, until its next one.
     updateError: Optional[str] = None
+    # "follow" when the entry comes from a versions.yaml `auto: {follow: TAG}`
+    # pin rather than a GitHub release: a new per-build image on that tag.
+    source: Optional[str] = None
+    followTag: Optional[str] = None
 
 
 class Updates(BaseModel):
