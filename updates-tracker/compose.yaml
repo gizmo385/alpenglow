@@ -26,40 +26,14 @@ services:
       caddy.@updates.host: "updates.alpenglow.acbc.house"
       caddy.reverse_proxy: "@updates {{upstreams http 8585}}"
 
-  discord-bot:
-    # Read-only Docker API via /services/docker-proxy.
-    extends:
-      file: ../docker-proxy/profiles.yaml
-      service: docker-read
-    image: ghcr.io/gizmo385/image-updates-tracker-bot:main
-    volumes:
-      - ./overrides.yaml:/config/overrides.yaml:ro
-    env_file: .env
-    environment:
-      # The digest leads with the open Upgrades cards and Claude's verdicts,
-      # served by the dashboard (over the board network).
-      ANNOTATIONS_URL: http://alpenglow_dashboard:8080/internal/upgrades/annotations
-      # Then Claude's verdicts on open CVE findings, when there are any
-      # (cve-scanner + the dashboard's Security board).
-      EXTRA_ANNOTATIONS_URLS: http://alpenglow_dashboard:8080/internal/security/annotations
-      OTEL_SERVICE_NAME: updates-tracker-discord-bot
-      OTEL_RESOURCE_ATTRIBUTES: service.namespace=updates-tracker
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://signoz-alloy:4318
-    restart: unless-stopped
-    networks:
-      - ai
-      - board
-      - otel
+  # The daily Discord digest is sent by the dashboard (alpenglow_dashboard,
+  # digest.py), which has the verdicts it leads with. The tracker's own bot
+  # isn't run.
 
 networks:
   caddy:
     external: true
-  board:
-    external: true
   ai:
-    external: true
-  otel:
     external: true
   docker-proxy:
     external: true

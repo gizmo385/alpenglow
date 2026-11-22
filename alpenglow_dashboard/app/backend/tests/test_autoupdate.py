@@ -568,6 +568,18 @@ images:
     ]
 
 
+def test_an_unpublished_image_waits_without_pausing(env):
+    """The release is out but its image isn't: try again later, don't pause."""
+    tick()
+    (env["root"] / "pin").write_text("#!/bin/sh\necho 'error: manifest unknown' >&2\nexit 3\n")
+    tick(NOW + timedelta(days=1))
+    s = state().get("image:freshrss/freshrss")
+    assert "image isn't published yet" in s["waiting"]
+    assert state().paused("image:freshrss/freshrss") is None
+    assert env["compose"] == [] and env["summaries"] == [] and env["comments"] == []
+    assert actions._BUSY == {}
+
+
 def test_busy_service_is_skipped(env):
     tick()
     actions._BUSY["freshrss"] = "updating"

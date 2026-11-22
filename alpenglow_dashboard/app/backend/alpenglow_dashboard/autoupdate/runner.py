@@ -425,6 +425,16 @@ async def run_batch(batch: list[Plan], state: State) -> list:
             if reason:
                 raise _Failed(reason)
         ok = True
+    except repin.TagNotPublished as err:
+        if not pinned:
+            # Nothing was changed, and the image will turn up: wait, don't pause.
+            for sid, job in jobs.items():
+                await _release(sid, job, "skipped")
+            for p in batch:
+                state.unit(p.unit.id)["waiting"] = f"{err}; trying again next run"
+            log.info("autoupdate: %s", err)
+            return []
+        detail = str(err)
     except repin.RepinError as err:
         detail = str(err)
     except _Failed as err:

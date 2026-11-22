@@ -45,6 +45,19 @@ def test_candidate_tags_drop_a_monorepo_component():
     assert not any("/" in tag for tag in tags)
 
 
+def test_candidate_tags_drop_a_release_channel():
+    # ClickHouse releases v26.10.10.3-stable; the image is 26.10.10.3 / 26.10.10.
+    assert candidate_tags("26.10.9", "26.10.9.12", "v26.10.10.3-stable") == [
+        "26.10.10", "26.10.10.3", "v26.10.10.3", "v26.10.10.3-stable"]
+    assert candidate_tags("26.10.9.12", "v26.10.9.12-stable", "v26.10.10.3-stable")[0] == "26.10.10.3"
+    assert candidate_tags("25.8.12-alpine", "25.8.12.5", "v25.8.13.2-lts")[0] == "25.8.13-alpine"
+
+
+def test_candidate_tags_keep_a_release_line_pin_moving():
+    # Pinned to a line (17 running 17.4): cutting 17.5 would give 17 back.
+    assert candidate_tags("17", "17.4", "17.5") == ["17.5", "v17.5"]
+
+
 def test_candidate_tags_fall_back_to_both_spellings():
     assert candidate_tags("release-7", "7", "v8") == ["8", "v8"]
 
@@ -155,8 +168,18 @@ def test_pin_uses_the_first_tag_that_exists(repo: Path):
 
 def test_pin_with_no_tag_raises(repo: Path):
     (repo / "pin").write_text("#!/bin/sh\necho 'error: manifest unknown' >&2\nexit 3\n")
-    with pytest.raises(repin.RepinError, match="no image tag found.*manifest unknown"):
+    with pytest.raises(repin.TagNotPublished) as err:
         asyncio.run(repin.pin(BESZEL))
+    assert str(err.value) == ("henrygd/beszel v0.22.0 is released but its image isn't published yet "
+                              "(no tag 0.22.0, v0.22.0)")
+
+
+def test_the_trackers_tag_is_tried_first(repo: Path):
+    e = entry(latest="v0.22.0", latest_tag="0.22")
+    t = target_for(e, PINS)
+    assert t.tags() == ["0.22", "0.22.0", "v0.22.0"]
+    assert asyncio.run(repin.pin(t)) == "0.22"
+    assert pin_log(repo) == ["henrygd/beszel 0.22"]
 
 
 @pytest.mark.parametrize(
@@ -331,7 +354,7 @@ def test_failed_repin_skips_that_pull(job, repo: Path):
     run_update("beszel", "jellyfin")
     assert calls == [("jellyfin", "pull")]
     by = {a["service"]: a for a in audit_lines()}
-    assert by["beszel"]["outcome"] == "failed" and "no image tag found" in by["beszel"]["stderr"]
+    assert by["beszel"]["outcome"] == "failed" and "image isn't published yet" in by["beszel"]["stderr"]
 
 
 def test_update_repins_every_image_of_a_service(job, repo: Path):
@@ -351,7 +374,7 @@ def test_one_failed_repin_of_a_service_skips_its_pull(job, repo: Path):
     assert calls == []
     by = {a["service"]: a for a in audit_lines()}
     assert by["beszel"]["outcome"] == "failed"
-    assert "no image tag found for jellyfin/jellyfin" in by["beszel"]["stderr"]
+    assert "jellyfin/jellyfin vNOPE is released but its image isn't published yet" in by["beszel"]["stderr"]
     assert "pins henrygd/beszel to 0.22.0 (was 0.21.1); not rolled back" in by["beszel"]["stderr"]
 
 

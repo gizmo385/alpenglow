@@ -3,10 +3,11 @@
 For an image in ``versions.yaml``, ``docker compose pull`` alone does nothing:
 the compose file names an exact ``tag@digest``. So for those images Update
 first runs the repo's own pin tool, ``./pin set IMAGE TAG``, with the tracker's
-new release written the way the image is tagged now (a leading ``v`` and a
-suffix such as ``-alpine`` are kept). pin looks up the digest, which also
-proves the tag exists, so the next spelling is tried when one doesn't, and it
-rewrites the compose files.
+new release's image tag. The tracker reports the tag it found in the registry
+(``latest_tag``); without one, the release is written the way the image is
+tagged now (a leading ``v`` and a suffix such as ``-alpine`` are kept). pin
+looks up the digest, which also proves the tag exists, so the next spelling is
+tried when one doesn't, and it rewrites the compose files.
 
 Nothing is committed: the edited ``versions.yaml`` and compose files are left
 in the server's checkout for a person to commit. Every repin edits the same
@@ -55,6 +56,16 @@ class RepinError(Exception):
     """The repin couldn't be done; nothing was changed."""
 
 
+class TagNotPublished(RepinError):
+    """The registry has no image for the release yet.
+
+    A GitHub release often comes out before its image (Docker official images
+    can lag by days). The tracker holds such a release back, so this is rare:
+    it's raised when the tracker couldn't check. Trying again later is the fix,
+    so automatic updates wait on it instead of pausing.
+    """
+
+
 def repo_lock() -> asyncio.Lock:
     """The one lock around every edit of ``versions.yaml``."""
     global _repo_lock
@@ -80,11 +91,16 @@ class Target:
     latest_version: str
     repo: str = ""  # owner/repo, which ties it to its Upgrades card
     exact: bool = False  # latest_version is the tag itself (a followed sha-* tag)
+    # The image tag the tracker found in the registry for latest_version
+    # (its ``latest_tag``). Empty from an older tracker, or when it couldn't check.
+    verified_tag: str = ""
 
     def tags(self) -> list[str]:
         if self.exact:
             return [self.latest_version]
-        return candidate_tags(self.current_tag, self.current_version, self.latest_version)
+        guessed = candidate_tags(self.current_tag, self.current_version, self.latest_version)
+        # The tracker's tag first; our own guesses stay as a fallback.
+        return list(dict.fromkeys(([self.verified_tag] if self.verified_tag else []) + guessed))
 
 
 def _release(version: str) -> str:
@@ -93,9 +109,41 @@ def _release(version: str) -> str:
     return version.rsplit("/", 1)[-1]
 
 
+# Release-channel suffixes some projects put on every release name, such as
+# ClickHouse's ``v26.10.10.3-stable``. The image tag (``26.10.10.3``) leaves
+# them off. The tracker drops the same ones to compare versions.
+_CHANNEL_SUFFIXES = ("-stable", "-lts")
+
+_TAG_VERSION_RE = re.compile(r"^(v?)(\d+(?:\.\d+)*)(.*)$")
+
+
 def _bare(version: str) -> str:
     version = _release(version)
-    return version[1:] if version[:1] in ("v", "V") and version[1:2].isdigit() else version
+    if version[:1] in ("v", "V") and version[1:2].isdigit():
+        version = version[1:]
+    for suffix in _CHANNEL_SUFFIXES:
+        if version.lower().endswith(suffix):
+            return version[: -len(suffix)]
+    return version
+
+
+def _short_tag(current_tag: str, cur_bare: str, bare: str) -> str | None:
+    """``bare`` cut to as many parts as a shortened pin has.
+
+    ClickHouse is pinned as ``26.10.9`` while running ``26.10.9.12``, so
+    ``26.10.10.3`` is tried as ``26.10.10`` first. ``None`` when the tag isn't
+    a shortened version, or when cutting gives the current tag back (a pin on a
+    release line, ``17`` for ``17.4``, moves to the full version as before).
+    """
+    m = _TAG_VERSION_RE.match(current_tag)
+    if not m or not cur_bare.startswith(m.group(2) + "."):
+        return None
+    n = m.group(2).count(".") + 1
+    parts = bare.split(".")
+    if len(parts) <= n or not all(p.isdigit() for p in parts[:n]):
+        return None
+    short = ".".join(parts[:n])
+    return None if short == m.group(2) else f"{m.group(1)}{short}{m.group(3)}"
 
 
 def candidate_tags(current_tag: str, current_version: str, latest_version: str) -> list[str]:
@@ -103,7 +151,9 @@ def candidate_tags(current_tag: str, current_version: str, latest_version: str) 
 
     Release names and image tags often differ by a leading ``v``, and some
     images add a suffix (``0.21.1-alpine``). Match the current tag's spelling
-    first, then fall back to the plain release name with and without ``v``.
+    first, then fall back to the plain release name with and without ``v``. A
+    release-channel suffix (``-stable``) is dropped; the name as released is
+    still the last one tried.
     """
     bare = _bare(latest_version)
     out: list[str] = []
@@ -114,6 +164,10 @@ def candidate_tags(current_tag: str, current_version: str, latest_version: str) 
                 prefix = "v" if spelled.startswith("v") else ""
                 out.append(f"{prefix}{bare}{current_tag[len(spelled):]}")
                 break
+        else:
+            short = _short_tag(current_tag, cur_bare, bare)
+            if short:
+                out.append(short)
     if current_tag[:1] == "v":
         out += [f"v{bare}", bare]
     else:
@@ -156,6 +210,7 @@ def target_for(entry: dict, pins: dict[str, dict]) -> Target | None:
         current_version=str(entry.get("current_version") or ""),
         latest_version=str(entry["latest_version"]),
         repo=f"{owner}/{repo}" if owner and repo else "",
+        verified_tag=str(entry.get("latest_tag") or ""),
     )
     # Already pinned to it (the tracker hasn't rescanned since): just pull.
     return None if t.current_tag in t.tags() else t
@@ -302,5 +357,8 @@ async def pin_with_files(t: Target) -> tuple[str, list[str]]:
         reason = out.splitlines()[-1] if out else f"exit {rc}"
         if rc != _EXIT_NO_SUCH_TAG:
             raise RepinError(f"couldn't pin {t.name} to {candidate}: {reason}")
-        tried.append(f"{candidate}: {reason}")
-    raise RepinError(f"no image tag found for {t.name} {t.latest_version} ({'; '.join(tried)})")
+        tried.append(candidate)
+    raise TagNotPublished(
+        f"{t.name} {t.latest_version} is released but its image isn't published yet "
+        f"(no tag {', '.join(tried)})"
+    )
