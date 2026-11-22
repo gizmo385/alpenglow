@@ -143,8 +143,10 @@ waiting for a person to Discord, in up to three messages:
 
 1. **Security**: Claude's verdicts on open CVE findings.
 2. **Upgrades**: the open Upgrades cards, grouped by verdict.
-3. **Other updates**: pending updates with no card, from the tracker, and any
-   release the tracker is holding back because its image isn't published yet.
+3. **Other updates**: pending updates with no card, from the tracker.
+
+Everything in it is something you can act on. A release the tracker is holding
+back because its image isn't published yet is left out until it can be pulled.
 
 A message with nothing in it is left out, and on a day with none nothing is
 posted. The tracker rescans first, so the digest matches what's running.

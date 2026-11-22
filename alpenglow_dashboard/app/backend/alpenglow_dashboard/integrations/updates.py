@@ -223,8 +223,12 @@ def _match_follows(
 
 def _entry_fields(entry: dict) -> dict[str, Optional[str]]:
     rel = _newest_release(entry)
+    # The image tag the tracker found in the registry is what Update will pull
+    # (26.10.10 for ClickHouse's release v26.10.10.3-stable); the release name
+    # is the fallback when the tracker couldn't check.
+    latest = entry.get("latest_tag") or entry.get("latest_version")
     return {
-        "latestVersion": (str(entry.get("latest_version")) if entry.get("latest_version") else None),
+        "latestVersion": (str(latest) if latest else None),
         "releasedAt": (str(rel.get("published_at")) if rel and rel.get("published_at") else None),
         "changelogUrl": (str(entry.get("html_url")) if entry.get("html_url") else None),
     }

@@ -58,12 +58,19 @@ def test_the_digest_is_security_then_upgrades_then_the_rest():
     sec, ups, other = digest.build(UPGRADES, SECURITY, TRACKER)
     assert (sec["title"], sec["color"]) == ("Security", digest._RED)
     assert ups["footer"]["text"] == "1 easy · 1 hold · 1 other below"
-    # Dawarich has a card, so only Beszel is left; Redis is waiting on its image.
+    # Dawarich has a card, so only Beszel is left. Redis is waiting on its
+    # image, which isn't something to act on, so it isn't mentioned.
     assert other["title"] == "Other updates"
     assert other["description"] == (
         "**Beszel** `1.0` → `1.1` · [Releases](https://github.com/henrygd/beszel/releases)"
-        "\n\n⏳ Released, image not published yet: Redis 8.12.0"
     )
+
+
+def test_the_image_tag_is_shown_when_the_tracker_found_one():
+    tracker = {"services": [svc("ClickHouse", "ClickHouse/ClickHouse", current_version="26.10.9.12",
+                                latest_version="v26.10.10.3-stable", latest_tag="26.10.10")]}
+    [only] = digest.build({"items": []}, {}, tracker)
+    assert "`26.10.9.12` → `26.10.10`" in only["description"]
 
 
 def test_without_cards_the_tracker_updates_lead():

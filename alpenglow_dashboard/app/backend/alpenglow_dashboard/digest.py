@@ -4,10 +4,11 @@ Up to three messages, each left out when it has nothing to say:
 
 * **Security**: Claude's verdicts on open CVE findings (the Security board).
 * **Upgrades**: the open Upgrades cards, grouped by Claude's verdict.
-* **Other updates**: pending updates with no card, straight from the tracker,
-  and under them any release whose image isn't in the registry yet.
+* **Other updates**: pending updates with no card, straight from the tracker.
 
-On a day with none of those, nothing is posted.
+On a day with none of those, nothing is posted. Everything listed is something
+a person can act on: a release the tracker is holding back because its image
+isn't published yet is left out until it can be pulled.
 
 This used to be image-updates-tracker's Discord bot, which fetched the first
 two from here as "annotations". The dashboard is where the verdicts, the
@@ -144,16 +145,6 @@ def _services(tracker: Optional[dict]) -> list[dict]:
     return [s for s in (tracker or {}).get("services") or [] if isinstance(s, dict)]
 
 
-def waiting_releases(tracker: Optional[dict]) -> list[str]:
-    """Releases the tracker is holding back until their image is published."""
-    out = []
-    for s in _services(tracker):
-        waiting = [w for w in s.get("waiting") or [] if isinstance(w, dict) and w.get("tag")]
-        if waiting:
-            out.append(f"{s.get('name')} {waiting[0]['tag']}")
-    return sorted(out, key=str.casefold)
-
-
 def other_updates_embed(tracker: Optional[dict], covered: set[str], title: str) -> Optional[dict]:
     """Pending updates with no card (``covered`` holds the carded repos, lowercased)."""
     pending = sorted(
@@ -165,17 +156,12 @@ def other_updates_embed(tracker: Optional[dict], covered: set[str], title: str) 
         return None
     blocks = []
     for s in pending:
-        line = f"**{s.get('name')}** `{s.get('current_version')}` → `{s.get('latest_version')}`"
+        line = f"**{s.get('name')}** `{s.get('current_version')}` → `{s.get('latest_tag') or s.get('latest_version')}`"
         if s.get("html_url"):
             line += f" · [Releases]({s['html_url']})"
         blocks.append(line)
-    waiting = waiting_releases(tracker)
     footer = f"{len(pending)} of {len(_services(tracker))} services have updates with no card"
-    embed = {"title": title, "color": _AMBER, "description": _fit(blocks, _DESCRIPTION_LIMIT - 400),
-             "footer": {"text": footer}}
-    if waiting:
-        embed["description"] += "\n\n⏳ Released, image not published yet: " + _clip(", ".join(waiting), 300)
-    return embed
+    return {"title": title, "color": _AMBER, "description": _fit(blocks), "footer": {"text": footer}}
 
 
 def build(upgrades_payload: dict, security_payload: dict, tracker: Optional[dict]) -> list[dict]:
