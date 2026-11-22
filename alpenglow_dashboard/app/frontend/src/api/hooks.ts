@@ -13,7 +13,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "./client";
-import type { AutoUpdates, CategoryInfo, Overview, ServiceSummary, Updates } from "./types";
+import type {
+  AutoUpdates,
+  CategoryInfo,
+  Overview,
+  SecuritySummary,
+  ServiceSecurity,
+  ServiceSummary,
+  Updates,
+} from "./types";
 
 type Poll<T> = {
   data: T | null;
@@ -103,4 +111,16 @@ export function useCategories(): Poll<CategoryInfo[]> {
 /** /api/autoupdate, polled every 30s. */
 export function useAutoUpdates(): Poll<AutoUpdates> {
   return usePolling(api.autoUpdates, 30_000);
+}
+
+/** /api/services/{id}/security, polled every 60s (the scan runs nightly;
+ *  Claude's verdict and replies land within minutes). */
+export function useServiceSecurity(id: string): Poll<ServiceSecurity> {
+  const fetcher = useCallback(() => api.serviceSecurity(id), [id]);
+  return usePolling(fetcher, 60_000);
+}
+
+/** /api/security, polled every 60s: services with open findings and verdicts. */
+export function useSecurity(): Poll<SecuritySummary> {
+  return usePolling(api.security, 60_000);
 }

@@ -39,6 +39,9 @@ services:
       # The digest leads with the open Upgrades cards and Claude's verdicts,
       # served by the dashboard (over the board network).
       ANNOTATIONS_URL: http://alpenglow_dashboard:8080/internal/upgrades/annotations
+      # Then Claude's verdicts on open CVE findings, when there are any
+      # (cve-scanner + the dashboard's Security board).
+      EXTRA_ANNOTATIONS_URLS: http://alpenglow_dashboard:8080/internal/security/annotations
       OTEL_SERVICE_NAME: updates-tracker-discord-bot
       OTEL_RESOURCE_ATTRIBUTES: service.namespace=updates-tracker
       OTEL_TRACES_EXPORTER: otlp

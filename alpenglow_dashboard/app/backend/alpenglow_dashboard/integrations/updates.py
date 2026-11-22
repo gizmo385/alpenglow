@@ -300,7 +300,8 @@ def _follow_entries(pending: list[follows_mod.FollowUpdate]) -> list[models.Upda
 
 
 def _build_updates(payload: dict, annotations: Optional[dict] = None,
-                   pending_follows: Optional[list[follows_mod.FollowUpdate]] = None) -> models.Updates:
+                   pending_follows: Optional[list[follows_mod.FollowUpdate]] = None,
+                   security: Optional[dict[str, dict]] = None) -> models.Updates:
     from .. import actions  # avoids an import cycle
 
     matched, unmatched = _match_entries(payload)
@@ -333,12 +334,42 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None,
                 )
             )
     entries += _follow_entries(pending_follows or [])
+    entries = _with_security(entries, security or {})
     return models.Updates(
         services=entries,
         lastUpdated=_last_updated_iso(payload),
         refreshing=bool(payload.get("refreshing")),
         trackerUnavailable=False,
     )
+
+
+def _with_security(entries: list[models.UpdateEntry], security: dict[str, dict]) -> list[models.UpdateEntry]:
+    """Add each service's Security verdict, and put flagged services first.
+
+    Flagged rows go Act now, then Next upgrade, then waiting, then Not
+    affected; the rest keep their order.
+    """
+    from ..security.verdicts import ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED
+
+    rank = {ACT_NOW: 0, NEXT_UPGRADE: 1, NOT_AFFECTED: 3}
+    out = [e.model_copy(update=security[e.id]) if e.id in security else e for e in entries]
+
+    def key(e: models.UpdateEntry) -> int:
+        if not e.securityVerdict:
+            return 4
+        return rank.get(e.securityVerdict, 2)
+
+    return sorted(out, key=key)
+
+
+async def _security_cached() -> dict[str, dict]:
+    from .. import security  # avoids an import cycle
+
+    try:
+        return await security.entry_fields()
+    except Exception:
+        log.exception("updates: couldn't read security findings")
+        return {}
 
 
 # ── routes ────────────────────────────────────────────────────────────────────
@@ -350,10 +381,11 @@ async def get_updates() -> models.Updates:
         return mock.mock_updates()
     payload = await _tracker_cached()
     pending = await follows_mod.pending()
+    security = await _security_cached()
     if payload is None:
-        return models.Updates(services=_follow_entries(pending), lastUpdated=None, refreshing=False,
-                              trackerUnavailable=True)
-    return _build_updates(payload, await _annotations_cached(), pending)
+        return models.Updates(services=_with_security(_follow_entries(pending), security), lastUpdated=None,
+                              refreshing=False, trackerUnavailable=True)
+    return _build_updates(payload, await _annotations_cached(), pending, security)
 
 
 async def _proxy_refresh() -> Optional[dict]:
@@ -443,6 +475,6 @@ async def refresh_updates() -> models.Updates:
     if payload is None:
         return models.Updates(services=_follow_entries(pending), lastUpdated=None, refreshing=False,
                               trackerUnavailable=True)
-    result = _build_updates(payload, await _annotations_cached(), pending)
+    result = _build_updates(payload, await _annotations_cached(), pending, await _security_cached())
     result.refreshing = True
     return result

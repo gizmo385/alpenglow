@@ -30,9 +30,19 @@ export interface OverviewServices {
   total: number;
 }
 
+/** Services with open security findings, by Claude's verdict. */
+export interface SecurityCounts {
+  actNow: number;
+  nextUpgrade: number;
+  notAffected: number;
+  waiting: number;
+}
+
 export interface OverviewUpdates {
   /** null when the update tracker can't be read. */
   count: number | null;
+  /** null until the cve-scanner has written its first scan. */
+  security?: SecurityCounts | null;
 }
 
 export interface MonitorRef {
@@ -290,6 +300,12 @@ export interface UpdateEntry {
   /** "follow": a new per-build image on a followed tag, not a release. */
   source?: string | null;
   followTag?: string | null;
+  /** Claude's verdict on the service's open Security card, if it has findings. */
+  securityVerdict?: string | null;
+  securityNote?: string | null;
+  securityColor?: string | null;
+  securityCardUrl?: string | null;
+  securityOpen?: number;
 }
 
 export interface Updates {
@@ -353,4 +369,75 @@ export interface AutoUpdates {
   running: boolean;
   units: AutoUpdateUnit[];
   errors: string[];
+}
+
+// GET /api/security, /api/services/{id}/security
+export interface SecurityServiceRow {
+  id: string;
+  name: string;
+  open: number;
+  worst: string | null;
+  kev: boolean;
+  verdict: string | null;
+  verdictNote: string | null;
+  verdictColor: string | null;
+  cardUrl: string | null;
+}
+
+export interface SecuritySummary {
+  /** null: the scanner hasn't written a scan yet. */
+  scannedAt: string | null;
+  dbBuilt: string | null;
+  errors: string[];
+  counts: SecurityCounts;
+  services: SecurityServiceRow[];
+  images: number;
+  unscanned: string[];
+}
+
+export interface SecurityFinding {
+  id: string;
+  aliases: string[];
+  severity: string;
+  package: string;
+  version: string;
+  type: string;
+  fixedIn: string[];
+  kev: boolean;
+  epss: number | null;
+  epssPercentile: number | null;
+  url: string | null;
+  summary: string;
+  image: string;
+  /** Why it cleared the bar: "known exploited", "high, fix available", … */
+  why: string;
+  ignoredReason: string | null;
+}
+
+export interface SecurityImage {
+  ref: string;
+  digest: string | null;
+  localBuild: boolean;
+  packages: number | null;
+  error: string | null;
+  containers: string[];
+}
+
+export interface ServiceSecurity {
+  id: string;
+  scannedAt: string | null;
+  tier: string;
+  images: SecurityImage[];
+  open: SecurityFinding[];
+  ignored: SecurityFinding[];
+  belowBar: number;
+  verdict: string | null;
+  verdictNote: string | null;
+  verdictColor: string | null;
+  /** Claude's latest reply on the card. */
+  reply: string | null;
+  cardUrl: string | null;
+  /** An open card exists to ask a follow-up on. */
+  canAsk: boolean;
+  closed: { title: string; url: string | null }[];
 }

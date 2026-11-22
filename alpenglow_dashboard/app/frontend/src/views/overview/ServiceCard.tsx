@@ -8,10 +8,11 @@ import type { MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowFatUpIcon, ArrowSquareOutIcon } from "@phosphor-icons/react";
 
-import type { ServiceSummary } from "../../api/types";
+import type { SecurityServiceRow, ServiceSummary } from "../../api/types";
 import { Card, StatusDot } from "../../components";
 import { Icon } from "../../lib/icons";
 import { formatUptime } from "../../lib/format";
+import { ShieldPill } from "../security/Shield";
 import { SSO_TAG_META, STATUS_LABEL, TIER_META } from "./meta";
 import "./overview.css";
 
@@ -21,7 +22,11 @@ function priorityClass(s: ServiceSummary): string {
   return "";
 }
 
-export function ServiceCard({ service }: { service: ServiceSummary }) {
+export function ServiceCard({ service, security }: {
+  service: ServiceSummary;
+  /** Open security findings, when the service has any (Not affected is left off). */
+  security?: SecurityServiceRow;
+}) {
   const navigate = useNavigate();
   const s = service;
 
@@ -76,6 +81,13 @@ export function ServiceCard({ service }: { service: ServiceSummary }) {
           <Icon name={tier.icon} size={10} />
           {tier.label}
         </span>
+        {security?.verdict && (
+          <ShieldPill
+            verdict={security.verdict === "Waiting for assessment" ? "Assessing" : security.verdict}
+            color={security.verdictColor}
+            title={security.verdictNote ?? `${security.open} open security finding${security.open === 1 ? "" : "s"}`}
+          />
+        )}
       </div>
 
       {/* tag chips — EVERY tag renders here (G1 phantom-tag fix). SSO-special

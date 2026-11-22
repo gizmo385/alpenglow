@@ -397,7 +397,7 @@ def mock_overview() -> models.Overview:
     updates = sum(1 for s in services if s.latestVersion)
     return models.Overview(
         services=models.OverviewServices(up=up, down=down, total=len(services)),
-        updates=models.OverviewUpdates(count=updates),
+        updates=models.OverviewUpdates(count=updates, security=models.SecurityCounts(nextUpgrade=1, waiting=1)),
         monitors=models.OverviewMonitors(
             up=23, total=24, note="1 in maintenance",
             monitors=[
@@ -510,6 +510,12 @@ _MOCK_VERDICTS = [
 ]
 
 
+def _mock_security(sid: str) -> dict:
+    from . import security  # avoids an import cycle
+
+    return security._mock_entry_fields().get(sid, {})
+
+
 def mock_updates() -> models.Updates:
     entries = []
     for sid, s in MOCK_SERVICES.items():
@@ -533,6 +539,7 @@ def mock_updates() -> models.Updates:
             source="follow" if s.get("follow") else None,
             followTag=s.get("follow"),
             **verdict,
+            **_mock_security(sid),
         ))
     return models.Updates(
         services=entries,

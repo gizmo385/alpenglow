@@ -15,6 +15,8 @@ import type {
   HostCharts,
   Me,
   Overview,
+  SecuritySummary,
+  ServiceSecurity,
   ServiceDetail,
   ServiceSummary,
   SettingsPayload,
@@ -120,6 +122,14 @@ export const api = {
     mutate<TagMutationResult>("/api/tags/rename", "POST", body),
   deleteTag: (body: TagDeleteRequest) =>
     mutate<TagMutationResult>("/api/tags/delete", "POST", body),
+  // Security (cve-scanner findings + Claude's verdicts)
+  security: () => request<SecuritySummary>("/api/security"),
+  serviceSecurity: (id: string) => request<ServiceSecurity>(`/api/services/${id}/security`),
+  askSecurity: (id: string, question: string) =>
+    mutate<{ ok: boolean; cardUrl?: string | null }>(`/api/services/${id}/security/ask`, "POST", {
+      question,
+    }),
+
   /** SSE log stream; caller owns the EventSource lifecycle. */
   logStream: (id: string) => new EventSource(`/api/services/${id}/logs`),
 };

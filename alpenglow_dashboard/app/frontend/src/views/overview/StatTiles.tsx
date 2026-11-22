@@ -14,6 +14,7 @@ import type { Overview } from "../../api/types";
 import { Card } from "../../components";
 import { formatBytes, formatBytesZfs, formatUptime } from "../../lib/format";
 import { useUiState } from "../../store/ui";
+import { ShieldLabel } from "../security/Shield";
 import "./overview.css";
 
 /** "—" for null, else the formatted value. */
@@ -59,6 +60,25 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
   const down = svc?.down ?? 0;
 
   const updates = overview?.updates.count ?? null;
+  const sec = overview?.updates.security ?? null;
+  // Counts only: which services they are is one click away on /updates.
+  const secParts = sec
+    ? [
+        { n: sec.actNow, label: "act now", color: "#e08a8a" },
+        { n: sec.nextUpgrade, label: "next upgrade", color: "#f5b942" },
+        { n: sec.waiting, label: "assessing", color: "#9e9e9e" },
+      ].filter((p) => p.n > 0)
+    : [];
+  const secLine =
+    secParts.length > 0 ? (
+      <div className="ov-tile-security" title="Services with open security findings, by Claude's verdict">
+        {secParts.map((p) => (
+          <ShieldLabel key={p.label} color={p.color}>
+            {p.n} {p.label}
+          </ShieldLabel>
+        ))}
+      </div>
+    ) : null;
 
   const mon = overview?.monitors;
   const downMonitors = (mon?.monitors ?? []).filter((m) => m.status === "down");
@@ -119,7 +139,7 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
 
       {/* Updates — whole tile clickable */}
       <Card
-        className="ov-tile ov-tile-clickable"
+        className={`ov-tile ov-tile-clickable${sec && sec.actNow > 0 ? " ov-tile-hot" : ""}`}
         elevation="sm"
         role="button"
         tabIndex={0}
@@ -133,20 +153,25 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
       >
         <div className="card-kicker">Updates</div>
         {updates === 0 ? (
-          <div className="ov-tile-big">
-            <span className="ov-tile-num ok ov-uptodate">
-              <CheckCircleIcon size={26} weight="fill" /> Up to date
-            </span>
-          </div>
+          <>
+            <div className="ov-tile-big">
+              <span className="ov-tile-num ok ov-uptodate">
+                <CheckCircleIcon size={26} weight="fill" /> Up to date
+              </span>
+            </div>
+            {secLine}
+          </>
         ) : (
           <>
             <div className="ov-tile-big">
               <span className="ov-tile-num accent">{dash(updates)}</span>
               <span className="ov-tile-unit">available</span>
             </div>
-            <div className="ov-tile-action">
-              <ArrowRightIcon size={12} /> pull &amp; recreate
-            </div>
+            {secLine ?? (
+              <div className="ov-tile-action">
+                <ArrowRightIcon size={12} /> pull &amp; recreate
+              </div>
+            )}
           </>
         )}
       </Card>

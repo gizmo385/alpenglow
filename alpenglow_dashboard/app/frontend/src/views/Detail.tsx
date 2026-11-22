@@ -28,7 +28,7 @@ import {
   StopIcon,
   TerminalWindowIcon,
 } from "@phosphor-icons/react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import type { ActionName, ServiceDetail } from "../api/types";
@@ -40,17 +40,20 @@ import { ComposeTab } from "./detail/ComposeTab";
 import { LogsTab } from "./detail/LogsTab";
 import { OverviewTab, STATUS_LABEL, STATUS_VAR } from "./detail/OverviewTab";
 import { ResourcesTab } from "./detail/ResourcesTab";
+import { SecurityTab } from "./detail/SecurityTab";
 import styles from "./views.module.css";
 import head from "./Detail.module.css";
 import css from "./detail/detail.module.css";
 
-type Tab = "overview" | "resources" | "logs" | "compose";
+type Tab = "overview" | "resources" | "security" | "logs" | "compose";
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "resources", label: "Resources" },
+  { key: "security", label: "Security" },
   { key: "logs", label: "Logs" },
   { key: "compose", label: "Compose" },
 ];
+const isTab = (t: string | null): t is Tab => TABS.some((x) => x.key === t);
 
 export function Detail() {
   const { id } = useParams<{ id: string }>();
@@ -62,7 +65,10 @@ export function Detail() {
   const summary = useMemo(() => services.find((s) => s.id === id), [services, id]);
 
   const [detail, setDetail] = useState<ServiceDetail | null>(null);
-  const [tab, setTab] = useState<Tab>("overview");
+  // ?tab=security opens a tab directly (the Updates table links here).
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState<Tab>(isTab(initialTab) ? initialTab : "overview");
   const [notFound, setNotFound] = useState(false);
 
   const loadDetail = useCallback(async () => {
@@ -271,6 +277,7 @@ export function Detail() {
           <div className={css.loadingNote}>Loading service details…</div>
         ))}
       {tab === "resources" && id && <ResourcesTab serviceId={id} />}
+      {tab === "security" && id && <SecurityTab serviceId={id} />}
       {tab === "logs" && id && <LogsTab serviceId={id} />}
       {tab === "compose" && id && <ComposeTab serviceId={id} />}
     </div>

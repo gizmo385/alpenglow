@@ -52,8 +52,19 @@ class OverviewServices(BaseModel):
     total: int
 
 
+class SecurityCounts(BaseModel):
+    """Open Security cards by Claude's verdict (security/)."""
+
+    actNow: int = 0
+    nextUpgrade: int = 0
+    notAffected: int = 0
+    waiting: int = 0
+
+
 class OverviewUpdates(BaseModel):
     count: Optional[int] = None  # None: tracker unavailable
+    # None until the cve-scanner has written its first scan.
+    security: Optional[SecurityCounts] = None
 
 
 class MonitorRef(BaseModel):
@@ -396,6 +407,12 @@ class UpdateEntry(BaseModel):
     # pin rather than a GitHub release: a new per-build image on that tag.
     source: Optional[str] = None
     followTag: Optional[str] = None
+    # Claude's verdict on the service's open Security card, if any (security/).
+    securityVerdict: Optional[str] = None
+    securityNote: Optional[str] = None
+    securityColor: Optional[str] = None
+    securityCardUrl: Optional[str] = None
+    securityOpen: int = 0  # open findings on the service
 
 
 class Updates(BaseModel):
@@ -403,3 +420,81 @@ class Updates(BaseModel):
     lastUpdated: Optional[str]
     refreshing: bool
     trackerUnavailable: bool = False
+
+
+# ── GET /api/security , /api/services/{id}/security ───────────────────────────
+
+
+class SecurityServiceRow(BaseModel):
+    id: str
+    name: str
+    open: int
+    worst: Optional[str]  # highest severity among open findings
+    kev: bool  # any open finding is on CISA's known-exploited list
+    verdict: Optional[str] = None
+    verdictNote: Optional[str] = None
+    verdictColor: Optional[str] = None
+    cardUrl: Optional[str] = None
+
+
+class SecuritySummary(BaseModel):
+    scannedAt: Optional[str]  # None: the scanner hasn't written a scan yet
+    dbBuilt: Optional[str] = None
+    errors: list[str] = []
+    counts: SecurityCounts
+    services: list[SecurityServiceRow]
+    images: int = 0
+    unscanned: list[str] = []  # image refs the last scan couldn't read
+
+
+class SecurityFinding(BaseModel):
+    id: str
+    aliases: list[str]
+    severity: str
+    package: str
+    version: str
+    type: str
+    fixedIn: list[str]
+    kev: bool
+    epss: Optional[float]
+    epssPercentile: Optional[float]
+    url: Optional[str]
+    summary: str
+    image: str
+    why: str  # why it cleared the bar: "known exploited", "high, fix available", …
+    ignoredReason: Optional[str] = None
+
+
+class SecurityImage(BaseModel):
+    ref: str
+    digest: Optional[str]
+    localBuild: bool
+    packages: Optional[int]
+    error: Optional[str]
+    containers: list[str]
+
+
+class SecurityClosedCard(BaseModel):
+    title: str
+    url: Optional[str]
+
+
+class ServiceSecurity(BaseModel):
+    id: str
+    scannedAt: Optional[str]
+    tier: str
+    images: list[SecurityImage]
+    open: list[SecurityFinding]
+    ignored: list[SecurityFinding]
+    belowBar: int  # findings that didn't clear the bar (low severity, no fix, …)
+    verdict: Optional[str] = None
+    verdictNote: Optional[str] = None
+    verdictColor: Optional[str] = None
+    reply: Optional[str] = None  # Claude's latest reply on the card
+    cardUrl: Optional[str] = None
+    canAsk: bool = False  # an open card exists to ask a follow-up on
+    closed: list[SecurityClosedCard] = []
+
+
+class SecurityAsk(BaseModel):
+    question: str
