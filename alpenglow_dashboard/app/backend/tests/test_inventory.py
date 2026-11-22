@@ -616,3 +616,22 @@ async def test_build_inventory_survives_enrichment_failure(live_root, monkeypatc
     details = await inventory.build_inventory()
     svc = next(d for d in details if d.id == "svc_a")
     assert svc.latestVersion is None
+
+
+# ── Version card: tag from an image ref ───────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "image,version",
+    [
+        ("ghcr.io/immich-app/immich-server:v3.4.2@sha256:fc880c1bf665b4aab1e74c15e56ab871", "v3.4.2"),
+        ("ghcr.io/immich-app/immich-server:v3.4.2", "v3.4.2"),
+        ("redis:alpine", "alpine"),
+        ("nginx", "latest"),
+        ("registry.local:5000/app", "latest"),
+        ("registry.local:5000/app:1.2@sha256:abc", "1.2"),
+        ("nginx@sha256:fc880c1bf665b4aab1e74c15e56ab871", "fc880c1bf665"),
+    ],
+)
+def test_image_version(image, version):
+    assert inventory.image_version(image) == version

@@ -599,6 +599,23 @@ async def docker_inventory() -> dict[str, list[DockerContainer]]:
     return grouped
 
 
+def image_version(image: str) -> str:
+    """The tag an image ref runs, for the Version card.
+
+    ``repo:v3.4.2@sha256:…`` → ``v3.4.2`` (the digest pin is dropped before the
+    tag is read, else its ``sha256:`` colon wins), ``repo`` → ``latest``, and a
+    digest-only ``repo@sha256:…`` → the short digest. Only the last path
+    segment is searched, so a registry port (``host:5000/app``) isn't a tag.
+    """
+    ref, _, digest = image.partition("@")
+    last = ref.rsplit("/", 1)[-1]
+    if ":" in last:
+        return last.rsplit(":", 1)[1]
+    if digest:
+        return digest.split(":", 1)[-1][:12]
+    return "latest"
+
+
 def _uptime_seconds(started_at: Optional[str]) -> Optional[int]:
     """Parse docker's RFC3339 StartedAt into seconds of uptime."""
     if not started_at or started_at.startswith("0001-01-01"):
@@ -746,7 +763,7 @@ async def _build_summary(
     status = apply_busy_overlay(sid, _worst(statuses))
 
     image = primary.image if primary else _compose_image_for(repo, primary_name)
-    current_version = image.rsplit(":", 1)[1] if ":" in image.rsplit("/", 1)[-1] else "latest"
+    current_version = image_version(image)
     uptime = _uptime_seconds(primary.started_at) if primary else None
     if status != "up":
         uptime = None
