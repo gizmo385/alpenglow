@@ -11,7 +11,7 @@ import re
 from dataclasses import asdict, dataclass
 
 from ..upgrades.verdicts import VERDICT_PREFIX, html_to_text, reason_from_comments
-from .cards import NEW_FINDINGS_MARK, SecurityCard
+from .cards import GONE_FINDINGS_MARK, NEW_FINDINGS_MARK, SecurityCard
 
 ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED = "Act now", "Next upgrade", "Not affected"
 WAITING = "Waiting for assessment"
@@ -52,11 +52,12 @@ def verdict_from_labels(labels: list[dict] | None) -> str | None:
 
 
 def is_current(comments: list[dict]) -> bool:
-    """False when new findings arrived after Claude's last verdict."""
+    """False when Claude was asked to assess again after its last verdict:
+    new findings arrived, or an "Act now" card lost some of its findings."""
     last_verdict = last_new = -1
     for i, comment in enumerate(comments):
         text = html_to_text(comment.get("comment"))
-        if NEW_FINDINGS_MARK in text:
+        if NEW_FINDINGS_MARK in text or (GONE_FINDINGS_MARK in text and "@claude" in text):
             last_new = i
         elif re.search(r"verdict\W*(" + "|".join(map(re.escape, VERDICTS)) + ")", text, re.I):
             last_verdict = i

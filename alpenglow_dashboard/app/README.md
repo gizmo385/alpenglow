@@ -104,6 +104,11 @@ Every 30 minutes (`SECURITY_SYNC_INTERVAL`), with `VIKUNJA_API_TOKEN` and
   **Act now**, **Next upgrade** or **Not affected**;
 - new findings on an open card update it and leave an `@claude` comment, so
   Claude assesses the whole list again;
+- when some of a card's findings go away but others remain (an upgrade, a
+  rebuilt image), the card's list is rewritten. An **Act now** card also gets
+  an `@claude` comment so Claude assesses again, since the urgent finding may
+  be the one that went; other verdicts only get a note, because losing
+  findings can't make them worse;
 - an open card closes once a clean scan no longer shows its findings, and a
   card you closed isn't refiled for the same findings.
 
