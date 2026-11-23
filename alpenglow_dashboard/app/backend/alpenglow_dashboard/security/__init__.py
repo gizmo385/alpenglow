@@ -679,5 +679,6 @@ def _mock_service(sid: str) -> models.ServiceSecurity:
               for i, sev, p, ver, fix, kev in fs],
         ignored=[], belowBar=37 if fs else 0,
         verdict=group, verdictNote=note, verdictColor=verdicts.COLORS[group] if group else None,
+        verdictAt=mock._ago(hours=4) if note else None,
         reply=_MOCK_REPLY if note else None, canAsk=bool(fs),
     )
