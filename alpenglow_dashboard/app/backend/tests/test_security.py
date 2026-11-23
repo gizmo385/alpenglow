@@ -174,6 +174,66 @@ def test_reassess_rewrites_the_card_and_asks():
     assert not v.is_current([comment("Verdict: Next upgrade. Meh."), comment(text)])
 
 
+def _reassess_world(monkeypatch, tmp_path, group, timeout=5):
+    """Settings, a scan request, and stubs recording what Reassess did."""
+    s = security.Settings(findings_path=tmp_path / "findings.json", ignore_path=tmp_path / "ignore.yaml",
+                          rescan_timeout=timeout)
+    did = []
+
+    async def sync_once():
+        did.append("sync")
+
+    async def by_service():
+        return {"caddy": v.Verdict("caddy", "Caddy: 1 open", group)} if group else {}
+
+    async def reassess(sid=None):
+        did.append(f"reassess {sid}")
+        return 1
+
+    monkeypatch.setattr(security, "sync_once", sync_once)
+    monkeypatch.setattr(security, "verdicts_by_service", by_service)
+    monkeypatch.setattr(security, "reassess", reassess)
+    monkeypatch.setattr(security, "RESCAN_POLL_SECONDS", 0.01)
+    request = security.request_scan(s, "caddy")
+    assert request == tmp_path / "requests" / "caddy.json" and json.loads(request.read_text())["service"] == "caddy"
+    return s, request, did
+
+
+def test_reassess_waits_for_the_scanner_then_asks(monkeypatch, tmp_path: Path):
+    s, request, did = _reassess_world(monkeypatch, tmp_path, v.NEXT_UPGRADE)
+
+    async def go():
+        task = asyncio.create_task(security.rescan_then_reassess(s, "caddy", request))
+        await asyncio.sleep(0.05)
+        assert did == []           # still waiting: the scanner hasn't taken the request
+        request.unlink()           # ...now it has
+        return await task
+
+    # Same image as the card was written for, so the sync had nothing to ask about.
+    assert asyncio.run(go()) == "asked"
+    assert did == ["sync", "reassess caddy"]
+
+
+def test_reassess_leaves_it_to_the_sync_when_the_image_changed(monkeypatch, tmp_path: Path):
+    # The sync saw a new image and asked Claude itself: the verdict is waiting again.
+    s, request, did = _reassess_world(monkeypatch, tmp_path, v.WAITING)
+    request.unlink()
+    assert asyncio.run(security.rescan_then_reassess(s, "caddy", request)) == "asked by sync"
+    assert did == ["sync"]
+    # The new image had nothing open, so the sync closed the card.
+    s, request, did = _reassess_world(monkeypatch, tmp_path, None)
+    request.unlink()
+    assert asyncio.run(security.rescan_then_reassess(s, "caddy", request)) == "closed"
+    assert did == ["sync"]
+
+
+def test_reassess_carries_on_when_the_scanner_never_answers(monkeypatch, tmp_path: Path):
+    s, request, did = _reassess_world(monkeypatch, tmp_path, v.NOT_AFFECTED, timeout=0)
+    assert asyncio.run(security.rescan_then_reassess(s, "caddy", request)) == "asked without a rescan"
+    assert did == ["sync", "reassess caddy"]
+    assert not request.exists()  # not left behind to fire later
+
+
 def test_version_line_says_whether_there_is_anything_to_upgrade_to():
     sf = scan().services["caddy"]
     latest = c.version_line(c.Context("Caddy", current="2.10.2", tracked=True), sf)
@@ -425,7 +485,7 @@ def test_routes_in_mock_mode(client):
     assert client.post(ask, json={"question": "Is this reachable?"}, headers=csrf).json()["ok"]
     assert client.post(ask, json={"question": "  "}, headers=csrf).status_code == 422
     assert client.post("/api/services/caddy/security/reassess").status_code == 403  # no CSRF token
-    assert client.post("/api/services/caddy/security/reassess", headers=csrf).json() == {"asked": 1}
+    assert client.post("/api/services/caddy/security/reassess", headers=csrf).json() == {"asked": 1, "rescanning": False}
     assert client.post("/api/security/reassess", headers=csrf).json() == {"asked": 2}
     assert client.get("/internal/security/annotations").json()["items"] == []
     ov = client.get("/api/overview").json()

@@ -108,7 +108,9 @@ function Finding({ f }: { f: SecurityFinding }) {
   );
 }
 
-/** Ask Claude for a fresh verdict on the card, on the findings as they are now. */
+/** Ask Claude for a fresh verdict on the card. The scanner looks at the
+ *  service's running image again first, so an upgrade since the nightly scan
+ *  is what gets assessed. */
 function Reassess({ serviceId, onAsked }: { serviceId: string; onAsked: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -116,8 +118,12 @@ function Reassess({ serviceId, onAsked }: { serviceId: string; onAsked: () => vo
   async function submit() {
     setBusy(true);
     try {
-      await api.reassessSecurity(serviceId);
-      toast("Asked Claude to assess again; the new verdict lands here in a few minutes");
+      const res = await api.reassessSecurity(serviceId);
+      toast(
+        res.rescanning
+          ? "Rescanning the image first, then Claude assesses again; the new verdict lands here"
+          : "Asked Claude to assess again; the new verdict lands here in a few minutes",
+      );
       onAsked();
     } catch (e) {
       toast(e instanceof ApiError ? `Couldn't reassess: ${e.detail}` : "Couldn't ask Claude to reassess");
@@ -182,7 +188,7 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
     );
   }
   const failed = data.images.filter((i) => i.error);
-  const canReassess = data.canAsk && data.open.length > 0 && data.verdict !== "Waiting for assessment";
+  const canReassess = data.canAsk && !data.rescanning && data.verdict !== "Waiting for assessment";
   return (
     <>
       <div className={`card elev-sm ${sec.section}`}>
@@ -206,6 +212,11 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
             </a>
           )}
         </div>
+        {data.rescanning && (
+          <div className={sec.muted}>
+            Rescanning this service's image. Claude assesses again as soon as that's done.
+          </div>
+        )}
         {data.reply && data.verdict === "Waiting for assessment" && (
           <div className={sec.muted}>
             The findings or the running image changed since this reply, so Claude is assessing again. Its earlier

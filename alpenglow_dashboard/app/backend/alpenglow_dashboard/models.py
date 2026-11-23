@@ -497,6 +497,7 @@ class ServiceSecurity(BaseModel):
     reply: Optional[str] = None  # Claude's latest reply on the card
     cardUrl: Optional[str] = None
     canAsk: bool = False  # an open card exists to ask a follow-up on
+    rescanning: bool = False  # Reassess is waiting for the scanner to look at the image again
     closed: list[SecurityClosedCard] = []
 
 

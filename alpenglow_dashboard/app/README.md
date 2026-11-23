@@ -148,11 +148,17 @@ Setup:
 
 To get a fresh verdict without waiting for something to change, use
 **Reassess** on a service's Security tab (`POST
-/api/services/{id}/security/reassess`), or `POST /api/security/reassess` for
-every open card at once, e.g. after changing the reviewer's instructions in
-`claude-dispatcher/profiles.yaml`. Both rewrite the card with today's version
-and findings first. The nightly scan isn't involved: reviews run whenever a
-card gets an `@claude` comment.
+/api/services/{id}/security/reassess`). It first asks the cve-scanner to look
+at the service's running images again (a file in `cve-scanner/data/requests/`,
+which the scanner removes when it's done), so an upgrade since last night's
+scan is what gets assessed: seconds when the image is the same, minutes when
+it's new. Then the card is rewritten with today's version and findings and
+Claude is asked. If the scanner doesn't answer within
+`SECURITY_RESCAN_TIMEOUT` (900 s), Claude is asked about the findings we have.
+
+`POST /api/security/reassess` asks again on every open card at once, e.g.
+after changing the reviewer's instructions in
+`claude-dispatcher/profiles.yaml`. It doesn't rescan.
 
 `POST /api/security/sync` (admin) syncs straight away. Code is in
 `backend/alpenglow_dashboard/security/`.

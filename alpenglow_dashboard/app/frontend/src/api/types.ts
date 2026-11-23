@@ -440,6 +440,8 @@ export interface ServiceSecurity {
   verdictColor: string | null;
   /** When Claude gave the verdict. */
   verdictAt: string | null;
+  /** Reassess was pressed and the scanner is looking at the image again first. */
+  rescanning: boolean;
   /** Claude's latest reply on the card. */
   reply: string | null;
   cardUrl: string | null;
