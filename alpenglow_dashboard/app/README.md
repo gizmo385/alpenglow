@@ -96,9 +96,22 @@ Every 30 minutes (`SECURITY_SYNC_INTERVAL`), with `VIKUNJA_API_TOKEN` and
 `SECURITY_PROJECT_ID` set, it keeps Vikunja's Security project in step:
 
 - a service with open findings gets one card listing them, its exposure
-  (public, tailnet, none), any pending upgrade and a link to its compose
-  file. The claude-dispatcher's `security` profile assesses it and labels it
-  **Act now**, **Next upgrade** or **Not affected**;
+  (public, tailnet, none), the version it runs and whether a newer release
+  is out (from the update tracker), and a link to its compose file. The
+  claude-dispatcher's `security` profile assesses it and labels it by what
+  there is to do:
+  - **Act now**: there's evidence it's exploitable as we run it;
+  - **Next upgrade**: real, and an upgrade or rebuild that exists today
+    fixes it;
+  - **Waiting on upstream**: real, but nothing we can pull or rebuild fixes
+    it yet (typically we run the latest release and its image hasn't been
+    rebuilt with the fixed packages);
+  - **Not affected**: not reachable as we run it;
+- when the running image changes (an upgrade, a rebuild) and findings are
+  still open, the card is rewritten for the new image and Claude assesses
+  again, whatever it said before. Until it answers, the service shows as
+  waiting for assessment rather than with the old image's verdict. Cards
+  filed before this was recorded are reassessed once;
 - new findings on an open card update it and leave an `@claude` comment, so
   Claude assesses the whole list again;
 - when some of a card's findings go away but others remain (an upgrade, a
@@ -112,7 +125,7 @@ Every 30 minutes (`SECURITY_SYNC_INTERVAL`), with `VIKUNJA_API_TOKEN` and
 Where it shows up:
 
 - **Overview:** the Updates tile adds counts by verdict, and affected
-  service cards get a shield (not for Not affected).
+  service cards get a shield (not for Not affected or Waiting on upstream).
 - **Updates:** a Security column after Assessment; flagged services sort
   first.
 - **Service → Security tab:** the findings, Claude's latest reply, a box to
@@ -141,7 +154,10 @@ Setup:
 Once a day (`DIGEST_AT`, local time, default `09:00`) the dashboard posts what's
 waiting for a person to Discord, in up to three messages:
 
-1. **Security**: Claude's verdicts on open CVE findings.
+1. **Security**: the services with an **Act now** or **Next upgrade** verdict,
+   each with Claude's one-line reason. Services with nothing to do (waiting on
+   upstream, not affected, being assessed) are only named, one line per
+   verdict, and when no service needs a step the message is left out.
 2. **Upgrades**: the open Upgrades cards, grouped by verdict.
 3. **Other updates**: pending updates with no card, from the tracker.
 

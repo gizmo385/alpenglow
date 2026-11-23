@@ -50,6 +50,35 @@ def test_cards_are_grouped_by_verdict_in_board_order():
     assert embed["footer"]["text"] == "1 easy · 1 hold"
 
 
+QUIET_GROUPS = [{"name": "Act now", "emoji": "🔴"}, {"name": "Next upgrade", "emoji": "🟡"},
+                {"name": "Waiting on upstream", "emoji": "🔵", "quiet": True},
+                {"name": "Not affected", "emoji": "🟢", "quiet": True}]
+
+
+def sec_item(name, group, note="Why."):
+    return {"name": name, "title": f"{name}: 71 open security findings", "group": group, "note": note, "url": None}
+
+
+def test_security_lists_what_needs_a_step_and_only_names_the_rest():
+    embed = digest.annotations_embed({"title": "Security", "groups": QUIET_GROUPS, "items": [
+        sec_item("FreshRSS", "Act now", "Brotli bug is reachable."),
+        sec_item("Kopia", "Waiting on upstream"), sec_item("Caddy", "Waiting on upstream"),
+        sec_item("Keycloak", "Not affected"),
+    ]})
+    assert embed["description"] == (
+        "### 🔴 Act now\n\n**FreshRSS**\nBrotli bug is reachable."
+        "\n\n🔵 **Waiting on upstream, nothing to do (2):** Kopia, Caddy"
+        "\n\n🟢 **Not affected, nothing to do (1):** Keycloak"
+    )
+    assert "findings" not in embed["description"]
+    assert embed["footer"]["text"] == "1 act now · 2 waiting on upstream · 1 not affected"
+
+
+def test_security_with_nothing_to_do_has_no_message():
+    assert digest.annotations_embed({"title": "Security", "groups": QUIET_GROUPS, "items": [
+        sec_item("Kopia", "Waiting on upstream"), sec_item("Keycloak", "Not affected")]}) is None
+
+
 def test_a_board_with_nothing_open_has_no_message():
     assert digest.annotations_embed({"title": "Security", "items": []}) is None
 

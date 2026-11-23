@@ -24,7 +24,7 @@ function priorityClass(s: ServiceSummary): string {
 
 export function ServiceCard({ service, security }: {
   service: ServiceSummary;
-  /** Open security findings, when the service has any (Not affected is left off). */
+  /** Open security findings, when the service has any (Not affected and Waiting on upstream are left off). */
   security?: SecurityServiceRow;
 }) {
   const navigate = useNavigate();

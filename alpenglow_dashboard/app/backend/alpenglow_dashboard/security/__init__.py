@@ -6,7 +6,8 @@ default) the dashboard reads it and:
 
 - keeps Vikunja's Security project in step (``cards.py``): one card per
   service with open findings, which the claude-dispatcher's ``security``
-  profile assesses and labels ``Act now``, ``Next upgrade`` or ``Not affected``;
+  profile assesses and labels ``Act now``, ``Next upgrade``, ``Waiting on
+  upstream`` or ``Not affected``;
 - pings Discord straight away for an Act now verdict, or for a known-exploited
   CVE on a public service (``notify.py``).
 
@@ -178,6 +179,8 @@ def _counts(scan: findings.Scan | None, by_service: dict[str, verdicts.Verdict])
             c.actNow += 1
         elif group == verdicts.NEXT_UPGRADE:
             c.nextUpgrade += 1
+        elif group == verdicts.UPSTREAM:
+            c.waitingUpstream += 1
         elif group == verdicts.NOT_AFFECTED:
             c.notAffected += 1
         else:
@@ -237,6 +240,10 @@ async def _contexts(scan: findings.Scan, s: Settings) -> dict[str, cards.Context
         enrich = await updates.service_enrichment()
     except Exception:
         enrich = {}
+    try:
+        running = updates.running_versions(await updates._tracker_cached())
+    except Exception:
+        running = {}
     out = {}
     for sid in scan.services:
         rs = repo.get(sid)
@@ -246,7 +253,8 @@ async def _contexts(scan: findings.Scan, s: Settings) -> dict[str, cards.Context
             pending = f"to {enrich[sid]['latestVersion']}"
         compose = f"{s.repo_url}/{sid}/compose.yaml" if s.repo_url and rs else None
         out[sid] = cards.Context(name=name, tier=rs.tier if rs else "internal", url=rs.url if rs else None,
-                                 pending=pending, compose_url=compose)
+                                 pending=pending, compose_url=compose,
+                                 current=running.get(sid) or None, tracked=sid in running or sid in enrich)
     return out
 
 
@@ -264,7 +272,8 @@ async def sync_once() -> dict | None:
         current = EMPTY_BOARD
         if s.board:
             todo = await cards.sync(scan.services, contexts, _api(s, client))
-            done.update(filed=len(todo.create), updated=len(todo.add), closed=len(todo.close))
+            done.update(filed=len(todo.create), updated=len(todo.add) + len(todo.reassess),
+                        closed=len(todo.close))
             _BOARD_CACHE.invalidate()
             current = await _read_board(s, client)
         if s.webhook:
@@ -329,7 +338,7 @@ def summary(scan: findings.Scan | None, by_service: dict[str, verdicts.Verdict],
             id=sid, name=names.get(sid, sid), open=len(sf.open), worst=sf.worst,
             kev=any(o.finding.kev for o in sf.open), verdict=group,
             verdictNote=(v.note if v else "") or None, verdictColor=verdicts.COLORS[group],
-            cardUrl=v.url if v else None,
+            verdictAt=v.assessed_at if v else None, cardUrl=v.url if v else None,
         ))
     order = {g["name"]: i for i, g in enumerate(verdicts.GROUPS)}
     rows.sort(key=lambda r: (order.get(r.verdict or "", 9), not r.kev,
@@ -364,6 +373,7 @@ def service_view(sid: str, scan: findings.Scan | None, b: Board, tier: str,
         verdict=v.group if v else (verdicts.WAITING if sf and sf.open else None),
         verdictNote=(v.note if v else "") or None,
         verdictColor=verdicts.COLORS[v.group] if v else None,
+        verdictAt=v.assessed_at if v else None,
         reply=reply or None,
         cardUrl=v.url if v else None,
         canAsk=open_card is not None,

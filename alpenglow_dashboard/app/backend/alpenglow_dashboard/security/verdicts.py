@@ -1,8 +1,14 @@
 """Claude's security verdicts, read back off the Security cards.
 
 The dispatcher's ``security`` profile labels each card ``Verdict: Act now``,
-``Verdict: Next upgrade`` or ``Verdict: Not affected``, and Claude's reply
-opens with the same verdict and one sentence on why.
+``Verdict: Next upgrade``, ``Verdict: Waiting on upstream`` or ``Verdict: Not
+affected``, and Claude's reply opens with the same verdict and one sentence on
+why.
+
+The verdicts are sorted by what a person can do. **Act now** and **Next
+upgrade** both mean there's a step to take (now, or with an upgrade or rebuild
+that exists today). **Waiting on upstream** and **Not affected** mean there
+isn't, so they're ``quiet``: the digest only counts them.
 """
 
 from __future__ import annotations
@@ -11,18 +17,21 @@ import re
 from dataclasses import asdict, dataclass
 
 from ..upgrades.verdicts import VERDICT_PREFIX, html_to_text, reason_from_comments
-from .cards import GONE_FINDINGS_MARK, NEW_FINDINGS_MARK, SecurityCard
+from .cards import GONE_FINDINGS_MARK, IMAGE_CHANGED_MARK, NEW_FINDINGS_MARK, SecurityCard
 
 ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED = "Act now", "Next upgrade", "Not affected"
+UPSTREAM = "Waiting on upstream"
 WAITING = "Waiting for assessment"
-# Display order: most urgent first.
+# Display order: most urgent first. ``quiet`` groups have nothing to do in them.
 GROUPS = [
     {"name": ACT_NOW, "emoji": "🔴", "color": "#e08a8a"},
     {"name": NEXT_UPGRADE, "emoji": "🟡", "color": "#f5b942"},
-    {"name": NOT_AFFECTED, "emoji": "🟢", "color": "#6bd39a"},
-    {"name": WAITING, "emoji": "⏳", "color": "#9e9e9e"},
+    {"name": UPSTREAM, "emoji": "🔵", "color": "#8fb4d9", "quiet": True},
+    {"name": NOT_AFFECTED, "emoji": "🟢", "color": "#6bd39a", "quiet": True},
+    {"name": WAITING, "emoji": "⏳", "color": "#9e9e9e", "quiet": True},
 ]
-VERDICTS = (ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED)
+VERDICTS = (ACT_NOW, NEXT_UPGRADE, UPSTREAM, NOT_AFFECTED)
+QUIET = frozenset(g["name"] for g in GROUPS if g.get("quiet"))
 COLORS = {g["name"]: g["color"] for g in GROUPS}
 
 
@@ -34,6 +43,12 @@ class Verdict:
     note: str = ""
     url: str | None = None
     card_id: int | None = None
+    assessed_at: str | None = None  # when Claude gave this verdict
+
+    @property
+    def name(self) -> str:
+        """The service's name: the card's title without its count of findings."""
+        return self.title.split(":", 1)[0].strip() or self.service
 
     @property
     def color(self) -> str:
@@ -53,11 +68,13 @@ def verdict_from_labels(labels: list[dict] | None) -> str | None:
 
 def is_current(comments: list[dict]) -> bool:
     """False when Claude was asked to assess again after its last verdict:
-    new findings arrived, or an "Act now" card lost some of its findings."""
+    new findings arrived, the running image changed, or an "Act now" card lost
+    some of its findings."""
     last_verdict = last_new = -1
     for i, comment in enumerate(comments):
         text = html_to_text(comment.get("comment"))
-        if NEW_FINDINGS_MARK in text or (GONE_FINDINGS_MARK in text and "@claude" in text):
+        asked = "@claude" in text and (GONE_FINDINGS_MARK in text or IMAGE_CHANGED_MARK in text)
+        if NEW_FINDINGS_MARK in text or asked:
             last_new = i
         elif re.search(r"verdict\W*(" + "|".join(map(re.escape, VERDICTS)) + ")", text, re.I):
             last_verdict = i
@@ -79,18 +96,29 @@ def from_cards(cards: list[SecurityCard], comments: dict[int, list[dict]], publi
         if verdict != WAITING and not is_current(cs):
             verdict = WAITING
         note = reason_from_comments(cs, verdict) if verdict != WAITING else ""
-        out.append(Verdict(sc.service, sc.card.title, verdict, note, card_url(public_url, sc.card.id), sc.card.id))
+        at = assessed_at(cs) if verdict != WAITING else None
+        out.append(Verdict(sc.service, sc.card.title, verdict, note, card_url(public_url, sc.card.id),
+                           sc.card.id, at))
     order = {g["name"]: i for i, g in enumerate(GROUPS)}
     return sorted(out, key=lambda v: (order[v.group], v.title.casefold()))
 
 
-def latest_reply(comments: list[dict]) -> str:
-    """Claude's newest reply on a card: the last comment that opens with a verdict."""
+def _latest_reply(comments: list[dict]) -> tuple[str, str | None]:
     for comment in reversed(comments):
         text = html_to_text(comment.get("comment"))
         if re.match(r"\W*verdict\W*(" + "|".join(map(re.escape, VERDICTS)) + ")", text, re.I):
-            return text
-    return ""
+            return text, str(comment.get("created") or "") or None
+    return "", None
+
+
+def latest_reply(comments: list[dict]) -> str:
+    """Claude's newest reply on a card: the last comment that opens with a verdict."""
+    return _latest_reply(comments)[0]
+
+
+def assessed_at(comments: list[dict]) -> str | None:
+    """When that reply was written (Vikunja's timestamp on the comment)."""
+    return _latest_reply(comments)[1]
 
 
 def payload(verdicts: list[Verdict], repos: dict[str, str]) -> dict:
@@ -102,6 +130,7 @@ def payload(verdicts: list[Verdict], repos: dict[str, str]) -> dict:
     items = []
     for v in verdicts:
         d = asdict(v)
+        d["name"] = v.name
         d["repo"] = repos.get(v.service, "")
         items.append(d)
     accent = "red" if any(v.group == ACT_NOW for v in verdicts) else "amber"

@@ -39,7 +39,7 @@ export function splitReply(reply: string): { lead: string; body: string; footer:
   let lead = "";
   let footer = "";
   const first = lines.findIndex((l) => l.trim());
-  const m = first >= 0 ? /^\W*verdict\W*(act now|next upgrade|not affected)[\s*_.:\-–—]*(.*)$/i.exec(lines[first].trim()) : null;
+  const m = first >= 0 ? /^\W*verdict\W*(act now|next upgrade|waiting on upstream|not affected)[\s*_.:\-–—]*(.*)$/i.exec(lines[first].trim()) : null;
   if (m) {
     lead = m[2].replace(/[*_]+$/, "").trim();
     lines.splice(first, 1);
@@ -168,6 +168,7 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
           )}
           <span className={sec.muted}>
             {TIER_TEXT[data.tier] ?? data.tier} · scanned {relativeAgo(data.scannedAt)}
+            {data.verdictAt && ` · assessed ${relativeAgo(data.verdictAt)}`}
             {data.belowBar > 0 && ` · ${data.belowBar} lower-risk findings not shown`}
           </span>
           {data.cardUrl && (
@@ -178,7 +179,8 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
         </div>
         {data.reply && data.verdict === "Waiting for assessment" && (
           <div className={sec.muted}>
-            The findings changed since this reply, so Claude is assessing again. Its earlier reply is below.
+            The findings or the running image changed since this reply, so Claude is assessing again. Its earlier
+            reply is below.
           </div>
         )}
         {data.reply ? (

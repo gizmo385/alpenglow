@@ -2,7 +2,11 @@
 
 Up to three messages, each left out when it has nothing to say:
 
-* **Security**: Claude's verdicts on open CVE findings (the Security board).
+* **Security**: the services Claude says need a step from us (Act now, Next
+  upgrade), each with its one-line reason. Services whose findings need
+  nothing from us (waiting on upstream, not affected, still being assessed)
+  are only named, in one line per verdict, and on a day when no service
+  needs a step the section is left out.
 * **Upgrades**: the open Upgrades cards, grouped by Claude's verdict.
 * **Other updates**: pending updates with no card, straight from the tracker.
 
@@ -103,7 +107,9 @@ def _fit(blocks: list[str], limit: int = _DESCRIPTION_LIMIT) -> str:
 
 
 def _item(item: dict, link_label: str) -> str:
-    text = f"**{item.get('title') or item.get('repo') or '?'}**"
+    # A security card's title counts its raw findings ("Kopia: 71 open security
+    # findings"), which reads as urgency it doesn't carry; the name is enough.
+    text = f"**{item.get('name') or item.get('title') or item.get('repo') or '?'}**"
     if item.get("note"):
         text += f"\n{_clip(str(item['note']), _NOTE_LIMIT)}"
     if item.get("url"):
@@ -116,9 +122,14 @@ def annotations_embed(payload: dict, default_color: int = _BLUE) -> Optional[dic
 
     ``payload`` is what ``upgrades.verdicts.payload`` and
     ``security.verdicts.payload`` return: title, groups in display order, items.
+
+    A group marked ``quiet`` holds cards with nothing for a person to do. Its
+    cards are named in one line rather than listed, and a board with only
+    quiet cards has no message at all.
     """
     items = [i for i in payload.get("items") or [] if isinstance(i, dict)]
-    if not items:
+    quiet = {g["name"] for g in payload.get("groups") or [] if g.get("quiet")}
+    if not any((i.get("group") or "Other") not in quiet for i in items):
         return None
     groups = [(g["name"], g.get("emoji") or "") for g in payload.get("groups") or []]
     known = {name for name, _ in groups}
@@ -131,6 +142,10 @@ def annotations_embed(payload: dict, default_color: int = _BLUE) -> Optional[dic
         if not members:
             continue
         counts.append(f"{len(members)} {name.lower()}")
+        if name in quiet:
+            names = ", ".join(str(i.get("name") or i.get("title") or "?") for i in members)
+            blocks.append(_clip(f"{emoji} **{name}, nothing to do ({len(members)}):** {names}".strip(), 600))
+            continue
         blocks.append(f"### {emoji} {name}".replace("###  ", "### "))
         blocks += [_item(i, label) for i in members]
     return {

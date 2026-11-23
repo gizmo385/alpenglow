@@ -90,8 +90,18 @@ def test_load_missing_or_garbage(tmp_path: Path):
 # ── cards ────────────────────────────────────────────────────────────────────
 
 
-def sec_card(id, sid, covers, done=False, labels=(), raw_title=None):
+# The images each service runs in DOC, as a card records them.
+IMAGES = {"caddy": ["caddy-edge:1", "caddy:1"], "immich": ["immich:v3"], "redis": ["redis:8"],
+          "vikunja": ["vikunja:1"]}
+
+
+def sec_card(id, sid, covers, done=False, labels=(), raw_title=None, images=None):
+    """A card for ``sid``. ``images`` defaults to what it runs now; ``[]`` is a
+    card filed before cards recorded the image."""
+    images = IMAGES.get(sid, []) if images is None else images
     desc = f"<p>{c.SERVICE_LINE} {sid}</p><p>{c.FINDINGS_LINE} {', '.join(covers)}</p>"
+    if images:
+        desc += f"<p>{c.IMAGES_LINE} {', '.join(images)}</p>"
     return c.SecurityCard.parse(Card.from_api({"id": id, "title": raw_title or f"{sid} card", "done": done,
                                                "description": desc,
                                                "labels": [{"title": t} for t in labels]}))
@@ -126,6 +136,44 @@ def test_plan_prunes_findings_that_are_gone():
     p = c.plan(s.services, cards_)
     assert p.add == [] and p.close == []
     assert [(sc.card.id, sid, gone) for sc, sid, gone in p.prune] == [(1, "caddy", ["CVE-9"])]
+
+
+def test_plan_reassesses_when_the_running_image_changed():
+    s = scan()
+    cards_ = [
+        sec_card(1, "caddy", ["CVE-1", "CVE-3", "CVE-5", "CVE-9"], images=["caddy:0", "caddy-edge:1"]),
+        sec_card(2, "immich", ["GHSA-x"], images=[]),                 # from before images were recorded
+        sec_card(3, "immich", ["GHSA-x"], done=True, images=["immich:v2"]),  # closed by hand: leave it
+        sec_card(4, "vikunja", ["CVE-8"], images=["vikunja:0"]),     # failed scan: don't trust it
+    ]
+    p = c.plan(s.services, cards_)
+    assert p.add == [] and p.close == [] and p.prune == []
+    assert [(sc.card.id, sid, gone) for sc, sid, gone in p.reassess] == [
+        (1, "caddy", ["CVE-9"]), (2, "immich", [])]
+
+
+def test_sync_asks_again_for_a_new_image_whatever_the_verdict():
+    api = FakeVikunja([sec_card(2, "immich", ["GHSA-x"], labels=["Verdict: Not affected"], images=["immich:v2"])])
+    asyncio.run(c.sync(scan().services, {}, api))
+    assert ("update", 2, ["description", "title"]) in api.calls
+    text = next(x for x in api.calls if x[0] == "comment" and x[1] == 2)[2]
+    assert text.startswith(f"@claude {c.IMAGE_CHANGED_MARK}.")
+    # The verdict on the label is about the old image until Claude answers.
+    assert not v.is_current([comment("Verdict: Not affected. Fine."), comment(text)])
+    assert v.is_current([comment("Verdict: Not affected. Fine."), comment(text), comment("Verdict: Not affected. Still.")])
+
+
+def test_version_line_says_whether_there_is_anything_to_upgrade_to():
+    sf = scan().services["caddy"]
+    latest = c.version_line(c.Context("Caddy", current="2.10.2", tracked=True), sf)
+    assert latest == "Version: running 2.10.2, the latest release. There is no newer release to upgrade to."
+    behind = c.version_line(c.Context("Caddy", current="2.10.2", tracked=True, pending="to 2.11.0"), sf)
+    assert behind == "Version: running 2.10.2; a newer release is out (upgrade to 2.11.0)."
+    assert "isn't known whether a newer" in c.version_line(c.Context("Caddy"), sf)
+    sf.images[0].local_build = True
+    assert "rebuilding it with --pull" in c.version_line(c.Context("Caddy", current="2.10.2", tracked=True), sf)
+    assert "Version: running 2.10.2, the latest release." in c.card_description(
+        "caddy", c.Context("Caddy", current="2.10.2", tracked=True), sf)
 
 
 def test_plan_creates_when_no_card():
@@ -216,6 +264,7 @@ def test_from_cards_reads_labels_and_staleness():
     assert [(x.service, x.group) for x in got] == [
         ("immich", v.ACT_NOW), ("caddy", v.NEXT_UPGRADE), ("redis", v.WAITING)]
     assert got[0].note == "Auth bypass on the public share route."
+    assert got[0].name == "immich card"
     assert got[0].url == "https://board/tasks/2"
 
 
@@ -225,7 +274,13 @@ def test_latest_reply_and_payload():
     vs = [v.Verdict("caddy", "Caddy: 2 open", v.ACT_NOW, "why", "u", 1)]
     p = v.payload(vs, {"caddy": "caddyserver/caddy"})
     assert p["accent"] == "red" and p["items"][0]["repo"] == "caddyserver/caddy"
+    assert p["items"][0]["name"] == "Caddy"
+    assert [g["name"] for g in p["groups"] if g.get("quiet")] == [v.UPSTREAM, v.NOT_AFFECTED, v.WAITING]
     assert v.payload([], {})["items"] == []
+    stamped = [{"comment": "<p>Verdict: Waiting on upstream. Debian hasn't shipped it.</p>",
+                "created": "2026-11-23T04:40:00Z"}]
+    got = v.from_cards([sec_card(1, "caddy", ["CVE-1"], labels=["Verdict: Waiting on upstream"])], {1: stamped}, None)
+    assert (got[0].group, got[0].assessed_at) == (v.UPSTREAM, "2026-11-23T04:40:00Z")
 
 
 # ── notify ───────────────────────────────────────────────────────────────────
@@ -303,6 +358,20 @@ def test_updates_put_flagged_rows_first():
     got = updates_mod._with_security([entry("a"), entry("b"), entry("c"), entry("d")], sec)
     assert [e.id for e in got] == ["c", "d", "b", "a"]
     assert got[0].securityOpen == 2
+
+
+def test_running_versions_cover_services_with_no_update(monkeypatch):
+    monkeypatch.setattr(updates_mod, "_image_to_dir", lambda: {"caddy": "caddy", "signoz/signoz": "signoz",
+                                                               "signoz/otel": "signoz"})
+    monkeypatch.setattr(updates_mod, "normalize_image", lambda image: image)
+    payload = {"services": [
+        {"image": "caddy", "repo": "caddy", "current_version": "2.10.2", "has_updates": False},
+        {"image": "signoz/otel", "repo": "otel", "current_version": "0.9", "has_updates": True},
+        {"image": "signoz/signoz", "repo": "signoz", "current_version": "1.4", "has_updates": False},
+        {"image": "unknown", "repo": "x", "current_version": "1"},
+    ]}
+    assert updates_mod.running_versions(payload) == {"caddy": "2.10.2", "signoz": "1.4"}
+    assert updates_mod.running_versions(None) == {}
 
 
 def test_settings_defaults(monkeypatch, tmp_path: Path):

@@ -34,6 +34,7 @@ export interface OverviewServices {
 export interface SecurityCounts {
   actNow: number;
   nextUpgrade: number;
+  waitingUpstream: number;
   notAffected: number;
   waiting: number;
 }
@@ -382,6 +383,8 @@ export interface SecurityServiceRow {
   verdict: string | null;
   verdictNote: string | null;
   verdictColor: string | null;
+  /** When Claude gave the verdict. */
+  verdictAt: string | null;
   cardUrl: string | null;
 }
 
@@ -435,6 +438,8 @@ export interface ServiceSecurity {
   verdict: string | null;
   verdictNote: string | null;
   verdictColor: string | null;
+  /** When Claude gave the verdict. */
+  verdictAt: string | null;
   /** Claude's latest reply on the card. */
   reply: string | null;
   cardUrl: string | null;
