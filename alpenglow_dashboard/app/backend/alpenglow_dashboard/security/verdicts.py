@@ -17,7 +17,7 @@ import re
 from dataclasses import asdict, dataclass
 
 from ..upgrades.verdicts import VERDICT_PREFIX, html_to_text, reason_from_comments
-from .cards import GONE_FINDINGS_MARK, IMAGE_CHANGED_MARK, NEW_FINDINGS_MARK, SecurityCard
+from .cards import GONE_FINDINGS_MARK, IMAGE_CHANGED_MARK, NEW_FINDINGS_MARK, REASSESS_MARK, SecurityCard
 
 ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED = "Act now", "Next upgrade", "Not affected"
 UPSTREAM = "Waiting on upstream"
@@ -68,12 +68,12 @@ def verdict_from_labels(labels: list[dict] | None) -> str | None:
 
 def is_current(comments: list[dict]) -> bool:
     """False when Claude was asked to assess again after its last verdict:
-    new findings arrived, the running image changed, or an "Act now" card lost
-    some of its findings."""
+    new findings arrived, the running image changed, an "Act now" card lost
+    some of its findings, or a person asked for a reassessment."""
     last_verdict = last_new = -1
     for i, comment in enumerate(comments):
         text = html_to_text(comment.get("comment"))
-        asked = "@claude" in text and (GONE_FINDINGS_MARK in text or IMAGE_CHANGED_MARK in text)
+        asked = "@claude" in text and any(mark in text for mark in (GONE_FINDINGS_MARK, IMAGE_CHANGED_MARK, REASSESS_MARK))
         if NEW_FINDINGS_MARK in text or asked:
             last_new = i
         elif re.search(r"verdict\W*(" + "|".join(map(re.escape, VERDICTS)) + ")", text, re.I):

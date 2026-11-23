@@ -146,6 +146,14 @@ Setup:
 2. Set `SECURITY_PROJECT_ID` (and optionally the Discord settings) in `.env`;
    see `.env.example`.
 
+To get a fresh verdict without waiting for something to change, use
+**Reassess** on a service's Security tab (`POST
+/api/services/{id}/security/reassess`), or `POST /api/security/reassess` for
+every open card at once, e.g. after changing the reviewer's instructions in
+`claude-dispatcher/profiles.yaml`. Both rewrite the card with today's version
+and findings first. The nightly scan isn't involved: reviews run whenever a
+card gets an `@claude` comment.
+
 `POST /api/security/sync` (admin) syncs straight away. Code is in
 `backend/alpenglow_dashboard/security/`.
 

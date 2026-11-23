@@ -125,6 +125,8 @@ export const api = {
   // Security (cve-scanner findings + Claude's verdicts)
   security: () => request<SecuritySummary>("/api/security"),
   serviceSecurity: (id: string) => request<ServiceSecurity>(`/api/services/${id}/security`),
+  reassessSecurity: (id: string) =>
+    mutate<{ asked: number }>(`/api/services/${id}/security/reassess`, "POST"),
   askSecurity: (id: string, question: string) =>
     mutate<{ ok: boolean; cardUrl?: string | null }>(`/api/services/${id}/security/ask`, "POST", {
       question,

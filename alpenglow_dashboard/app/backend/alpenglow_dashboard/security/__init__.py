@@ -433,6 +433,58 @@ async def post_ask(service_id: str, body: models.SecurityAsk) -> dict:
     return {"ok": True, "cardUrl": verdicts.card_url(s.public_url, sc.card.id)}
 
 
+async def reassess(service_id: str | None = None) -> int:
+    """Ask Claude to assess open cards again: one service's, or every one.
+
+    Returns how many cards were asked. Cards whose service has nothing open in
+    the latest scan are skipped; the next sync closes those.
+    """
+    s = Settings.from_env()
+    if s is None or not s.board:
+        raise HTTPException(409, "the Security board is off")
+    scan = load_scan(s)
+    if scan is None:
+        raise HTTPException(409, "no scan yet: the cve-scanner hasn't written findings.json")
+    contexts = await _contexts(scan, s)
+    asked = 0
+    try:
+        async with _sync_lock, httpx.AsyncClient(timeout=30) as client:
+            api = _api(s, client)
+            for sc in [cards.SecurityCard.parse(c) for c in await api.cards()]:
+                sid = sc.service
+                if sc.card.done or not sid or (service_id and sid != service_id):
+                    continue
+                sf = scan.services.get(sid)
+                if sf is None or not sf.open:
+                    continue
+                await cards.reassess(sc, sid, contexts.get(sid) or cards.Context(name=sid), sf, api)
+                asked += 1
+    except httpx.HTTPError as err:
+        raise HTTPException(502, f"couldn't reach the Security board: {err}") from err
+    finally:
+        _BOARD_CACHE.invalidate()
+    return asked
+
+
+@router.post("/api/services/{service_id}/security/reassess")
+async def post_reassess_service(service_id: str) -> dict:
+    """Ask Claude for a fresh verdict on this service's open card."""
+    if mock.mock_enabled():
+        return {"asked": 1}
+    asked = await reassess(service_id)
+    if not asked:
+        raise HTTPException(409, "this service has no open Security card with open findings")
+    return {"asked": asked}
+
+
+@router.post("/api/security/reassess")
+async def post_reassess_all() -> dict:
+    """Ask Claude for a fresh verdict on every open card (after a prompt change, say)."""
+    if mock.mock_enabled():
+        return {"asked": len(_MOCK)}
+    return {"asked": await reassess()}
+
+
 @router.post("/api/security/sync")
 async def post_sync() -> dict:
     try:

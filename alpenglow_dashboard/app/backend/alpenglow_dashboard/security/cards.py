@@ -51,6 +51,8 @@ NEW_FINDINGS_MARK = "New findings since the last assessment"
 GONE_FINDINGS_MARK = "No longer open since the last assessment"
 # The comment it leaves when the service runs a different image than the one assessed.
 IMAGE_CHANGED_MARK = "The running image changed since the last assessment"
+# The comment a person's "Reassess" leaves (the dashboard button, or the API).
+REASSESS_MARK = "Reassessment requested from the dashboard"
 
 TIER_TEXT = {
     "public": "Public (reachable from the internet on :10443)",
@@ -212,6 +214,19 @@ def card_description(sid: str, ctx: Context, sf: ServiceFindings) -> str:
     out += f"<p>{SERVICE_LINE} {e(sid)}</p><p>{FINDINGS_LINE} {e(', '.join(sorted(sf.open_ids)))}</p>"
     out += f"<p>{IMAGES_LINE} {e(', '.join(sorted(image_ids(sf))))}</p>"
     return out
+
+
+async def reassess(sc: SecurityCard, sid: str, ctx: Context, sf: ServiceFindings, api: Vikunja) -> None:
+    """Ask Claude for a fresh verdict on an open card, on today's facts.
+
+    The description is rewritten first, so the review sees the version and
+    findings as they are now rather than as they were when the card was filed.
+    """
+    await api.update(sc.card, title=card_title(ctx, sf), description=card_description(sid, ctx, sf))
+    await api.comment(sc.card, f"@claude {REASSESS_MARK}. The description lists the image running now "
+                               "and everything open in it. Please assess the whole list again and give "
+                               "a fresh verdict.")
+    log.info("security: reassessment requested on card %s (%s)", sc.card.id, sid)
 
 
 async def sync(services: dict[str, ServiceFindings], contexts: dict[str, Context], api: Vikunja) -> Plan:

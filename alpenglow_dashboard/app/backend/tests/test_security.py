@@ -163,6 +163,17 @@ def test_sync_asks_again_for_a_new_image_whatever_the_verdict():
     assert v.is_current([comment("Verdict: Not affected. Fine."), comment(text), comment("Verdict: Not affected. Still.")])
 
 
+def test_reassess_rewrites_the_card_and_asks():
+    api = FakeVikunja([])
+    card = sec_card(1, "caddy", ["CVE-1"], labels=["Verdict: Next upgrade"])
+    asyncio.run(c.reassess(card, "caddy", c.Context("Caddy", current="2.10.2", tracked=True),
+                           scan().services["caddy"], api))
+    assert api.calls[0] == ("update", 1, ["description", "title"])
+    text = api.calls[1][2]
+    assert text.startswith(f"@claude {c.REASSESS_MARK}.")
+    assert not v.is_current([comment("Verdict: Next upgrade. Meh."), comment(text)])
+
+
 def test_version_line_says_whether_there_is_anything_to_upgrade_to():
     sf = scan().services["caddy"]
     latest = c.version_line(c.Context("Caddy", current="2.10.2", tracked=True), sf)
@@ -413,6 +424,9 @@ def test_routes_in_mock_mode(client):
     assert client.post(ask, json={"question": "Is this reachable?"}).status_code == 403  # no CSRF token
     assert client.post(ask, json={"question": "Is this reachable?"}, headers=csrf).json()["ok"]
     assert client.post(ask, json={"question": "  "}, headers=csrf).status_code == 422
+    assert client.post("/api/services/caddy/security/reassess").status_code == 403  # no CSRF token
+    assert client.post("/api/services/caddy/security/reassess", headers=csrf).json() == {"asked": 1}
+    assert client.post("/api/security/reassess", headers=csrf).json() == {"asked": 2}
     assert client.get("/internal/security/annotations").json()["items"] == []
     ov = client.get("/api/overview").json()
     assert ov["updates"]["security"]["nextUpgrade"] == 1

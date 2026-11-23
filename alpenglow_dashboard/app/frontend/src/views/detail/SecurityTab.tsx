@@ -6,7 +6,7 @@
  * without a reload. */
 
 import { useState } from "react";
-import { ArrowSquareOutIcon, PaperPlaneRightIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, ArrowSquareOutIcon, PaperPlaneRightIcon } from "@phosphor-icons/react";
 
 import { api, ApiError } from "../../api/client";
 import { useServiceSecurity } from "../../api/hooks";
@@ -108,6 +108,31 @@ function Finding({ f }: { f: SecurityFinding }) {
   );
 }
 
+/** Ask Claude for a fresh verdict on the card, on the findings as they are now. */
+function Reassess({ serviceId, onAsked }: { serviceId: string; onAsked: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await api.reassessSecurity(serviceId);
+      toast("Asked Claude to assess again; the new verdict lands here in a few minutes");
+      onAsked();
+    } catch (e) {
+      toast(e instanceof ApiError ? `Couldn't reassess: ${e.detail}` : "Couldn't ask Claude to reassess");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button variant="ghost" className={sec.cardLink} onClick={submit} disabled={busy} title="Ask Claude for a fresh verdict">
+      <ArrowClockwiseIcon size={13} /> Reassess
+    </Button>
+  );
+}
+
 function Ask({ serviceId, onAsked }: { serviceId: string; onAsked: () => void }) {
   const toast = useToast();
   const [question, setQuestion] = useState("");
@@ -157,6 +182,7 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
     );
   }
   const failed = data.images.filter((i) => i.error);
+  const canReassess = data.canAsk && data.open.length > 0 && data.verdict !== "Waiting for assessment";
   return (
     <>
       <div className={`card elev-sm ${sec.section}`}>
@@ -171,8 +197,11 @@ function Body({ data, refresh }: { data: ServiceSecurity; refresh: () => void })
             {data.verdictAt && ` · assessed ${relativeAgo(data.verdictAt)}`}
             {data.belowBar > 0 && ` · ${data.belowBar} lower-risk findings not shown`}
           </span>
+          {canReassess && <Reassess serviceId={data.id} onAsked={refresh} />}
           {data.cardUrl && (
-            <a className={`btn btn-ghost ${sec.cardLink}`} href={data.cardUrl} target="_blank" rel="noopener noreferrer">
+            <a
+              style={canReassess ? { marginLeft: 0 } : undefined}
+              className={`btn btn-ghost ${sec.cardLink}`} href={data.cardUrl} target="_blank" rel="noopener noreferrer">
               Open card <ArrowSquareOutIcon size={13} />
             </a>
           )}
