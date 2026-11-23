@@ -90,9 +90,6 @@ images:
   ghcr.io/music-assistant/server:
     tag: 2.10.13
     digest: sha256:7510aaa7ee5fc85b34fd0de17992bd14473895b23ce3eb9b310092743f4dbb84
-  ghcr.io/sergi0g/cup:
-    tag: v3.6.0
-    digest: sha256:e22aaf5cba4d5949e2e3777a880c5f368607bdbb4bfd1381ae2faf581a1e3c92
   jellyfin/jellyfin:
     tag: '12.4'
     digest: sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771

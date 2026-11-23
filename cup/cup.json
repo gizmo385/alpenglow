@@ -1,8 +1,0 @@
-{
-  "refresh_interval": "0 0,30 * * * *",
-  "images": {
-	  "exclude": [
-		  "ghcr.io/immichframe/immichframe" 
-	  ]
-  }
-}

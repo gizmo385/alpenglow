@@ -57,11 +57,6 @@ services:
     description: Fast file server and drop-box for quick transfers, behind oauth2-proxy.
     primary_container: copyparty
 
-  cup:
-    category: Monitoring
-    icon: ph-coffee
-    description: Lightweight checker for newer tags of running container images.
-
   crowdsec:
     name: CrowdSec
     category: Monitoring
