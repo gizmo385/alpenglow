@@ -115,8 +115,8 @@ images:
     tag: v7.15.6
     digest: sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
   vabene1111/recipes:
-    tag: 2.7.6
-    digest: sha256:6c467bf484044a0305ff39bed5badb48b58bb963d4276fc248e101921151895b
+    tag: 2.7.7
+    digest: sha256:b079e6348d13c4d53c34b150cedcc77a0f1b6d8397010027b24128e8ed71a91d
   vikunja/vikunja:
     tag: 2.8.0
     digest: sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3
@@ -146,7 +146,7 @@ images:
     digest: sha256:8e4b6bef96417ec98a35dc103c99cc64fc229a01e584e56d95d9004d2003c02a
   nextcloud:
     tag: 35.0.3
-    digest: sha256:f22d1dd63844bd15bbf6c2019149653c3d1c775ba48b173b56c3c6ad5f386196
+    digest: sha256:fb3c0811a45bd5c316ddde357d12daeb44ef8259b9afcfbcde290898750c304f
   ollama/ollama:
     tag: 0.40.17
     digest: sha256:ccc42bcd3d5fcf7ab0d532b300382154e1a4da56fc666bdb313b78ebdd912754
