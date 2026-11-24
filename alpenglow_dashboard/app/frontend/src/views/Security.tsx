@@ -137,7 +137,9 @@ export function Security() {
       toast(
         res.rescanning
           ? `Rescanning ${row.name}'s image, then Claude assesses again`
-          : `Asked Claude to assess ${row.name} again`,
+          : res.scanner
+            ? `Asked Claude to assess ${row.name} again`
+            : `The cve-scanner isn't running, so ${row.name}'s image wasn't rescanned. Asked Claude to assess the last scan's findings`,
       );
       refresh();
     } catch (e) {
