@@ -218,6 +218,15 @@ def test_webhook_endpoint():
 VERDICTS = ("Easy", "Needs care", "Hold")
 
 
+def test_verdict_colors_by_position():
+    from dispatcher.main import verdict_color
+
+    assert [verdict_color(VERDICTS, x) for x in VERDICTS] == ["2e7d32", "f9a825", "c62828"]
+    four = ("Not affected", "Waiting on upstream", "Next upgrade", "Act now")
+    assert [verdict_color(four, x) for x in four] == ["2e7d32", "5c8fc2", "f9a825", "c62828"]
+    assert find_verdict("Verdict: Waiting on upstream. Debian hasn't shipped it.", four) == "Waiting on upstream"
+
+
 def test_find_verdict():
     assert find_verdict("Verdict: Easy. Patch release.", VERDICTS) == "Easy"
     assert find_verdict("**Verdict: Needs care** — new env var", VERDICTS) == "Needs care"

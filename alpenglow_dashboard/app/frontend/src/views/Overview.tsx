@@ -31,12 +31,13 @@ export function Overview() {
   const { query, category, tag, status, setQuery, setTag } = useUiState();
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const security = useSecurity();
-  // Shields on service cards: services with open findings, except Not affected.
+  // Shields on service cards: services with open findings, except the verdicts
+  // with nothing to do (Not affected, Waiting on upstream).
   const shields = useMemo(
     () =>
       new Map(
         (security.data?.services ?? [])
-          .filter((r) => r.verdict && r.verdict !== "Not affected")
+          .filter((r) => r.verdict && r.verdict !== "Not affected" && r.verdict !== "Waiting on upstream")
           .map((r) => [r.id, r]),
       ),
     [security.data],

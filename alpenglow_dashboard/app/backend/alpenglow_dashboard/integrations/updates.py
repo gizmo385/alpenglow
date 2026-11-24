@@ -206,6 +206,26 @@ def _match_entries(payload: dict) -> tuple[dict[str, list[dict]], list[str]]:
     return matched, unmatched
 
 
+def running_versions(payload: Optional[dict]) -> dict[str, str]:
+    """``{dir_id: version running}`` for every service the tracker follows,
+    pending update or not. The dir's own repo wins when it has several images."""
+    services = (payload or {}).get("services")
+    if not isinstance(services, list):
+        return {}
+    img_map = _image_to_dir()
+    out: dict[str, str] = {}
+    for entry in services:
+        if not isinstance(entry, dict):
+            continue
+        sid = img_map.get(normalize_image(str(entry.get("image", ""))))
+        if sid is None:
+            continue
+        version = str(entry.get("current_version") or "")
+        if sid not in out or str(entry.get("repo") or "") == sid:
+            out[sid] = version
+    return out
+
+
 def _match_follows(
     pending: list[follows_mod.FollowUpdate],
 ) -> dict[str, list[follows_mod.FollowUpdate]]:
@@ -359,12 +379,12 @@ def _build_updates(payload: dict, annotations: Optional[dict] = None,
 def _with_security(entries: list[models.UpdateEntry], security: dict[str, dict]) -> list[models.UpdateEntry]:
     """Add each service's Security verdict, and put flagged services first.
 
-    Flagged rows go Act now, then Next upgrade, then waiting, then Not
-    affected; the rest keep their order.
+    Flagged rows go Act now, then Next upgrade, then waiting, then Waiting
+    on upstream and Not affected; the rest keep their order.
     """
-    from ..security.verdicts import ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED
+    from ..security.verdicts import ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED, UPSTREAM
 
-    rank = {ACT_NOW: 0, NEXT_UPGRADE: 1, NOT_AFFECTED: 3}
+    rank = {ACT_NOW: 0, NEXT_UPGRADE: 1, UPSTREAM: 3, NOT_AFFECTED: 3}
     out = [e.model_copy(update=security[e.id]) if e.id in security else e for e in entries]
 
     def key(e: models.UpdateEntry) -> int:

@@ -57,6 +57,7 @@ class SecurityCounts(BaseModel):
 
     actNow: int = 0
     nextUpgrade: int = 0
+    waitingUpstream: int = 0
     notAffected: int = 0
     waiting: int = 0
 
@@ -435,6 +436,7 @@ class SecurityServiceRow(BaseModel):
     verdict: Optional[str] = None
     verdictNote: Optional[str] = None
     verdictColor: Optional[str] = None
+    verdictAt: Optional[str] = None  # when Claude gave the verdict
     cardUrl: Optional[str] = None
 
 
@@ -491,9 +493,11 @@ class ServiceSecurity(BaseModel):
     verdict: Optional[str] = None
     verdictNote: Optional[str] = None
     verdictColor: Optional[str] = None
+    verdictAt: Optional[str] = None  # when Claude gave the verdict
     reply: Optional[str] = None  # Claude's latest reply on the card
     cardUrl: Optional[str] = None
     canAsk: bool = False  # an open card exists to ask a follow-up on
+    rescanning: bool = False  # Reassess is waiting for the scanner to look at the image again
     closed: list[SecurityClosedCard] = []
 
 

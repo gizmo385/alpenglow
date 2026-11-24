@@ -6,7 +6,8 @@ default) the dashboard reads it and:
 
 - keeps Vikunja's Security project in step (``cards.py``): one card per
   service with open findings, which the claude-dispatcher's ``security``
-  profile assesses and labels ``Act now``, ``Next upgrade`` or ``Not affected``;
+  profile assesses and labels ``Act now``, ``Next upgrade``, ``Waiting on
+  upstream`` or ``Not affected``;
 - pings Discord straight away for an Act now verdict, or for a known-exploited
   CVE on a public service (``notify.py``).
 
@@ -24,8 +25,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,6 +65,13 @@ class Settings:
     pings_path: Path = Path("/data-store/security-pings.json")
     dashboard_url: str | None = None
     repo_url: str | None = None  # for compose-file links on cards
+    # How long Reassess waits for the scanner to look at the service again.
+    rescan_timeout: int = 900
+
+    @property
+    def requests_dir(self) -> Path:
+        """Where the cve-scanner picks up requests to scan one service."""
+        return self.findings_path.parent / "requests"
 
     @property
     def board(self) -> bool:
@@ -88,6 +98,7 @@ class Settings:
             pings_path=Path(env("SECURITY_PINGS_PATH") or "/data-store/security-pings.json"),
             dashboard_url=(env("DASHBOARD_PUBLIC_URL") or "").rstrip("/") or None,
             repo_url=(env("SECURITY_REPO_URL") or "https://github.com/gizmo385/alpenglow/blob/main").rstrip("/"),
+            rescan_timeout=int(env("SECURITY_RESCAN_TIMEOUT") or 900),
         )
 
 
@@ -178,6 +189,8 @@ def _counts(scan: findings.Scan | None, by_service: dict[str, verdicts.Verdict])
             c.actNow += 1
         elif group == verdicts.NEXT_UPGRADE:
             c.nextUpgrade += 1
+        elif group == verdicts.UPSTREAM:
+            c.waitingUpstream += 1
         elif group == verdicts.NOT_AFFECTED:
             c.notAffected += 1
         else:
@@ -237,6 +250,10 @@ async def _contexts(scan: findings.Scan, s: Settings) -> dict[str, cards.Context
         enrich = await updates.service_enrichment()
     except Exception:
         enrich = {}
+    try:
+        running = updates.running_versions(await updates._tracker_cached())
+    except Exception:
+        running = {}
     out = {}
     for sid in scan.services:
         rs = repo.get(sid)
@@ -246,7 +263,8 @@ async def _contexts(scan: findings.Scan, s: Settings) -> dict[str, cards.Context
             pending = f"to {enrich[sid]['latestVersion']}"
         compose = f"{s.repo_url}/{sid}/compose.yaml" if s.repo_url and rs else None
         out[sid] = cards.Context(name=name, tier=rs.tier if rs else "internal", url=rs.url if rs else None,
-                                 pending=pending, compose_url=compose)
+                                 pending=pending, compose_url=compose,
+                                 current=running.get(sid) or None, tracked=sid in running or sid in enrich)
     return out
 
 
@@ -264,7 +282,8 @@ async def sync_once() -> dict | None:
         current = EMPTY_BOARD
         if s.board:
             todo = await cards.sync(scan.services, contexts, _api(s, client))
-            done.update(filed=len(todo.create), updated=len(todo.add), closed=len(todo.close))
+            done.update(filed=len(todo.create), updated=len(todo.add) + len(todo.reassess),
+                        closed=len(todo.close))
             _BOARD_CACHE.invalidate()
             current = await _read_board(s, client)
         if s.webhook:
@@ -329,7 +348,7 @@ def summary(scan: findings.Scan | None, by_service: dict[str, verdicts.Verdict],
             id=sid, name=names.get(sid, sid), open=len(sf.open), worst=sf.worst,
             kev=any(o.finding.kev for o in sf.open), verdict=group,
             verdictNote=(v.note if v else "") or None, verdictColor=verdicts.COLORS[group],
-            cardUrl=v.url if v else None,
+            verdictAt=v.assessed_at if v else None, cardUrl=v.url if v else None,
         ))
     order = {g["name"]: i for i, g in enumerate(verdicts.GROUPS)}
     rows.sort(key=lambda r: (order.get(r.verdict or "", 9), not r.kev,
@@ -364,9 +383,11 @@ def service_view(sid: str, scan: findings.Scan | None, b: Board, tier: str,
         verdict=v.group if v else (verdicts.WAITING if sf and sf.open else None),
         verdictNote=(v.note if v else "") or None,
         verdictColor=verdicts.COLORS[v.group] if v else None,
+        verdictAt=v.assessed_at if v else None,
         reply=reply or None,
         cardUrl=v.url if v else None,
         canAsk=open_card is not None,
+        rescanning=sid in _rescanning,
         closed=closed[:10],
     )
 
@@ -421,6 +442,150 @@ async def post_ask(service_id: str, body: models.SecurityAsk) -> dict:
         raise HTTPException(502, f"couldn't comment on the card: {err}") from err
     _BOARD_CACHE.invalidate()
     return {"ok": True, "cardUrl": verdicts.card_url(s.public_url, sc.card.id)}
+
+
+async def reassess(service_id: str | None = None) -> int:
+    """Ask Claude to assess open cards again: one service's, or every one.
+
+    Returns how many cards were asked. Cards whose service has nothing open in
+    the latest scan are skipped; the next sync closes those.
+    """
+    s = Settings.from_env()
+    if s is None or not s.board:
+        raise HTTPException(409, "the Security board is off")
+    scan = load_scan(s)
+    if scan is None:
+        raise HTTPException(409, "no scan yet: the cve-scanner hasn't written findings.json")
+    contexts = await _contexts(scan, s)
+    asked = 0
+    try:
+        async with _sync_lock, httpx.AsyncClient(timeout=30) as client:
+            api = _api(s, client)
+            for sc in [cards.SecurityCard.parse(c) for c in await api.cards()]:
+                sid = sc.service
+                if sc.card.done or not sid or (service_id and sid != service_id):
+                    continue
+                sf = scan.services.get(sid)
+                if sf is None or not sf.open:
+                    continue
+                await cards.reassess(sc, sid, contexts.get(sid) or cards.Context(name=sid), sf, api)
+                asked += 1
+    except httpx.HTTPError as err:
+        raise HTTPException(502, f"couldn't reach the Security board: {err}") from err
+    finally:
+        _BOARD_CACHE.invalidate()
+    return asked
+
+
+# Services whose image the scanner is looking at again before Claude is asked.
+_rescanning: dict[str, asyncio.Task] = {}
+RESCAN_POLL_SECONDS = 2.0
+
+
+def request_scan(s: Settings, service_id: str) -> Path | None:
+    """Ask the cve-scanner to scan one service's running images now.
+
+    The scanner watches ``data/requests/`` and removes the file when it's done
+    (cve-scanner/app/scanner/main.py). ``None`` when the file can't be written.
+    """
+    path = s.requests_dir / f"{service_id}.json"
+    try:
+        if not s.requests_dir.exists():
+            # The scanner (uid 1000) must be able to remove what we (root) put
+            # here, even if we're the one who made the folder.
+            s.requests_dir.mkdir(parents=True, exist_ok=True)
+            s.requests_dir.chmod(0o777)
+        path.write_text(json.dumps({"service": service_id, "requested_at": time.time()}))
+    except OSError as err:
+        log.warning("security: can't ask the scanner to rescan %s: %s", service_id, err)
+        return None
+    return path
+
+
+async def _wait_for_scan(request: Path, timeout: float) -> bool:
+    """True once the scanner has taken the request; False if it never did."""
+    deadline = time.monotonic() + timeout
+    while request.exists():
+        if time.monotonic() >= deadline:
+            with contextlib.suppress(OSError):
+                request.unlink(missing_ok=True)  # don't leave it to fire hours later
+            return False
+        await asyncio.sleep(RESCAN_POLL_SECONDS)
+    return True
+
+
+async def rescan_then_reassess(s: Settings, service_id: str, request: Path) -> str:
+    """Wait for the scanner, bring the board in line, and make sure Claude is asked.
+
+    If the service runs a different image than the card was written for, the
+    sync asks Claude itself (and rewrites the card for the new image, or closes
+    it if the findings are gone). Otherwise the image is the same and this
+    asks. Returns what happened, for the log and the tests.
+    """
+    try:
+        scanned = await _wait_for_scan(request, s.rescan_timeout)
+        if not scanned:
+            log.warning("security: the scanner didn't rescan %s within %ss; assessing the findings we have",
+                        service_id, s.rescan_timeout)
+        await sync_once()
+        verdict = (await verdicts_by_service()).get(service_id)
+        if verdict is None:
+            return "closed"  # the new image has nothing open: no card left to assess
+        if verdict.group == verdicts.WAITING:
+            return "asked by sync"
+        await reassess(service_id)
+        return "asked" if scanned else "asked without a rescan"
+    finally:
+        _rescanning.pop(service_id, None)
+
+
+def _log_rescan(service_id: str, task: asyncio.Task) -> None:
+    if task.cancelled():
+        return
+    if task.exception():
+        log.error("security: reassessing %s failed", service_id, exc_info=task.exception())
+    else:
+        log.info("security: reassess %s: %s", service_id, task.result())
+
+
+@router.post("/api/services/{service_id}/security/reassess")
+async def post_reassess_service(service_id: str) -> dict:
+    """Ask Claude for a fresh verdict on this service's open card.
+
+    The scanner looks at the service's running images first, so an upgrade
+    since last night's scan is assessed, not the image that was replaced. That
+    takes seconds when the image hasn't changed and minutes when it has, so
+    this returns straight away with ``rescanning`` and the rest happens in the
+    background; ``GET .../security`` says ``rescanning`` until Claude is asked.
+    """
+    if mock.mock_enabled():
+        return {"asked": 1, "rescanning": False}
+    s = Settings.from_env()
+    if s is None or not s.board:
+        raise HTTPException(409, "the Security board is off")
+    if service_id in _rescanning:
+        return {"asked": 0, "rescanning": True}
+    b = await board()
+    if not any(sc.service == service_id and not sc.card.done for sc in b.cards):
+        raise HTTPException(409, "this service has no open Security card to reassess")
+    request = request_scan(s, service_id)
+    if request is None:  # can't reach the scanner's folder: assess what we have
+        asked = await reassess(service_id)
+        if not asked:
+            raise HTTPException(409, "this service has no open Security card with open findings")
+        return {"asked": asked, "rescanning": False}
+    task = asyncio.create_task(rescan_then_reassess(s, service_id, request), name=f"security-reassess-{service_id}")
+    _rescanning[service_id] = task
+    task.add_done_callback(lambda t: _log_rescan(service_id, t))
+    return {"asked": 0, "rescanning": True}
+
+
+@router.post("/api/security/reassess")
+async def post_reassess_all() -> dict:
+    """Ask Claude for a fresh verdict on every open card (after a prompt change, say)."""
+    if mock.mock_enabled():
+        return {"asked": len(_MOCK)}
+    return {"asked": await reassess()}
 
 
 @router.post("/api/security/sync")
@@ -514,5 +679,6 @@ def _mock_service(sid: str) -> models.ServiceSecurity:
               for i, sev, p, ver, fix, kev in fs],
         ignored=[], belowBar=37 if fs else 0,
         verdict=group, verdictNote=note, verdictColor=verdicts.COLORS[group] if group else None,
+        verdictAt=mock._ago(hours=4) if note else None,
         reply=_MOCK_REPLY if note else None, canAsk=bool(fs),
     )

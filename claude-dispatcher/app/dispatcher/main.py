@@ -22,8 +22,9 @@ log = logging.getLogger("dispatcher")
 
 MAX_CONTEXT_COMMENTS = 10
 VERDICT_PREFIX = "Verdict: "
-# Label colours by position in the profile's verdict list: good, caution, stop.
-VERDICT_COLORS = ("2e7d32", "f9a825", "c62828")
+# Label colours by position in the profile's verdict list: good, caution, stop,
+# or good, wait, caution, stop when a profile has four.
+VERDICT_COLORS = {3: ("2e7d32", "f9a825", "c62828"), 4: ("2e7d32", "5c8fc2", "f9a825", "c62828")}
 
 
 def find_verdict(text: str, verdicts: tuple[str, ...]) -> str | None:
@@ -40,6 +41,12 @@ def find_verdict(text: str, verdicts: tuple[str, ...]) -> str | None:
             if rest.startswith(v.casefold()):
                 return v
     return None
+
+
+def verdict_color(verdicts: tuple[str, ...], verdict: str) -> str:
+    colors = VERDICT_COLORS.get(len(verdicts), VERDICT_COLORS[3])
+    idx = verdicts.index(verdict)
+    return colors[idx] if idx < len(colors) else ""
 
 
 def build_prompt(trigger: Trigger, profile: Profile, history: list[str]) -> str:
@@ -114,7 +121,7 @@ class Dispatcher:
             log.warning("task %s: reply has no verdict line", trigger.task_id)
             return
         idx = profile.verdicts.index(verdict)
-        color = VERDICT_COLORS[idx] if idx < len(VERDICT_COLORS) else ""
+        color = verdict_color(profile.verdicts, verdict)
         try:
             await self.vikunja.set_label(trigger.task_id, VERDICT_PREFIX + verdict, VERDICT_PREFIX, color)
         except Exception:

@@ -11,13 +11,18 @@ After each sync:
   had said "Act now", it's asked to assess again, since the urgent finding
   may be the one that went; a milder verdict can't get worse by losing
   findings, so those cards only get a note;
+* when the running image changes (an upgrade, a rebuild) and findings are
+  still open, the card is rewritten for the new image and Claude is asked to
+  assess again, whatever it said before: a verdict is about one image, and
+  the fix it was waiting for may have arrived or stopped being the answer;
 * an open card is closed once a clean scan of the service shows none of its
   findings (usually after an upgrade);
 * a card closed by hand (say, "Not affected") isn't refiled for the same
   findings, only when new ones appear.
 
-Each card's description carries two marker lines the sync reads back: the
-service id, and the ids of the findings it covers.
+Each card's description carries three marker lines the sync reads back: the
+service id, the ids of the findings it covers, and the images they were found
+in.
 """
 
 from __future__ import annotations
@@ -36,12 +41,18 @@ log = logging.getLogger("alpenglow.security")
 SERVICE_LINE = "Security service:"
 FINDINGS_LINE = "Findings covered:"
 _SERVICE_RE = re.compile(rf"{re.escape(SERVICE_LINE)}\s*([\w.-]+)")
+IMAGES_LINE = "Images assessed:"
 _FINDINGS_RE = re.compile(rf"{re.escape(FINDINGS_LINE)}\s*([^<\n]*)")
+_IMAGES_RE = re.compile(rf"{re.escape(IMAGES_LINE)}\s*([^<\n]*)")
 
 # The comment the sync leaves when new findings arrive on an open card.
 NEW_FINDINGS_MARK = "New findings since the last assessment"
 # The comment it leaves when some of an open card's findings are gone.
 GONE_FINDINGS_MARK = "No longer open since the last assessment"
+# The comment it leaves when the service runs a different image than the one assessed.
+IMAGE_CHANGED_MARK = "The running image changed since the last assessment"
+# The comment a person's "Reassess" leaves (the dashboard button, or the API).
+REASSESS_MARK = "Reassessment requested from the dashboard"
 
 TIER_TEXT = {
     "public": "Public (reachable from the internet on :10443)",
@@ -56,14 +67,24 @@ class SecurityCard:
     card: Card
     service: str | None
     covers: set[str]
+    # The images the card was written for (short ids); None on a card filed
+    # before cards recorded them.
+    images: frozenset[str] | None = None
 
     @classmethod
     def parse(cls, card: Card) -> SecurityCard:
         desc = html.unescape(card.description or "")
         sid = _SERVICE_RE.search(desc)
         ids = _FINDINGS_RE.search(desc)
+        imgs = _IMAGES_RE.search(desc)
         covers = {i.strip() for i in ids.group(1).split(",") if i.strip()} if ids else set()
-        return cls(card, sid.group(1) if sid else None, covers)
+        images = frozenset(i.strip() for i in imgs.group(1).split(",") if i.strip()) if imgs else None
+        return cls(card, sid.group(1) if sid else None, covers, images)
+
+
+def image_ids(sf: ServiceFindings) -> frozenset[str]:
+    """What identifies the images a service runs: their ids, shortened."""
+    return frozenset(i.image_id.removeprefix("sha256:")[:12] or i.ref for i in sf.images)
 
 
 @dataclass
@@ -75,6 +96,11 @@ class Context:
     url: str | None = None
     pending: str | None = None  # "to 26.8.3"
     compose_url: str | None = None
+    # From the update tracker: the version running, and whether a newer
+    # release is out. ``tracked`` is False when the tracker doesn't follow the
+    # service, so nothing is known either way.
+    current: str | None = None
+    tracked: bool = False
 
 
 @dataclass
@@ -84,6 +110,8 @@ class Plan:
     close: list[tuple[SecurityCard, str]] = field(default_factory=list)
     # open card, service, findings it covered that aren't open any more
     prune: list[tuple[SecurityCard, str, list[str]]] = field(default_factory=list)
+    # open card, service, findings gone: the running image isn't the one assessed
+    reassess: list[tuple[SecurityCard, str, list[str]]] = field(default_factory=list)
 
 
 def is_act_now(card: Card) -> bool:
@@ -111,8 +139,12 @@ def plan(services: dict[str, ServiceFindings], cards: list[SecurityCard]) -> Pla
         covered = set().union(*(c.covers for c in existing)) if existing else set()
         new = sorted(current - covered)
         if not new:
-            gone = sorted(open_cards[0].covers - current) if open_cards and sf.scanned else []
-            if gone:
+            if not open_cards or not sf.scanned:
+                continue
+            gone = sorted(open_cards[0].covers - current)
+            if open_cards[0].images != image_ids(sf):
+                out.reassess.append((open_cards[0], sid, gone))
+            elif gone:
                 out.prune.append((open_cards[0], sid, gone))
             continue
         if open_cards:
@@ -120,6 +152,20 @@ def plan(services: dict[str, ServiceFindings], cards: list[SecurityCard]) -> Pla
         else:
             out.create.append(sid)
     return out
+
+
+def version_line(ctx: Context, sf: ServiceFindings) -> str:
+    """What the reviewer needs to know about upgrading: is there anything to upgrade to?"""
+    local = any(i.local_build for i in sf.images)
+    rebuild = (" The image is built on the server, so rebuilding it with --pull picks up "
+               "base-image and dependency fixes without a new release.") if local else ""
+    if not ctx.tracked:
+        return ("Version: not followed by the update tracker, so it isn't known whether a newer "
+                "release exists." + rebuild)
+    running = f"running {ctx.current}" if ctx.current else "running version unknown"
+    if ctx.pending:
+        return f"Version: {running}; a newer release is out (upgrade {ctx.pending})." + rebuild
+    return f"Version: {running}, the latest release. There is no newer release to upgrade to." + rebuild
 
 
 def card_title(ctx: Context, sf: ServiceFindings) -> str:
@@ -155,8 +201,7 @@ def card_description(sid: str, ctx: Context, sf: ServiceFindings) -> str:
         if img.local_build:
             bits.append("built on the server from this repo")
         lines.append("Image: " + ", ".join(bits))
-    if ctx.pending:
-        lines.append(f"Pending upgrade: {e(ctx.pending)}")
+    lines.append(e(version_line(ctx, sf)))
     if ctx.compose_url:
         lines.append(f'Compose file: <a href="{e(ctx.compose_url)}">{e(ctx.compose_url)}</a>')
     out = "".join(f"<p>{line}</p>" for line in lines)
@@ -167,7 +212,21 @@ def card_description(sid: str, ctx: Context, sf: ServiceFindings) -> str:
         out += "<p>Ignored in cve-scanner/ignore.yaml: " + ", ".join(
             f"{e(o.id)} ({e(i.reason or 'no reason given')})" for o, i in sf.ignored) + "</p>"
     out += f"<p>{SERVICE_LINE} {e(sid)}</p><p>{FINDINGS_LINE} {e(', '.join(sorted(sf.open_ids)))}</p>"
+    out += f"<p>{IMAGES_LINE} {e(', '.join(sorted(image_ids(sf))))}</p>"
     return out
+
+
+async def reassess(sc: SecurityCard, sid: str, ctx: Context, sf: ServiceFindings, api: Vikunja) -> None:
+    """Ask Claude for a fresh verdict on an open card, on today's facts.
+
+    The description is rewritten first, so the review sees the version and
+    findings as they are now rather than as they were when the card was filed.
+    """
+    await api.update(sc.card, title=card_title(ctx, sf), description=card_description(sid, ctx, sf))
+    await api.comment(sc.card, f"@claude {REASSESS_MARK}. The description lists the image running now "
+                               "and everything open in it. Please assess the whole list again and give "
+                               "a fresh verdict.")
+    log.info("security: reassessment requested on card %s (%s)", sc.card.id, sid)
 
 
 async def sync(services: dict[str, ServiceFindings], contexts: dict[str, Context], api: Vikunja) -> Plan:
@@ -200,6 +259,14 @@ async def sync(services: dict[str, ServiceFindings], contexts: dict[str, Context
             await api.comment(sc.card, f"{GONE_FINDINGS_MARK}: {', '.join(gone)}. "
                                        "The description now lists only what's still open.")
         log.info("security: %d findings gone from card %s (%s)", len(gone), sc.card.id, sid)
+    for sc, sid, gone in todo.reassess:
+        sf = services[sid]
+        await api.update(sc.card, title=card_title(ctx(sid), sf), description=card_description(sid, ctx(sid), sf))
+        await api.comment(sc.card, f"@claude {IMAGE_CHANGED_MARK}. "
+                                   + (f"{GONE_FINDINGS_MARK}: {', '.join(gone)}. " if gone else "")
+                                   + "The description lists the image running now and everything still "
+                                     "open in it. Please assess again.")
+        log.info("security: card %s (%s) is for an older image; asked for a new assessment", sc.card.id, sid)
     for sc, sid in todo.close:
         await api.update(sc.card, done=True)
         await api.comment(sc.card, "Closed by the security scan: a clean scan of the running "
