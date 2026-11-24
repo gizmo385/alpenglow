@@ -1,6 +1,6 @@
 services:
   youtube_rss_manager:
-    image: ghcr.io/gizmo385/youtube-rss-manager:sha-bcb5f17@sha256:058d50f4b06f57e3cb3afb4c2eba3e3fd4d3e8fa8eaf95ee38f1f46624aec41c
+    image: ghcr.io/gizmo385/youtube-rss-manager:sha-d1bdd7b@sha256:65ac0f0b67191ebabfe88c4532e580408e17b1fd3e470a3fe1649a263ec776ca
     restart: unless-stopped
     env_file: .env
     user: "994:985"

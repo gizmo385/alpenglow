@@ -61,14 +61,14 @@ images:
     tag: 4.2.0
     digest: sha256:ebf84972652c4cf5a7ef7d2359db35ddca46a5cf17714975abf5a8674b05935d
   copyparty/ac:
-    tag: 1.20.27
-    digest: sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4
+    tag: 1.20.28
+    digest: sha256:75c58da287339fc4fd93974b4f19b72a2e7efe5431edf405b4b3295f0662a711
   freikin/dawarich:
     tag: 1.23.0
     digest: sha256:c9c6a9c04fa2ad11c438fc0b0ea3b7d95fc7e6d8c7a3cfa98bf1fc5aef2dbfd4
   freshrss/freshrss:
-    tag: 1.30.4
-    digest: sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
+    tag: 1.31.0
+    digest: sha256:31b0acfcb8e11600aa6ce697ff8d9d7ea620c85d766e5e764f487b433d20d066
   ghcr.io/gizmo385/image-updates-tracker:
     policy: float
     reason: Built from main with no release tags yet; pin once the repo publishes them
@@ -76,8 +76,8 @@ images:
     policy: float
     reason: Built from main with no release tags yet; pin once the repo publishes them
   ghcr.io/home-assistant/home-assistant:
-    tag: 2026.11.2
-    digest: sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f
+    tag: 2026.11.3
+    digest: sha256:24e541ddae5818bf8eb27898b9ba00d0c344a655aa5097e9e9bd4b19356be847
   ghcr.io/immichframe/immichframe:
     tag: v1.0.37.0
     digest: sha256:edae2c0b9ab6e1384634582b2bab6246429e14bc209ff6ecc091fc9eedd4582c
@@ -97,8 +97,8 @@ images:
     tag: v4.0.0-ls238
     digest: sha256:8daff71cbdc8ef9b9e2db35617dcff250f3f219fe3f8110940107ceed0f9eb7b
   mauriceboe/trek:
-    tag: 5.1.4
-    digest: sha256:991ff5aa53244b25d5a8ea40361dc286cfc8211638044eabe12b9926729db5cc
+    tag: 5.2.0
+    digest: sha256:ca317266c71e79bc58123f49e5ddbf2b8549a255f01a73d510b9a18b5ef135b2
   otel/ebpf-instrument:
     tag: v1.0.0
     digest: sha256:a68d70e934260f72540f157ccf4fb4adfa38f11de060d7d905696dad6a3fca02
@@ -162,8 +162,8 @@ images:
     tag: 2.1.2-alpine
     digest: sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98
   twentycrm/twenty:
-    tag: v2.61.0
-    digest: sha256:4c18f083971ac3c2ce196f61bd0241658f682cdadddfb727a97029dd4ebe4842
+    tag: v2.62.0
+    digest: sha256:251d83ffa37c8916aaa7cd129ddb6829a941b2e2858747479579980d4e8f56a4
   ghcr.io/immich-app/immich-server:
     tag: v3.4.2
     digest: sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd
@@ -176,8 +176,8 @@ images:
     policy: float
     reason: Not pinned yet
   ghcr.io/gizmo385/youtube-rss-manager:
-    tag: sha-bcb5f17
-    digest: sha256:058d50f4b06f57e3cb3afb4c2eba3e3fd4d3e8fa8eaf95ee38f1f46624aec41c
+    tag: sha-d1bdd7b
+    digest: sha256:65ac0f0b67191ebabfe88c4532e580408e17b1fd3e470a3fe1649a263ec776ca
     policy: auto-eligible
     reason: Publishes only latest and sha-* tags; updates by following latest
     auto:
@@ -209,16 +209,16 @@ images:
       - signoz/signoz (versioned separately)
       - signoz/ingester/ingester.yaml
   clickhouse/clickhouse-server:
-    tag: 26.10.10
-    digest: sha256:b0784219f1821b8a9918732b8e6728dbed9246e13949c46e40d7c2a084d9ef9d
+    tag: 26.10.11
+    digest: sha256:2a2381abe12f844a12ab33cc950095097f08e285eb2d321dd7be83b7a4c9356a
     group: clickhouse
     reason: SigNoz's telemetry store
     compatibility:
       - The ClickHouse version SigNoz supports (SigNoz release notes and issues)
       - signoz/clickhouse/config-0-0.yaml (allow_simdjson must stay 1)
   clickhouse/clickhouse-keeper:
-    tag: 26.10.10
-    digest: sha256:0e7f43f3b9c5cb6865a631a95a9c5446688d0d63f054946616218d3e474fbdd9
+    tag: 26.10.11
+    digest: sha256:b714cb0416a2dd807faf3d5ab5ffa65f348c89c5ca167329e69958550cf7ae21
     group: clickhouse
     reason: Moves with clickhouse/clickhouse-server
   johly/airtrail:
