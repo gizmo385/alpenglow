@@ -397,7 +397,7 @@ def mock_overview() -> models.Overview:
     updates = len(mock_updates().services)
     return models.Overview(
         services=models.OverviewServices(up=up, down=down, total=len(services)),
-        updates=models.OverviewUpdates(count=updates, security=models.SecurityCounts(nextUpgrade=1, waiting=1)),
+        updates=models.OverviewUpdates(count=updates, security=models.SecurityCounts(actNow=1, nextUpgrade=1, waitingUpstream=1, notAffected=1, waiting=1)),
         monitors=models.OverviewMonitors(
             up=23, total=24, note="1 in maintenance",
             monitors=[

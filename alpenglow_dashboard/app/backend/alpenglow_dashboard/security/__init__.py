@@ -333,9 +333,26 @@ def _finding(o: findings.OpenFinding, ignored: str | None = None) -> models.Secu
     )
 
 
+def _row_context(ctx: cards.Context | None, sf: findings.ServiceFindings) -> dict:
+    latest = ctx.pending.removeprefix("to ") if ctx and ctx.pending else None
+    return {
+        "tier": ctx.tier if ctx else None,
+        "version": ctx.current if ctx else None,
+        "latestVersion": latest,
+        "tracked": bool(ctx and ctx.tracked),
+        "localBuild": any(i.local_build for i in sf.images),
+    }
+
+
 def summary(scan: findings.Scan | None, by_service: dict[str, verdicts.Verdict],
-            names: dict[str, str]) -> models.SecuritySummary:
-    """Pure: the ``/api/security`` view."""
+            names: dict[str, str], contexts: dict[str, cards.Context] | None = None,
+            rescanning: frozenset[str] = frozenset()) -> models.SecuritySummary:
+    """Pure: the ``/api/security`` view.
+
+    ``contexts`` adds what the Security page shows beside each verdict: how the
+    service is exposed, the version it runs and whether a newer one is out.
+    """
+    contexts = contexts or {}
     if scan is None:
         return models.SecuritySummary(scannedAt=None, counts=models.SecurityCounts(), services=[])
     rows = []
@@ -349,6 +366,7 @@ def summary(scan: findings.Scan | None, by_service: dict[str, verdicts.Verdict],
             kev=any(o.finding.kev for o in sf.open), verdict=group,
             verdictNote=(v.note if v else "") or None, verdictColor=verdicts.COLORS[group],
             verdictAt=v.assessed_at if v else None, cardUrl=v.url if v else None,
+            **_row_context(contexts.get(sid), sf), rescanning=sid in rescanning,
         ))
     order = {g["name"]: i for i, g in enumerate(verdicts.GROUPS)}
     rows.sort(key=lambda r: (order.get(r.verdict or "", 9), not r.kev,
@@ -401,9 +419,11 @@ async def get_security() -> models.SecuritySummary:
         return _mock_summary()
     from ..integrations import updates  # avoids an import cycle
 
-    scan = load_scan()
+    s = Settings.from_env()
+    scan = load_scan(s)
     names = {sid: updates._meta_for(sid)[0] for sid in (scan.services if scan else {})}
-    return summary(scan, await verdicts_by_service(), names)
+    contexts = await _contexts(scan, s) if scan and s else {}
+    return summary(scan, await verdicts_by_service(), names, contexts, frozenset(_rescanning))
 
 
 @router.get("/api/services/{service_id}/security")
@@ -624,11 +644,24 @@ async def get_annotations() -> dict:
 
 # ── mock mode ────────────────────────────────────────────────────────────────
 
+# service: (verdict, note, findings, tier, version running, newer version, built on the server)
 _MOCK = {
+    "freshrss": (verdicts.ACT_NOW, "The known-exploited Brotli decoder bug is reachable through remote feeds; "
+                 "no release fixes it yet, so restrict feed sources until one does.",
+                 [("CVE-2026-111497", "High", "libbrotli1", "1.1.0-2", "1.1.0-3", True)],
+                 "public", "1.30.4", None, False),
     "caddy": (verdicts.NEXT_UPGRADE, "Go stdlib net/http fixes; nothing reachable from the routes in use.",
-              [("CVE-2026-95692", "High", "libssl3", "3.5.9-r0", "3.5.9-r1", False)]),
+              [("CVE-2026-95692", "High", "libssl3", "3.5.9-r0", "3.5.9-r1", False)],
+              "public", "2.10.2", None, True),
     "immich": (verdicts.WAITING, None,
-               [("GHSA-imm2-4x8r-qq3p", "Critical", "immich", "v3.4.2", "3.4.3", False)]),
+               [("GHSA-imm2-4x8r-qq3p", "Critical", "immich", "v3.4.2", "3.4.3", False)],
+               "public", "v3.4.2", "v3.4.3", False),
+    "jellyfin": (verdicts.UPSTREAM, "krb5, apt and zlib fixes are waiting on the next Jellyfin image.",
+                 [("CVE-2026-40355", "High", "libkrb5-3", "1.21.3-5", "1.21.3-6", False)],
+                 "tailnet", "10.11.11", None, False),
+    "keycloak": (verdicts.NOT_AFFECTED, "The Guava denial-of-service bug has no path an attacker can reach.",
+                 [("CVE-2026-2976", "High", "guava", "33.4.0", "33.5.0", False)],
+                 "public", "26.8.3", None, False),
 }
 
 
@@ -646,31 +679,32 @@ _MOCK_REPLY = """Verdict: Next upgrade. The OpenSSL finding is real but unreacha
 
 def _mock_counts() -> models.SecurityCounts:
     c = models.SecurityCounts()
-    for group, _, _ in _MOCK.values():
-        if group == verdicts.NEXT_UPGRADE:
-            c.nextUpgrade += 1
-        elif group == verdicts.WAITING:
-            c.waiting += 1
+    field = {verdicts.ACT_NOW: "actNow", verdicts.NEXT_UPGRADE: "nextUpgrade", verdicts.UPSTREAM: "waitingUpstream",
+             verdicts.NOT_AFFECTED: "notAffected", verdicts.WAITING: "waiting"}
+    for group, *_ in _MOCK.values():
+        setattr(c, field[group], getattr(c, field[group]) + 1)
     return c
 
 
 def _mock_entry_fields() -> dict[str, dict]:
     return {sid: {"securityVerdict": g, "securityNote": note or f"{len(fs)} open finding, worst {fs[0][1].lower()}",
                   "securityColor": verdicts.COLORS[g], "securityCardUrl": None, "securityOpen": len(fs)}
-            for sid, (g, note, fs) in _MOCK.items()}
+            for sid, (g, note, fs, *_) in _MOCK.items()}
 
 
 def _mock_summary() -> models.SecuritySummary:
-    rows = [models.SecurityServiceRow(id=sid, name=sid.title(), open=len(fs), worst=fs[0][1], kev=False,
-                                      verdict=g, verdictNote=note, verdictColor=verdicts.COLORS[g])
-            for sid, (g, note, fs) in _MOCK.items()]
+    rows = [models.SecurityServiceRow(id=sid, name={"freshrss": "FreshRSS"}.get(sid, sid.title()), open=len(fs), worst=fs[0][1], kev=fs[0][5],
+                                      verdict=g, verdictNote=note, verdictColor=verdicts.COLORS[g],
+                                      verdictAt=mock._ago(hours=4) if note else None, tier=tier, version=version,
+                                      latestVersion=latest, tracked=True, localBuild=local)
+            for sid, (g, note, fs, tier, version, latest, local) in _MOCK.items()]
     return models.SecuritySummary(scannedAt=mock._ago(hours=5), counts=_mock_counts(), services=rows, images=49)
 
 
 def _mock_service(sid: str) -> models.ServiceSecurity:
-    group, note, fs = _MOCK.get(sid, (None, None, []))
+    group, note, fs, tier, *_ = _MOCK.get(sid, (None, None, [], "tailnet"))
     return models.ServiceSecurity(
-        id=sid, scannedAt=mock._ago(hours=5), tier="public" if sid == "caddy" else "tailnet",
+        id=sid, scannedAt=mock._ago(hours=5), tier=tier,
         images=[models.SecurityImage(ref=f"{sid}:latest", digest=None, localBuild=False, packages=212,
                                      error=None, containers=[sid])],
         open=[models.SecurityFinding(id=i, aliases=[], severity=sev, package=p, version=ver, type="apk",

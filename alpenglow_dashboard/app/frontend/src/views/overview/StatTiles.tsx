@@ -1,8 +1,9 @@
 /* Overview stat-tile grid (handoff §View 1 stat tiles).
- * repeat(4,1fr) grid: Services, Updates (whole tile → /updates), Monitors,
- * Backups, Host resources (span 2), Storage & ZFS (span 2). Null API fields
- * render "—" so a degraded integration never blanks the tile. */
+ * Row one: Services, Updates (whole tile → /updates), Security (whole tile →
+ * /security), Monitors. Row two: Backups, Host resources, Storage & ZFS. Null
+ * API fields render "—" so a degraded integration never blanks the tile. */
 
+import type { KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRightIcon,
@@ -61,24 +62,28 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
 
   const updates = overview?.updates.count ?? null;
   const sec = overview?.updates.security ?? null;
-  // Counts only: which services they are is one click away on /updates.
+  // Security has its own tile and page: a service can have findings with no
+  // update pending, so the counts don't belong to Updates.
+  const needStep = sec ? sec.actNow + sec.nextUpgrade : 0;
+  const nothingToDo = sec ? sec.waitingUpstream + sec.notAffected : 0;
   const secParts = sec
     ? [
         { n: sec.actNow, label: "act now", color: "#e08a8a" },
         { n: sec.nextUpgrade, label: "next upgrade", color: "#f5b942" },
-        { n: sec.waiting, label: "assessing", color: "#9e9e9e" },
+        { n: sec.waiting, label: "being assessed", color: "#9e9e9e" },
       ].filter((p) => p.n > 0)
     : [];
-  const secLine =
-    secParts.length > 0 ? (
-      <div className="ov-tile-security" title="Services with open security findings, by Claude's verdict">
-        {secParts.map((p) => (
-          <ShieldLabel key={p.label} color={p.color}>
-            {p.n} {p.label}
-          </ShieldLabel>
-        ))}
-      </div>
-    ) : null;
+  const goTo = (path: string) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: () => navigate(path),
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        navigate(path);
+      }
+    },
+  });
 
   const mon = overview?.monitors;
   const downMonitors = (mon?.monitors ?? []).filter((m) => m.status === "down");
@@ -138,19 +143,7 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
       </Card>
 
       {/* Updates — whole tile clickable */}
-      <Card
-        className={`ov-tile ov-tile-clickable${sec && sec.actNow > 0 ? " ov-tile-hot" : ""}`}
-        elevation="sm"
-        role="button"
-        tabIndex={0}
-        onClick={() => navigate("/updates")}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            navigate("/updates");
-          }
-        }}
-      >
+      <Card className="ov-tile ov-tile-clickable" elevation="sm" {...goTo("/updates")}>
         <div className="card-kicker">Updates</div>
         {updates === 0 ? (
           <>
@@ -159,7 +152,6 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
                 <CheckCircleIcon size={26} weight="fill" /> Up to date
               </span>
             </div>
-            {secLine}
           </>
         ) : (
           <>
@@ -167,12 +159,65 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
               <span className="ov-tile-num accent">{dash(updates)}</span>
               <span className="ov-tile-unit">available</span>
             </div>
-            {secLine ?? (
-              <div className="ov-tile-action">
-                <ArrowRightIcon size={12} /> pull &amp; recreate
+            <div className="ov-tile-action">
+              <ArrowRightIcon size={12} /> pull &amp; recreate
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* Security — whole tile clickable; leads with what needs a step */}
+      <Card
+        className={`ov-tile ov-tile-clickable${sec && sec.actNow > 0 ? " ov-tile-hot" : ""}`}
+        elevation="sm"
+        title="Services with open security findings, by Claude's verdict"
+        {...goTo("/security")}
+      >
+        <div className="card-kicker">Security</div>
+        {sec == null ? (
+          <>
+            <div className="ov-tile-big">
+              <span className="ov-tile-num">—</span>
+            </div>
+            <div className="ov-tile-caption">no scan yet</div>
+          </>
+        ) : needStep === 0 ? (
+          <>
+            <div className="ov-tile-big">
+              <span className="ov-tile-num ok ov-uptodate">
+                <CheckCircleIcon size={26} weight="fill" /> Nothing to do
+              </span>
+            </div>
+            {secParts.length > 0 && (
+              <div className="ov-tile-security">
+                {secParts.map((p) => (
+                  <ShieldLabel key={p.label} color={p.color}>
+                    {p.n} {p.label}
+                  </ShieldLabel>
+                ))}
               </div>
             )}
           </>
+        ) : (
+          <>
+            <div className="ov-tile-big">
+              <span className="ov-tile-num">{needStep}</span>
+              <span className="ov-tile-unit">need{needStep === 1 ? "s" : ""} a step</span>
+            </div>
+            <div className="ov-tile-security">
+              {secParts.map((p) => (
+                <ShieldLabel key={p.label} color={p.color}>
+                  {p.n} {p.label}
+                </ShieldLabel>
+              ))}
+            </div>
+          </>
+        )}
+        {sec != null && nothingToDo > 0 && (
+          <div className="ov-tile-caption">
+            {nothingToDo}
+            {needStep > 0 || secParts.length > 0 ? " more" : ""} with findings and nothing to do
+          </div>
         )}
       </Card>
 
@@ -210,7 +255,7 @@ export function StatTiles({ overview }: { overview: Overview | null }) {
       </Card>
 
       {/* Backups */}
-      <Card className="ov-tile" elevation="sm">
+      <Card className="ov-tile ov-tile-backups" elevation="sm">
         <div className="card-kicker">Backups</div>
         <div className="ov-tile-big">
           <span className={`ov-tile-num ${backups?.ok ? "ok" : ""}`} style={{ fontSize: 30 }}>

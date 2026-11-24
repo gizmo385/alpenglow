@@ -386,6 +386,18 @@ export interface SecurityServiceRow {
   /** When Claude gave the verdict. */
   verdictAt: string | null;
   cardUrl: string | null;
+  /** public | tailnet | management | internal */
+  tier: string | null;
+  /** The version running, from the update tracker. */
+  version: string | null;
+  /** A newer release that is out, if any. */
+  latestVersion: string | null;
+  /** The update tracker follows it, so "no newer release" is known. */
+  tracked: boolean;
+  /** An image is built on the server, so a rebuild picks up fixes. */
+  localBuild: boolean;
+  /** Reassess is waiting for the scanner. */
+  rescanning: boolean;
 }
 
 export interface SecuritySummary {

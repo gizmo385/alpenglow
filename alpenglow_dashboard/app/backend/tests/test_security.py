@@ -400,6 +400,13 @@ def test_summary_rows_and_counts():
     assert got.counts == models.SecurityCounts(actNow=1, waiting=1)
     assert got.unscanned == ["vikunja:1"] and got.images == 5
     assert security.summary(None, {}, {}).scannedAt is None
+    # What the Security page shows beside the verdict.
+    ctx = {"caddy": c.Context("Caddy", tier="public", current="2.10.2", tracked=True, pending="to 2.11.0")}
+    rows = {r.id: r for r in security.summary(s, by, {}, ctx, frozenset({"immich"})).services}
+    assert (rows["caddy"].tier, rows["caddy"].version, rows["caddy"].latestVersion, rows["caddy"].tracked) == (
+        "public", "2.10.2", "2.11.0", True)
+    assert not rows["caddy"].rescanning and rows["immich"].rescanning
+    assert rows["immich"].tier is None and not rows["immich"].tracked
 
 
 def test_service_view():
@@ -486,7 +493,7 @@ def test_routes_in_mock_mode(client):
     assert client.post(ask, json={"question": "  "}, headers=csrf).status_code == 422
     assert client.post("/api/services/caddy/security/reassess").status_code == 403  # no CSRF token
     assert client.post("/api/services/caddy/security/reassess", headers=csrf).json() == {"asked": 1, "rescanning": False}
-    assert client.post("/api/security/reassess", headers=csrf).json() == {"asked": 2}
+    assert client.post("/api/security/reassess", headers=csrf).json() == {"asked": 5}
     assert client.get("/internal/security/annotations").json()["items"] == []
     ov = client.get("/api/overview").json()
     assert ov["updates"]["security"]["nextUpgrade"] == 1

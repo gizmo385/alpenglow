@@ -112,6 +112,10 @@
   background: var(--color-accent-700);
   color: var(--color-accent-100);
 }
+.badgeHot {
+  background: color-mix(in srgb, #e08a8a 28%, transparent);
+  color: #e08a8a;
+}
 
 /* ── categories ── */
 .catBlock {

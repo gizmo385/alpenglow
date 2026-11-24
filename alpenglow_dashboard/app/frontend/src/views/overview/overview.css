@@ -4,18 +4,24 @@
  * stat-tile grid, host/storage bars, service section, and the service card. */
 
 /* ── stat tiles ── */
+/* Twelve columns: four small tiles on row one (Services, Updates, Security,
+   Monitors), then Backups beside the two wide tiles on row two. */
 .ov-tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(12, 1fr);
   gap: 12px;
 }
 .ov-tile {
+  grid-column: span 3;
   gap: 6px;
+}
+.ov-tile-backups {
+  grid-column: span 2;
 }
 .ov-tile-clickable {
   cursor: pointer;
 }
-/* An Act now security verdict: tint the Updates tile's border. */
+/* An Act now security verdict: tint the Security tile's border. */
 .ov-tile-hot {
   border-color: color-mix(in srgb, #e08a8a 55%, var(--color-neutral-800));
 }
@@ -28,15 +34,19 @@
 }
 
 .ov-tile-span2 {
-  grid-column: span 2;
+  grid-column: span 5;
   gap: 10px;
 }
 
-/* Tablet: 2-up small tiles, span-2 tiles fill the row. */
+/* Tablet: 2-up small tiles; Backups (the fifth) and the wide tiles fill a row. */
 @media (max-width: 720px) {
   .ov-tiles {
     grid-template-columns: repeat(2, 1fr);
   }
+  .ov-tile {
+    grid-column: auto;
+  }
+  .ov-tile-backups,
   .ov-tile-span2 {
     grid-column: 1 / -1;
   }
@@ -46,6 +56,8 @@
   .ov-tiles {
     grid-template-columns: 1fr;
   }
+  .ov-tile,
+  .ov-tile-backups,
   .ov-tile-span2 {
     grid-column: auto;
   }

@@ -127,6 +127,7 @@ export const api = {
   serviceSecurity: (id: string) => request<ServiceSecurity>(`/api/services/${id}/security`),
   reassessSecurity: (id: string) =>
     mutate<{ asked: number; rescanning: boolean }>(`/api/services/${id}/security/reassess`, "POST"),
+  reassessAllSecurity: () => mutate<{ asked: number }>("/api/security/reassess", "POST"),
   askSecurity: (id: string, question: string) =>
     mutate<{ ok: boolean; cardUrl?: string | null }>(`/api/services/${id}/security/ask`, "POST", {
       question,
