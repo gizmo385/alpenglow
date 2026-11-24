@@ -438,6 +438,12 @@ class SecurityServiceRow(BaseModel):
     verdictColor: Optional[str] = None
     verdictAt: Optional[str] = None  # when Claude gave the verdict
     cardUrl: Optional[str] = None
+    tier: Optional[str] = None  # public | tailnet | management | internal
+    version: Optional[str] = None  # the version running, from the update tracker
+    latestVersion: Optional[str] = None  # a newer release that is out, if any
+    tracked: bool = False  # the update tracker follows it, so "no newer release" is known
+    localBuild: bool = False  # an image is built on the server, so a rebuild picks up fixes
+    rescanning: bool = False  # Reassess is waiting for the scanner
 
 
 class SecuritySummary(BaseModel):

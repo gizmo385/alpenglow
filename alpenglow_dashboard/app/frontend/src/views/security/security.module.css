@@ -171,3 +171,200 @@
     align-items: stretch;
   }
 }
+
+/* Security page (views/Security.tsx) */
+.scanWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: #f5b942;
+}
+.filters {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.filterRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filterLabel {
+  width: 74px;
+  font-size: 11px;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-neutral-500);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--color-neutral-800);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-neutral-200);
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--color-neutral-600);
+}
+.chipOn,
+.chipOn:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+.group {
+  margin-top: 20px;
+}
+.groupHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.groupHint {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+.groupCard {
+  padding: 0;
+  overflow-x: auto;
+}
+.groupTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.groupTable td {
+  padding: 11px 14px;
+  vertical-align: top;
+  border-top: 1px solid var(--color-neutral-800);
+}
+.groupTable tr:first-child td {
+  border-top: none;
+}
+.quietRow td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  font-size: 13px;
+  color: var(--color-neutral-400);
+}
+.colService {
+  width: 160px;
+  font-weight: 600;
+}
+.serviceLink {
+  color: var(--color-text);
+  text-decoration: none;
+}
+.serviceLink:hover {
+  color: var(--color-accent-300);
+}
+.colExposure {
+  width: 110px;
+}
+.colVersion {
+  width: 220px;
+  font-size: 13px;
+  color: var(--color-neutral-300);
+}
+.newer {
+  color: #f5b942;
+  font-weight: 600;
+}
+.colReason {
+  min-width: 260px;
+}
+.findingCount {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-neutral-500);
+}
+.colReviewed {
+  width: 150px;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+  white-space: nowrap;
+}
+.pending {
+  color: #f5b942;
+}
+.colAction {
+  width: 112px;
+  text-align: right;
+}
+.rowBtn {
+  font-size: 12px;
+  padding: 2px 8px;
+  gap: 5px;
+  white-space: nowrap;
+}
+.emptyCard {
+  align-items: center;
+  text-align: center;
+  padding: 48px;
+}
+.emptyTitle {
+  font-family: var(--font-heading);
+  font-size: 19px;
+  margin-top: 6px;
+}
+.emptySub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-neutral-500);
+}
+/* Below the drawer breakpoint a six-column row can't fit: each service
+   becomes a block with its facts on one line and the reason underneath. */
+@media (max-width: 720px) {
+  .filterLabel {
+    width: 100%;
+  }
+  .groupTable,
+  .groupTable tbody {
+    display: block;
+  }
+  .groupTable tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 11px 14px;
+    border-top: 1px solid var(--color-neutral-800);
+  }
+  .groupTable tr:first-child {
+    border-top: none;
+  }
+  .groupTable td,
+  .quietRow td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: none;
+  }
+  .colReason {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .colReviewed {
+    order: 4;
+  }
+  .colAction {
+    order: 5;
+    margin-left: auto;
+  }
+}

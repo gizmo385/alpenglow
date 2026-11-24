@@ -124,8 +124,16 @@ Every 30 minutes (`SECURITY_SYNC_INTERVAL`), with `VIKUNJA_API_TOKEN` and
 
 Where it shows up:
 
-- **Overview:** the Updates tile adds counts by verdict, and affected
-  service cards get a shield (not for Not affected or Waiting on upstream).
+- **Security page** (`/security`, in the sidebar): every service with open
+  findings, grouped by verdict, with its exposure, the version it runs and
+  whether a newer one is out, Claude's one-line reason and when it was
+  reviewed. Filters for verdict and exposure, **Reassess** per service, and
+  **Reassess all**. This is the place to find a service that has findings but
+  no pending update, which the Updates page doesn't list. The sidebar badge
+  counts Act now.
+- **Overview:** a Security tile leads with how many services need a step
+  (Act now and Next upgrade) and opens the Security page, and affected service
+  cards get a shield (not for Not affected or Waiting on upstream).
 - **Updates:** a Security column after Assessment; flagged services sort
   first.
 - **Service → Security tab:** the findings, Claude's latest reply, a box to

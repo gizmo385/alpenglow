@@ -17,6 +17,7 @@ import {
   CheckIcon,
   MountainsIcon,
   PencilSimpleIcon,
+  ShieldIcon,
   SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -41,7 +42,9 @@ type SidebarProps = {
 
 export function Sidebar({ services, meta, open = false, onNavigate }: SidebarProps) {
   const { category, setCategory } = useUiState();
-  const { categories: catInfos, refreshCategories, refreshServices } = useData();
+  const { categories: catInfos, overview, refreshCategories, refreshServices } = useData();
+  // Services with an Act now security verdict: the only ones worth a badge.
+  const actNow = overview?.updates.security?.actNow ?? 0;
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -153,6 +156,19 @@ export function Sidebar({ services, meta, open = false, onNavigate }: SidebarPro
           <ArrowsClockwiseIcon size={17} />
           <span className={styles.navLabel}>Updates</span>
           {updateCount > 0 && <span className={styles.badge}>{updateCount}</span>}
+        </NavLink>
+        <NavLink
+          to="/security"
+          className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ""}`}
+          onClick={() => onNavigate?.()}
+        >
+          <ShieldIcon size={17} />
+          <span className={styles.navLabel}>Security</span>
+          {actNow > 0 && (
+            <span className={`${styles.badge} ${styles.badgeHot}`} title={`${actNow} to act on now`}>
+              {actNow}
+            </span>
+          )}
         </NavLink>
       </nav>
 
