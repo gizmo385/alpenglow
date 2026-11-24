@@ -9,6 +9,12 @@ The verdicts are sorted by what a person can do. **Act now** and **Next
 upgrade** both mean there's a step to take (now, or with an upgrade or rebuild
 that exists today). **Waiting on upstream** and **Not affected** mean there
 isn't, so they're ``quiet``: the digest only counts them.
+
+One rule is enforced here rather than left to the reviewer. **Next upgrade**
+needs something to take. When the card says we run the latest release and the
+image isn't built on the server, there is nothing, so that verdict is shown as
+**Waiting on upstream**, unless the reply has a ``Mitigation:`` line naming a
+step we can take without a new image (a config change, say).
 """
 
 from __future__ import annotations
@@ -17,7 +23,7 @@ import re
 from dataclasses import asdict, dataclass
 
 from ..upgrades.verdicts import VERDICT_PREFIX, html_to_text, reason_from_comments
-from .cards import GONE_FINDINGS_MARK, IMAGE_CHANGED_MARK, NEW_FINDINGS_MARK, REASSESS_MARK, SecurityCard
+from .cards import nothing_to_take, GONE_FINDINGS_MARK, IMAGE_CHANGED_MARK, NEW_FINDINGS_MARK, REASSESS_MARK, SecurityCard
 
 ACT_NOW, NEXT_UPGRADE, NOT_AFFECTED = "Act now", "Next upgrade", "Not affected"
 UPSTREAM = "Waiting on upstream"
@@ -96,6 +102,8 @@ def from_cards(cards: list[SecurityCard], comments: dict[int, list[dict]], publi
         if verdict != WAITING and not is_current(cs):
             verdict = WAITING
         note = reason_from_comments(cs, verdict) if verdict != WAITING else ""
+        if verdict == NEXT_UPGRADE and nothing_to_take(sc.card.description) and not has_mitigation(cs):
+            verdict = UPSTREAM  # the note stays: it's still why
         at = assessed_at(cs) if verdict != WAITING else None
         out.append(Verdict(sc.service, sc.card.title, verdict, note, card_url(public_url, sc.card.id),
                            sc.card.id, at))
@@ -109,6 +117,14 @@ def _latest_reply(comments: list[dict]) -> tuple[str, str | None]:
         if re.match(r"\W*verdict\W*(" + "|".join(map(re.escape, VERDICTS)) + ")", text, re.I):
             return text, str(comment.get("created") or "") or None
     return "", None
+
+
+_MITIGATION_RE = re.compile(r"^\W*mitigation\s*:\s*\S", re.I | re.M)
+
+
+def has_mitigation(comments: list[dict]) -> bool:
+    """Whether Claude's newest reply names a step that needs no new image."""
+    return bool(_MITIGATION_RE.search(_latest_reply(comments)[0]))
 
 
 def latest_reply(comments: list[dict]) -> str:

@@ -131,7 +131,14 @@ profiles:
       - Next upgrade: real, not urgent, and a fix exists that we can take
         today: the card says a newer release is out and it fixes this, or
         the image is built on the server and a rebuild picks the fix up.
-        Name the release or say "rebuild".
+        Name the release or say "rebuild". If the card says there is no
+        newer release and the image isn't built on the server, there is
+        nothing to take, so this verdict is wrong: it's Waiting on upstream
+        or Not affected. The one exception is a step we can take without a
+        new image, such as a config change or closing a port. Then keep
+        Next upgrade and give that step its own line starting "Mitigation:".
+        The dashboard treats Next upgrade with no release, no rebuild and
+        no such line as Waiting on upstream.
       - Waiting on upstream: real and reachable enough to want fixed, but
         nothing we can pull or rebuild fixes it yet. This is the usual
         answer when we run the latest release and the fixes are in packages
@@ -139,6 +146,11 @@ profiles:
         for.
       - Not affected: not reachable or not relevant as we run it, whether or
         not a fix exists.
+
+      Earlier comments on the card may hold a verdict of yours. Don't
+      carry it over: it may have been given under different rules or for a
+      different image. Pick the verdict again from the card as it is now,
+      even when the findings are the same as last time.
 
       Judge by the finding that matters most, not the number of them. If
       the findings split (most unreachable, one worth fixing), the verdict
