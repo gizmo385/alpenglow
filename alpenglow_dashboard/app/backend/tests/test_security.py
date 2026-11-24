@@ -95,11 +95,13 @@ IMAGES = {"caddy": ["caddy-edge:1", "caddy:1"], "immich": ["immich:v3"], "redis"
           "vikunja": ["vikunja:1"]}
 
 
-def sec_card(id, sid, covers, done=False, labels=(), raw_title=None, images=None):
+def sec_card(id, sid, covers, done=False, labels=(), raw_title=None, images=None, version=""):
     """A card for ``sid``. ``images`` defaults to what it runs now; ``[]`` is a
     card filed before cards recorded the image."""
     images = IMAGES.get(sid, []) if images is None else images
     desc = f"<p>{c.SERVICE_LINE} {sid}</p><p>{c.FINDINGS_LINE} {', '.join(covers)}</p>"
+    if version:
+        desc += f"<p>{version}</p>"
     if images:
         desc += f"<p>{c.IMAGES_LINE} {', '.join(images)}</p>"
     return c.SecurityCard.parse(Card.from_api({"id": id, "title": raw_title or f"{sid} card", "done": done,
@@ -499,3 +501,28 @@ def test_routes_in_mock_mode(client):
     assert ov["updates"]["security"]["nextUpgrade"] == 1
     ups = client.get("/api/updates").json()["services"]
     assert any(u["securityVerdict"] for u in ups)
+
+
+def test_next_upgrade_with_nothing_to_take_is_waiting_on_upstream():
+    sf = scan().services["caddy"]
+    latest = c.version_line(c.Context("Caddy", current="2.11.4", tracked=True), sf)
+    newer = c.version_line(c.Context("Caddy", current="2.11.4", tracked=True, pending="to 2.12.0"), sf)
+    assert c.nothing_to_take(latest) and not c.nothing_to_take(newer)
+    assert not c.nothing_to_take(latest + " " + c.REBUILD_TEXT + ", so a rebuild helps.")
+    assert not c.nothing_to_take(c.version_line(c.Context("Caddy"), sf))  # untracked: unknown
+
+    def reply(text):
+        return {1: [{"comment": f"<p>{text}</p>", "created": "2026-11-24T05:00:00Z"}]}
+
+    def group(version, text, label="Verdict: Next upgrade"):
+        card = sec_card(1, "caddy", ["CVE-1"], labels=[label], version=version)
+        return v.from_cards([card], reply(text), None)[0]
+
+    plain = "Verdict: Next upgrade. No newer release exists yet, so the fix has to come from upstream."
+    got = group(latest, plain)
+    assert got.group == v.UPSTREAM and "fix has to come from upstream" in got.note  # the reason is kept
+    assert group(newer, plain).group == v.NEXT_UPGRADE          # there is a release to take
+    mitigated = plain + "</p><p>- Mitigation: drop the 9001 listener from mosquitto.conf."
+    assert group(latest, mitigated).group == v.NEXT_UPGRADE     # a step that needs no new image
+    # Only Next upgrade is second-guessed.
+    assert group(latest, "Verdict: Act now. Reachable.", "Verdict: Act now").group == v.ACT_NOW

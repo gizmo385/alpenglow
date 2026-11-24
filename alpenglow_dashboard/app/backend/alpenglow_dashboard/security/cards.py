@@ -154,10 +154,23 @@ def plan(services: dict[str, ServiceFindings], cards: list[SecurityCard]) -> Pla
     return out
 
 
+# What the card says when nothing newer can be pulled, and what it adds when a
+# rebuild is possible. ``nothing_to_take`` reads these back.
+NO_RELEASE_TEXT = "There is no newer release to upgrade to."
+REBUILD_TEXT = "The image is built on the server"
+
+
+def nothing_to_take(description: str | None) -> bool:
+    """True when the card told the reviewer there's no release to upgrade to
+    and no rebuild to do: no fix exists that we could take today."""
+    desc = html.unescape(description or "")
+    return NO_RELEASE_TEXT in desc and REBUILD_TEXT not in desc
+
+
 def version_line(ctx: Context, sf: ServiceFindings) -> str:
     """What the reviewer needs to know about upgrading: is there anything to upgrade to?"""
     local = any(i.local_build for i in sf.images)
-    rebuild = (" The image is built on the server, so rebuilding it with --pull picks up "
+    rebuild = (f" {REBUILD_TEXT}, so rebuilding it with --pull picks up "
                "base-image and dependency fixes without a new release.") if local else ""
     if not ctx.tracked:
         return ("Version: not followed by the update tracker, so it isn't known whether a newer "
@@ -165,7 +178,7 @@ def version_line(ctx: Context, sf: ServiceFindings) -> str:
     running = f"running {ctx.current}" if ctx.current else "running version unknown"
     if ctx.pending:
         return f"Version: {running}; a newer release is out (upgrade {ctx.pending})." + rebuild
-    return f"Version: {running}, the latest release. There is no newer release to upgrade to." + rebuild
+    return f"Version: {running}, the latest release. {NO_RELEASE_TEXT}" + rebuild
 
 
 def card_title(ctx: Context, sf: ServiceFindings) -> str:

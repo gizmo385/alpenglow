@@ -1,4 +1,4 @@
-"""The daily Discord digest: what's waiting for a person, once a day.
+"""The Discord digest: what's waiting for a person, once a day or on a schedule.
 
 Up to three messages, each left out when it has nothing to say:
 
@@ -25,6 +25,11 @@ root-equivalent, and a webhook can only post to its one channel.
 ``DIGEST_WEBHOOK_URL`` names the channel; unset, the update summary's webhook
 is used, and with neither there's no digest. ``DIGEST_AT`` is the local time
 it's sent (``HH:MM``, default 09:00); ``DIGEST_AT=off`` turns it off.
+
+``DIGEST_CRON`` is for anything other than every day: a 5-field cron line in
+the server's time zone (``0 9 * * 1,4`` is Monday and Thursday at 09:00), the
+same setting the tracker's bot had. When it's set, ``DIGEST_AT`` only matters
+as the off switch.
 """
 
 from __future__ import annotations
@@ -39,6 +44,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 
 from . import mock, security, upgrades
+from .autoupdate import policy
 from .integrations import update_summary, updates
 
 log = logging.getLogger("alpenglow.digest")
@@ -77,8 +83,26 @@ def send_time() -> Optional[tuple[int, int]]:
     return hour, minute
 
 
-def next_send(now: datetime, at: tuple[int, int]) -> datetime:
-    """The next time the clock reads ``at``, strictly after ``now``."""
+def cron() -> Optional[policy.Schedule]:
+    """``DIGEST_CRON`` as a schedule; ``None`` when unset or not a cron line."""
+    raw = (os.environ.get("DIGEST_CRON") or "").strip()
+    if not raw:
+        return None
+    try:
+        schedule = policy.Schedule.parse(raw)
+    except policy.ConfigError as err:
+        log.warning("digest: DIGEST_CRON=%r ignored (%s); sending daily", raw, err)
+        return None
+    if schedule.cron is None:  # "daily", "6h": an interval has no time of day
+        log.warning("digest: DIGEST_CRON=%r isn't a 5-field cron line; sending daily", raw)
+        return None
+    return schedule
+
+
+def next_send(now: datetime, at: tuple[int, int], schedule: Optional[policy.Schedule] = None) -> datetime:
+    """The next send strictly after ``now``: per ``schedule``, else daily at ``at``."""
+    if schedule is not None:
+        return schedule.next_after(now.replace(tzinfo=None)).replace(tzinfo=now.tzinfo)
     target = now.replace(hour=at[0], minute=at[1], second=0, microsecond=0)
     return target if target > now else target + timedelta(days=1)
 
@@ -231,9 +255,10 @@ async def send(fresh: bool = True) -> int:
 async def loop() -> None:
     at = send_time()
     assert at is not None
+    schedule = cron()
     while True:
         now = datetime.now().astimezone()
-        due = next_send(now, at)
+        due = next_send(now, at, schedule)
         log.info("digest: next at %s", due.isoformat(timespec="minutes"))
         await asyncio.sleep((due - now).total_seconds())
         try:
