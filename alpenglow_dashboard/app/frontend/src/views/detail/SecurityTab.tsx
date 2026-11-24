@@ -122,9 +122,7 @@ function Reassess({ serviceId, onAsked }: { serviceId: string; onAsked: () => vo
       toast(
         res.rescanning
           ? "Rescanning the image first, then Claude assesses again; the new verdict lands here"
-          : res.scanner
-            ? "Asked Claude to assess again; the new verdict lands here in a few minutes"
-            : "The cve-scanner isn't running, so the image wasn't rescanned. Asked Claude to assess the last scan's findings",
+          : "Asked Claude to assess again; the new verdict lands here in a few minutes",
       );
       onAsked();
     } catch (e) {

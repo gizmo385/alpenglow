@@ -1,7 +1,5 @@
 import asyncio
 import json
-import os
-import time
 from pathlib import Path
 
 import httpx
@@ -197,7 +195,6 @@ def _reassess_world(monkeypatch, tmp_path, group, timeout=5):
     monkeypatch.setattr(security, "reassess", reassess)
     monkeypatch.setattr(security, "RESCAN_POLL_SECONDS", 0.01)
     request = security.request_scan(s, "caddy")
-    (s.requests_dir / security.LISTENING).touch()  # a scanner is watching the folder
     assert request == tmp_path / "requests" / "caddy.json" and json.loads(request.read_text())["service"] == "caddy"
     return s, request, did
 
@@ -235,18 +232,6 @@ def test_reassess_carries_on_when_the_scanner_never_answers(monkeypatch, tmp_pat
     assert asyncio.run(security.rescan_then_reassess(s, "caddy", request)) == "asked without a rescan"
     assert did == ["sync", "reassess caddy"]
     assert not request.exists()  # not left behind to fire later
-
-
-def test_reassess_doesnt_wait_for_a_scanner_that_isnt_listening(monkeypatch, tmp_path: Path):
-    s, request, did = _reassess_world(monkeypatch, tmp_path, v.NOT_AFFECTED)  # 15 minutes of patience
-    assert security.scanner_listening(s)
-    stale = time.time() - 2 * security.LISTENING_STALE_SECONDS
-    os.utime(s.requests_dir / security.LISTENING, (stale, stale))  # the scanner stopped a while ago
-    assert not security.scanner_listening(s)
-    assert asyncio.run(security.rescan_then_reassess(s, "caddy", request)) == "asked without a rescan"
-    assert not request.exists()
-    (s.requests_dir / security.LISTENING).unlink()  # a scanner from before it took requests
-    assert not security.scanner_listening(s)
 
 
 def test_version_line_says_whether_there_is_anything_to_upgrade_to():
@@ -507,7 +492,7 @@ def test_routes_in_mock_mode(client):
     assert client.post(ask, json={"question": "Is this reachable?"}, headers=csrf).json()["ok"]
     assert client.post(ask, json={"question": "  "}, headers=csrf).status_code == 422
     assert client.post("/api/services/caddy/security/reassess").status_code == 403  # no CSRF token
-    assert client.post("/api/services/caddy/security/reassess", headers=csrf).json() == {"asked": 1, "rescanning": False, "scanner": True}
+    assert client.post("/api/services/caddy/security/reassess", headers=csrf).json() == {"asked": 1, "rescanning": False}
     assert client.post("/api/security/reassess", headers=csrf).json() == {"asked": 5}
     assert client.get("/internal/security/annotations").json()["items"] == []
     ov = client.get("/api/overview").json()

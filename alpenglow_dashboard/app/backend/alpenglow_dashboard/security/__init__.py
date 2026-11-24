@@ -522,30 +522,11 @@ def request_scan(s: Settings, service_id: str) -> Path | None:
     return path
 
 
-# The scanner touches this every few seconds while it watches the folder
-# (cve-scanner/app/scanner/main.py). Older than this and nobody is listening.
-LISTENING = ".listening"
-LISTENING_STALE_SECONDS = 60.0
-
-
-def scanner_listening(s: Settings) -> bool:
-    """Whether a cve-scanner is watching for requests right now.
-
-    False when it's stopped, or still running a build from before it took
-    requests: waiting on either would only hold Reassess up for the timeout.
-    """
-    try:
-        age = time.time() - (s.requests_dir / LISTENING).stat().st_mtime
-    except OSError:
-        return False
-    return age < LISTENING_STALE_SECONDS
-
-
-async def _wait_for_scan(s: Settings, request: Path) -> bool:
+async def _wait_for_scan(request: Path, timeout: float) -> bool:
     """True once the scanner has taken the request; False if it never did."""
-    deadline = time.monotonic() + s.rescan_timeout
+    deadline = time.monotonic() + timeout
     while request.exists():
-        if time.monotonic() >= deadline or not scanner_listening(s):
+        if time.monotonic() >= deadline:
             with contextlib.suppress(OSError):
                 request.unlink(missing_ok=True)  # don't leave it to fire hours later
             return False
@@ -562,10 +543,10 @@ async def rescan_then_reassess(s: Settings, service_id: str, request: Path) -> s
     asks. Returns what happened, for the log and the tests.
     """
     try:
-        scanned = await _wait_for_scan(s, request)
+        scanned = await _wait_for_scan(request, s.rescan_timeout)
         if not scanned:
-            log.warning("security: the scanner didn't rescan %s (stopped, or no answer within %ss); "
-                        "assessing the findings we have", service_id, s.rescan_timeout)
+            log.warning("security: the scanner didn't rescan %s within %ss; assessing the findings we have",
+                        service_id, s.rescan_timeout)
         await sync_once()
         verdict = (await verdicts_by_service()).get(service_id)
         if verdict is None:
@@ -598,28 +579,25 @@ async def post_reassess_service(service_id: str) -> dict:
     background; ``GET .../security`` says ``rescanning`` until Claude is asked.
     """
     if mock.mock_enabled():
-        return {"asked": 1, "rescanning": False, "scanner": True}
+        return {"asked": 1, "rescanning": False}
     s = Settings.from_env()
     if s is None or not s.board:
         raise HTTPException(409, "the Security board is off")
     if service_id in _rescanning:
-        return {"asked": 0, "rescanning": True, "scanner": True}
+        return {"asked": 0, "rescanning": True}
     b = await board()
     if not any(sc.service == service_id and not sc.card.done for sc in b.cards):
         raise HTTPException(409, "this service has no open Security card to reassess")
-    request = request_scan(s, service_id) if scanner_listening(s) else None
-    if request is None:
-        # Nobody to scan (the scanner is stopped or predates requests, or its
-        # folder can't be written): assess what we have and say so.
-        log.warning("security: the cve-scanner isn't taking requests; reassessing %s without a rescan", service_id)
+    request = request_scan(s, service_id)
+    if request is None:  # can't reach the scanner's folder: assess what we have
         asked = await reassess(service_id)
         if not asked:
             raise HTTPException(409, "this service has no open Security card with open findings")
-        return {"asked": asked, "rescanning": False, "scanner": False}
+        return {"asked": asked, "rescanning": False}
     task = asyncio.create_task(rescan_then_reassess(s, service_id, request), name=f"security-reassess-{service_id}")
     _rescanning[service_id] = task
     task.add_done_callback(lambda t: _log_rescan(service_id, t))
-    return {"asked": 0, "rescanning": True, "scanner": True}
+    return {"asked": 0, "rescanning": True}
 
 
 @router.post("/api/security/reassess")
