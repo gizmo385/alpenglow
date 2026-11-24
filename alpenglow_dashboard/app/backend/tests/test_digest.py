@@ -136,6 +136,21 @@ def test_next_send_is_today_or_tomorrow():
     assert digest.next_send(datetime(2026, 11, 22, 9, 0), (9, 0)) == datetime(2026, 11, 23, 9, 0)
 
 
+def test_digest_cron_sends_only_on_its_days(monkeypatch):
+    monkeypatch.delenv("DIGEST_CRON", raising=False)
+    assert digest.cron() is None
+    monkeypatch.setenv("DIGEST_CRON", "0 9 * * 1,4")  # Monday and Thursday
+    schedule = digest.cron()
+    tue = datetime(2026, 11, 24, 9, 30)
+    assert digest.next_send(tue, (9, 0), schedule) == datetime(2026, 11, 26, 9, 0)   # Thursday
+    assert digest.next_send(datetime(2026, 11, 26, 9, 0), (9, 0), schedule) == datetime(2026, 11, 30, 9, 0)
+    aware = tue.astimezone()
+    assert digest.next_send(aware, (9, 0), schedule).tzinfo == aware.tzinfo
+    for bad in ("nonsense", "daily", "0 9 * *"):  # falls back to every day rather than going quiet
+        monkeypatch.setenv("DIGEST_CRON", bad)
+        assert digest.cron() is None
+
+
 def test_the_webhook_falls_back_to_the_update_summarys(monkeypatch):
     monkeypatch.delenv("DIGEST_WEBHOOK_URL", raising=False)
     monkeypatch.delenv("UPDATE_SUMMARY_WEBHOOK_URL", raising=False)
